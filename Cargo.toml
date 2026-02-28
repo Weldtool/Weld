@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "crates/devforge-core",
+    "crates/devforge-server",
+]
+resolver = "2"

@@ -1,0 +1,14 @@
+/target/
+node_modules/
+apps/web/.svelte-kit/
+apps/web/build/
+.env
+.env.local
+.env.*.local
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+apps/desktop/target/
+apps/andriod/.gradle/
+apps/web/src/lib/wasm/pkg/
