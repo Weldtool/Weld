@@ -12,3 +12,5 @@ pub mod timeentry;
 pub use timeentry::*;
 pub mod github;
 pub use github::*;
+pub mod project;
+pub use project::*;

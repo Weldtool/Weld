@@ -1,30 +1,30 @@
 use crate::models::enums::TimesheetStatus;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TimeEntry {
-    id: Uuid,
-    user_id: Uuid,
-    task_id: Option<Uuid>, // Can track time without a task
-    project_id: Uuid,
-    description: Option<String>,
-    started_at: DateTime<Utc>,
-    ended_at: Option<DateTime<Utc>>, // None = timer is running
-    duration_seconds: i64,           // Calculated or manual
-    is_manual: bool,                 // Manual entry vs timer
-    created_at: DateTime<Utc>,
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub task_id: Option<Uuid>, // Can track time without a task
+    pub project_id: Uuid,
+    pub description: Option<String>,
+    pub started_at: DateTime<Utc>,
+    pub ended_at: Option<DateTime<Utc>>, // None = timer is running
+    pub duration_seconds: i64,           // Calculated or manual
+    pub is_manual: bool,                 // Manual entry vs timer
+    pub created_at: DateTime<Utc>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Timesheet {
-    id: Uuid,
-    user_id: Uuid,
-    team_id: Uuid,
-    period_start: DateTime<Utc>, // Week start (Monday)
-    period_end: DateTime<Utc>,   // Week end (Sunday)
-    status: TimesheetStatus,     // Draft, Submitted, Approved, Rejected
-    submitted_at: Option<DateTime<Utc>>,
-    reviewed_by: Option<Uuid>,
-    reviewed_at: Option<DateTime<Utc>>,
-    notes: Option<String>,
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub team_id: Uuid,
+    pub period_start: NaiveDate, // Week start (Monday)
+    pub period_end: NaiveDate,   // Week end (Sunday)
+    pub status: TimesheetStatus, // Draft, Submitted, Approved, Rejected
+    pub submitted_at: Option<DateTime<Utc>>,
+    pub reviewed_by: Option<Uuid>,
+    pub reviewed_at: Option<DateTime<Utc>>,
+    pub notes: Option<String>,
 }

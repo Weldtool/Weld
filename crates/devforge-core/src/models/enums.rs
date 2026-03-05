@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum GlobaleRole {
+pub enum GlobalRole {
     Admin,
     Member,
 }
