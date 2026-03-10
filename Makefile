@@ -18,7 +18,7 @@ migrate:
 
 # Start the backend server (after running 'make start')
 server:
-	set -a && source $(CURDIR)/.env && set +a && cargo run -p devforge-server
+	set -a && source $(CURDIR)/.env && set +a && cargo run -p weld-server
 
 # Stop Docker containers
 stop:

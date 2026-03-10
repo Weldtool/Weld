@@ -44,7 +44,7 @@ echo -e " ${GREEN}Done${NC}"
 # --- Wait for postgres ---
 echo -n "Waiting for Postgres..."
 for i in $(seq 1 30); do
-  if docker compose -f "$PROJECT_ROOT/docker/docker-compose.yml" exec -T postgres pg_isready -U devforge &> /dev/null; then
+  if docker compose -f "$PROJECT_ROOT/docker/docker-compose.yml" exec -T postgres pg_isready -U weld &> /dev/null; then
     echo -e " ${GREEN}Ready${NC}"
     break
   fi
@@ -63,16 +63,16 @@ if [[ ! -f "$PROJECT_ROOT/.env" ]]; then
     MASTER_KEY=$(openssl rand -hex 16)
 
   cat << EOF > "$PROJECT_ROOT/.env"
-DATABASE_URL=postgres://devforge:devforge@localhost:5432/devforge
+DATABASE_URL=postgres://weld:weld@localhost:5432/weld
 REDIS_URL=redis://localhost:6379
 HOST=127.0.0.1
 PORT=3000
 JWT_SECRET=${JWT_SECRET}
 MASTER_ENCRYPTION_KEY=${MASTER_KEY}
 S3_ENDPOINT=http://localhost:9000
-S3_ACCESS_KEY=devforge
-S3_SECRET_KEY=devforge
-S3_BUCKET=devforge-files
+S3_ACCESS_KEY=weld
+S3_SECRET_KEY=weld
+S3_BUCKET=weld-files
 SMTP_HOST=localhost
 SMTP_PORT=1025
 EOF
@@ -87,7 +87,7 @@ echo ""
 
 # --- Done ---
 echo ""
-echo -e "${GREEN}Devforge dev environment setup complete!${NC}"
+echo -e "${GREEN}Weld dev environment setup complete!${NC}"
 echo ""
 echo "Start the server with:"
 echo " cd $PROJECT_ROOT && make server"

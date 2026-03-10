@@ -22,5 +22,5 @@ fi
 # --- Run migrations ---
 echo "Running database migrations..."
 sqlx migrate run \
---source "$PROJECT_ROOT/crates/devforge-server/migrations" \
+--source "$PROJECT_ROOT/crates/weld-server/migrations" \
     "$@"

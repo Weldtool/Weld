@@ -20,7 +20,7 @@ async fn main() {
     let app = Router::new().merge(routes::router()).with_state(state);
 
     let listener = TcpListener::bind(&addr).await.unwrap();
-    tracing::info!("devforge-server listening on {}", addr);
+    tracing::info!("weld-server listening on {}", addr);
 
     axum::serve(listener, app).await.unwrap();
 }

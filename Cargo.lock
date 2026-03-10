@@ -265,31 +265,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "devforge-core"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "serde",
- "thiserror",
- "uuid",
-]
-
-[[package]]
-name = "devforge-server"
-version = "0.1.0"
-dependencies = [
- "axum",
- "devforge-core",
- "serde",
- "serde_json",
- "sqlx",
- "tokio",
- "tower-http",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2112,6 +2087,31 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22cfaf3c063993ff62e73cb4311efde4db1efb31ab78a3e5c457939ad5cc0bed"
 dependencies = [
  "rustls-pki-types",
+]
+
+[[package]]
+name = "weld-core"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "thiserror",
+ "uuid",
+]
+
+[[package]]
+name = "weld-server"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+ "weld-core",
 ]
 
 [[package]]

@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "crates/devforge-core",
-    "crates/devforge-server",
+    "crates/weld-core",
+    "crates/weld-server",
 ]
 resolver = "2"
