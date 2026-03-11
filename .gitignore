@@ -12,3 +12,5 @@ Thumbs.db
 apps/desktop/target/
 apps/andriod/.gradle/
 apps/web/src/lib/wasm/pkg/
+CLAUDE.md
+Launch_plan.md
