@@ -1,0 +1,75 @@
+name: Feature Request
+description: Suggest a new feature or improvement for Weld
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea for Weld? We'd love to hear it. Please describe what you're looking for and why it matters to you.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Feature Area
+      description: Which part of Weld does this relate to?
+      options:
+        - Task Board
+        - Chat
+        - Time Tracking
+        - Secrets Management
+        - GitHub Integration
+        - Authentication / Permissions
+        - Desktop App (Tauri)
+        - Web Frontend
+        - API / Backend
+        - Mobile (Android / iOS)
+        - TUI
+        - New Integration
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or Motivation
+      description: What problem does this solve, or what workflow does it improve?
+      placeholder: "I often find myself needing to..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: How do you envision this working? Be as specific or as general as you'd like.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you tried any workarounds or considered other approaches?
+    validations:
+      required: false
+
+  - type: dropdown
+    id: importance
+    attributes:
+      label: How important is this to you?
+      options:
+        - Nice to have
+        - Would significantly improve my workflow
+        - Blocking me from using Weld
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Screenshots, mockups, links to similar features in other tools, etc.
+    validations:
+      required: false

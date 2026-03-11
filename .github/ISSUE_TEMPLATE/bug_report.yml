@@ -1,0 +1,81 @@
+name: Bug Report
+description: Report a bug or unexpected behavior in Weld
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill out the sections below so we can reproduce and fix the issue.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected Area
+      description: Which part of Weld is this related to?
+      options:
+        - Task Board
+        - Chat
+        - Time Tracking
+        - Secrets Management
+        - GitHub Integration
+        - Authentication
+        - Desktop App (Tauri)
+        - Web Frontend
+        - API / Backend
+        - TUI
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear description of the bug.
+      placeholder: What happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Step-by-step instructions to reproduce the issue.
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. Scroll down to '...'
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Any relevant environment details.
+      placeholder: |
+        - OS: macOS 15.1
+        - Browser: Chrome 130
+        - Weld version: 0.1.0
+        - Platform: Web / Desktop / Android / iOS / TUI
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Screenshots
+      description: Paste any relevant logs, error messages, or screenshots.
+      render: shell
+    validations:
+      required: false
