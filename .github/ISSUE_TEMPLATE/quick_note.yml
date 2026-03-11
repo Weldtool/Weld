@@ -1,6 +1,6 @@
 name: Quick Note
 description: Quick issue for internal tracking — bugs, ideas, TODOs
-title: ""
+title: "[Note]: "
 labels: ["needs triage"]
 body:
   - type: textarea
