@@ -1,69 +1,39 @@
-# Security Policy
+## Summary
 
-## Reporting a Vulnerability
+<!-- Brief description of what this PR does -->
 
-**Please do not open a public GitHub issue for security vulnerabilities.**
+## Changes
 
-If you discover a security issue in Weld, we appreciate your help in disclosing it responsibly. Here's how:
+<!-- Bullet list of key changes -->
 
-### Option 1: GitHub Private Vulnerability Reporting (Preferred)
+-
 
-Use GitHub's built-in private reporting feature:
+## Related Issue
 
-1. Go to the **Security** tab of this repository
-2. Click **"Report a vulnerability"**
-3. Fill in the details
+<!-- Link the issue this PR addresses -->
 
-This keeps the report private between you and the maintainers.
+Closes #
 
-### Option 2: Email
+## Type of Change
 
-Send an email to **security@{yourdomain}** with:
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Refactor (no functional changes)
+- [ ] Documentation
+- [ ] CI/Build configuration
+- [ ] Other (describe):
 
-- A description of the vulnerability
-- Steps to reproduce it
-- The potential impact
-- Any suggested fixes (optional but appreciated)
+## Testing
 
-## What to Expect
+<!-- How did you test these changes? -->
 
-- **Acknowledgment** within 48 hours that we received your report
-- **Assessment** within 7 days with an initial severity evaluation
-- **Resolution timeline** communicated to you based on severity
-- **Credit** in our release notes (unless you prefer to stay anonymous)
+- [ ] Existing tests pass (`make test`)
+- [ ] Added new tests
+- [ ] Manual testing (describe below)
 
-## Scope
+## Checklist
 
-The following are in scope for security reports:
-
-- Authentication and authorization bypasses
-- Data exposure or leaks
-- Injection vulnerabilities (SQL, XSS, etc.)
-- Cryptographic weaknesses (secrets management, encryption)
-- Server-side request forgery
-- Privilege escalation
-- WebSocket security issues
-
-The following are **out of scope**:
-
-- Denial of service (DoS) attacks
-- Social engineering
-- Issues in third-party dependencies (report those upstream, but let us know)
-- Issues requiring physical access to a user's device
-
-## Supported Versions
-
-| Version  | Supported |
-| -------- | --------- |
-| latest   | ✅        |
-| < latest | ❌        |
-
-We only patch the latest release. Users are encouraged to stay up to date.
-
-## Safe Harbor
-
-We consider security research conducted in good faith to be authorized. We will not pursue legal action against researchers who:
-
-- Act in good faith to avoid privacy violations, data destruction, or service disruption
-- Only interact with accounts they own or with explicit permission
-- Report vulnerabilities promptly and don't exploit them beyond what's needed to demonstrate the issue
+- [ ] Code follows project coding standards
+- [ ] `cargo fmt` and `cargo clippy` pass
+- [ ] No `.unwrap()` in library code
+- [ ] No secrets or credentials committed
