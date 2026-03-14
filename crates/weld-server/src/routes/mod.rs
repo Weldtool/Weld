@@ -9,6 +9,6 @@ pub fn router() -> Router<AppState> {
     Router::new().route("/health", get(health_check))
 }
 
-async fn health_check(State(state): State<AppState>) -> impl IntoResponse {
+async fn health_check(State(_ustate): State<AppState>) -> impl IntoResponse {
     Json(json!({"status": "ok"}))
 }
