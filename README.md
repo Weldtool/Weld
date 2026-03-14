@@ -13,6 +13,13 @@ Task boards, team chat, GitHub integration, secrets management, and time trackin
 
 </div>
 
+## Build Status
+
+| Branch     | Status                                                                                       |
+| ---------- | -------------------------------------------------------------------------------------------- |
+| Production | ![CI](https://github.com/Weldtool/Weld/actions/workflows/ci.yml/badge.svg?branch=Production) |
+| Dev        | ![CI](https://github.com/Weldtool/Weld/actions/workflows/ci.yml/badge.svg?branch=Dev)        |
+
 ---
 
 ## Why Weld?
@@ -57,23 +64,26 @@ Weld welds them together into one workspace with a shared Rust core and native U
 
 Business logic is written once in Rust. Each platform gets a native UI shell:
 
-| Platform | UI Layer | Rust Bridge |
-|----------|----------|-------------|
-| Web | SvelteKit + Tailwind + shadcn-svelte | WASM (wasm-pack) |
-| Desktop | Tauri v2 (reuses web UI) | Direct Rust |
-| Android | Jetpack Compose (Material 3) | UniFFI |
-| iOS | SwiftUI | UniFFI |
-| TUI | Ratatui | Direct Rust |
+| Platform | UI Layer                             | Rust Bridge      |
+| -------- | ------------------------------------ | ---------------- |
+| Web      | SvelteKit + Tailwind + shadcn-svelte | WASM (wasm-pack) |
+| Desktop  | Tauri v2 (reuses web UI)             | Direct Rust      |
+| Android  | Jetpack Compose (Material 3)         | UniFFI           |
+| iOS      | SwiftUI                              | UniFFI           |
+| TUI      | Ratatui                              | Direct Rust      |
 
 ## Tech Stack
 
 ### Backend
+
 Axum 0.8 · PostgreSQL 16 (sqlx) · Redis (fred) · JWT auth · Argon2id · AES-256-GCM · S3-compatible storage · octocrab · tokio · tracing
 
 ### Shared Core
+
 reqwest · tokio-tungstenite · rusqlite + SQLCipher · serde · chrono · uuid · thiserror
 
 ### Web Frontend
+
 SvelteKit 2 · TypeScript (strict) · Tailwind CSS 4 · shadcn-svelte · Svelte 5 runes · Tiptap · svelte-dnd-action · Lucide icons
 
 ## Project Structure
@@ -157,14 +167,14 @@ Weld is in active early development. Here's where things stand:
 
 ### Upcoming Phases
 
-2. **Task Board** — Kanban with drag-and-drop, real-time sync
-3. **Chat** — Channels, threading, typing indicators
-4. **Time Tracking** — Timers, manual entry, timesheets
-5. **Secrets Management** — Encrypted vault, audit logging
-6. **GitHub Integration** — App installation, webhooks, two-way sync
-7. **Desktop App** — Tauri v2 with system tray, notifications
-8. **Mobile Apps** — Android (Compose) + iOS (SwiftUI) via UniFFI
-9. **TUI** — Terminal interface with Ratatui
+1. **Task Board** — Kanban with drag-and-drop, real-time sync
+2. **Chat** — Channels, threading, typing indicators
+3. **Time Tracking** — Timers, manual entry, timesheets
+4. **Secrets Management** — Encrypted vault, audit logging
+5. **GitHub Integration** — App installation, webhooks, two-way sync
+6. **Desktop App** — Tauri v2 with system tray, notifications
+7. **Mobile Apps** — Android (Compose) + iOS (SwiftUI) via UniFFI
+8. **TUI** — Terminal interface with Ratatui
 
 ## Contributing
 
