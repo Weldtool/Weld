@@ -1,6 +1,7 @@
 mod config;
 mod routes;
 mod state;
+mod errors;
 use crate::state::AppState;
 use axum::Router;
 use sqlx::PgPool;
