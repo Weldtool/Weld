@@ -1,0 +1,24 @@
+name: Quick Note
+description: Quick issue for internal tracking — bugs, ideas, TODOs
+title: "[Note]: "
+labels: ["needs triage"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What's up?
+      description: Describe the bug, idea, or TODO. Keep it brief.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type
+      options:
+        - Bug
+        - Feature
+        - Chore
+        - Idea
+    validations:
+      required: true
