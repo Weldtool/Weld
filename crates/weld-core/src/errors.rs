@@ -1,6 +1,5 @@
 use thiserror::Error;
 
-
 #[derive(Error, Debug)]
 pub enum CoreError {
     #[error("Http error: {0}")]
@@ -24,4 +23,3 @@ pub enum CoreError {
     #[error("Forbidden: {0}")]
     Forbidden(String),
 }
-

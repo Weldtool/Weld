@@ -4,6 +4,7 @@ use axum::response::{IntoResponse, Response};
 use serde_json::json;
 
 #[derive(Debug, thiserror::Error)]
+#[allow(dead_code)]
 pub enum ApiError {
     #[error("Resource not found: {0}")]
     NotFound(String),
