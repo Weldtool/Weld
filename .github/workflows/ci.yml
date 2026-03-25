@@ -81,24 +81,40 @@ jobs:
         working-directory: apps/web
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - name: Check if web app exists
+        id: check
+        run: |
+          if [ ! -f apps/web/package.json ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+        working-directory: .
+      - if: steps.check.outputs.skip != 'true'
+        uses: pnpm/action-setup@v4
         with:
           version: 9
-      - uses: actions/setup-node@v4
+      - if: steps.check.outputs.skip != 'true'
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
           cache-dependency-path: apps/web/pnpm-lock.yaml
-      - run: pnpm install --frozen-lockfile
-      - name: Svelte check
+      - if: steps.check.outputs.skip != 'true'
+        run: pnpm install --frozen-lockfile
+      - if: steps.check.outputs.skip != 'true'
+        name: Svelte check
         run: pnpm check
-      - name: Lint
+      - if: steps.check.outputs.skip != 'true'
+        name: Lint
         run: pnpm lint
-      - name: Unit tests
+      - if: steps.check.outputs.skip != 'true'
+        name: Unit tests
         run: pnpm test
 
   security-audit:
     name: Security Audit
+    permissions:
+      checks: write
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
