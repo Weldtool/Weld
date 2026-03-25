@@ -1,4 +1,5 @@
 mod config;
+mod errors;
 mod routes;
 mod state;
 use crate::state::AppState;

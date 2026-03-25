@@ -1,4 +1,4 @@
-.PHONY: setup start stop server docker migrate clean
+.PHONY: setup start stop server docker migrate clean web web-install test lint fmt check audit
 
 # First-time setup (runs everything)
 setup:
@@ -47,4 +47,11 @@ lint:
 
 # Format all Rust code
 fmt:
-	cargo fmt --all
+	cargo fmt --all-features
+
+# Run all pre-push checks (format + lint + tests)
+check: lint test
+
+#Run security audit on Rust dependencies
+audit:
+	cargo audit
