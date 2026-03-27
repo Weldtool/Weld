@@ -1,20 +1,14 @@
-.PHONY: setup start stop server docker migrate clean web web-install test lint fmt check audit
+.PHONY: setup start stop server clean web web-install pr audit
 
 # First-time setup (runs everything)
 setup:
 	./scripts/setup.sh
 
 # Start Docker + run migrations (daily driver command)
-start: docker migrate
-	echo "Ready! Run 'make server' to start the backend."
-
-# Just start the Docker containers (for development)
-docker:
+start:
 	docker compose -f $(CURDIR)/docker/docker-compose.yml up -d
-
-# Run database migrations
-migrate:
 	./scripts/migrate.sh
+	@echo "Ready! Run 'make server' to start the backend."
 
 # Start the backend server (after running 'make start')
 server:
@@ -36,21 +30,13 @@ web:
 web-install:
 	cd $(CURDIR)/apps/web && pnpm install
 
-# Run all Rust tests
-test:
-	cargo test --workspace --all-features
-
-# Run clippy lint + format check
-lint:
-	cargo clippy --workspace -- -W clippy::all
-	cargo fmt --check
-
-# Format all Rust code
-fmt:
+# Run all checks needed before opening a PR
+pr:
 	cargo fmt
-
-# Run all pre-push checks (format + lint + tests)
-check: lint test
+	SQLX_OFFLINE=true cargo clippy --workspace -- -W clippy::all
+	cargo test --workspace
+	cargo sqlx prepare --workspace
+	cargo audit
 
 #Run security audit on Rust dependencies
 audit:
