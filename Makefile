@@ -47,7 +47,7 @@ lint:
 
 # Format all Rust code
 fmt:
-	cargo fmt --all-features
+	cargo fmt
 
 # Run all pre-push checks (format + lint + tests)
 check: lint test
