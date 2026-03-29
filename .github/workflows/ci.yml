@@ -26,6 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SQLX_OFFLINE: "true"
+      JWT_SECRET: test-secret-do-not-use-in-production
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -63,6 +64,7 @@ jobs:
           --health-retries=5
     env:
       SQLX_OFFLINE: "true"
+      JWT_SECRET: test-secret-do-not-use-in-production
       DATABASE_URL: postgres://weld:weld@localhost:5432/weld_test
       REDIS_URL: redis://localhost:6379
     steps:
