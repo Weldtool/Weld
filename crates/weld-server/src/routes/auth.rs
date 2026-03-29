@@ -164,7 +164,12 @@ pub async fn login(
         "refresh_token={}; HttpOnly; SameSite=Strict; Path=/api/v1/auth; Max-Age=604800",
         refresh_token
     );
-    headers.insert(axum::http::header::SET_COOKIE, cookie.parse().unwrap());
+    headers.insert(
+        axum::http::header::SET_COOKIE,
+        cookie
+            .parse()
+            .map_err(|_| ApiError::Internal("Failed to set cookie header".into()))?,
+    );
 
     Ok((
         StatusCode::OK,
