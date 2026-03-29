@@ -10,6 +10,7 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/health", get(health_check))
         .route("/api/v1/auth/register", post(auth::register))
+        .route("/api/v1/auth/login", post(auth::login))
 }
 
 async fn health_check(State(_state): State<AppState>) -> impl IntoResponse {
