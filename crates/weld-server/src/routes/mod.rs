@@ -5,12 +5,18 @@ use axum::response::IntoResponse;
 use axum::{Router, routing::get, routing::post};
 use serde_json::json;
 mod auth;
-
+mod users;
 pub fn router() -> Router<AppState> {
-    Router::new()
+    let public = Router::new()
         .route("/health", get(health_check))
         .route("/api/v1/auth/register", post(auth::register))
         .route("/api/v1/auth/login", post(auth::login))
+        .route("/api/v1/auth/logout", post(auth::logout))
+        .route("/api/v1/auth/refresh", post(auth::refresh_token));
+
+    let protected = Router::new().route("/api/v1/users/me", get(users::me));
+
+    public.merge(protected)
 }
 
 async fn health_check(State(_state): State<AppState>) -> impl IntoResponse {
