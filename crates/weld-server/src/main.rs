@@ -1,11 +1,9 @@
-mod config;
-mod errors;
-mod routes;
-mod state;
-use crate::state::AppState;
 use axum::Router;
 use sqlx::PgPool;
 use tokio::net::TcpListener;
+use weld_server::config;
+use weld_server::routes;
+use weld_server::state::AppState;
 
 #[tokio::main]
 async fn main() {
@@ -17,7 +15,10 @@ async fn main() {
     let pool = PgPool::connect(&config.database_url)
         .await
         .expect("Failed to connect to the database");
-    let state = AppState { db: pool };
+    let state = AppState {
+        db: pool,
+        jwt_secret: config.jwt_secret,
+    };
     let app = Router::new().merge(routes::router()).with_state(state);
 
     let listener = TcpListener::bind(&addr).await.unwrap();
