@@ -118,7 +118,7 @@ weld/
 
 ```bash
 # Clone the repository
-git clone https://github.com/Useweld/Weld.git
+git clone https://github.com/Weldtool/Weld.git
 cd Weld
 
 # First-time setup (checks prerequisites, starts Docker, creates .env, runs migrations)
@@ -161,7 +161,9 @@ Weld is in active early development. Here's where things stand:
 - [x] PostgreSQL setup with sqlx migrations (users, teams, projects)
 - [x] Docker Compose for local dev (Postgres, Redis, MinIO)
 - [x] Developer experience (setup scripts, Makefile)
-- [ ] Auth system (register, login, JWT, middleware)
+- [x] CI/CD pipeline (fmt, clippy, test, security audit)
+- [x] Auth system (register, login, JWT middleware, refresh token rotation, logout)
+- [x] Auth service layer (separated business logic from route handlers)
 - [ ] SvelteKit project setup
 - [ ] Project CRUD (API + web UI)
 
@@ -181,7 +183,7 @@ Weld is in active early development. Here's where things stand:
 Contributions are welcome! Please open an issue first to discuss what you'd like to change.
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/my-feature`)
+2. Create a feature branch (`git checkout -b feat/my-feature`)
 3. Commit using conventional commits (`feat:`, `fix:`, `docs:`, etc.)
 4. Open a pull request
 
