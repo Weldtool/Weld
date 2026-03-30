@@ -18,6 +18,7 @@ async fn main() {
     let state = AppState {
         db: pool,
         jwt_secret: config.jwt_secret,
+        secure_cookies: config.secure_cookies,
     };
     let app = Router::new().merge(routes::router()).with_state(state);
 

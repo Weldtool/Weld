@@ -14,6 +14,7 @@ async fn setup_app() -> Router {
     let state = weld_server::state::AppState {
         db: pool,
         jwt_secret: config.jwt_secret,
+        secure_cookies: false,
     };
     weld_server::routes::router().with_state(state)
 }
@@ -383,7 +384,7 @@ async fn test_refresh_without_cookie() {
         )
         .await
         .unwrap();
-    assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
 }
 
 // --- Logout tests ---

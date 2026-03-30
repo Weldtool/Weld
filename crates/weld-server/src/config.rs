@@ -3,6 +3,7 @@ pub struct Config {
     pub port: u16,
     pub database_url: String,
     pub jwt_secret: String,
+    pub secure_cookies: bool,
 }
 
 impl Config {
@@ -15,6 +16,10 @@ impl Config {
                 .expect("PORT must be a valid u16"),
             database_url: std::env::var("DATABASE_URL").expect("DATABASE_URL must be set"),
             jwt_secret: std::env::var("JWT_SECRET").expect("JWT_SECRET must be set"),
+            secure_cookies: std::env::var("SECURE_COOKIES")
+                .unwrap_or_else(|_| "false".to_string())
+                .parse::<bool>()
+                .unwrap_or(false),
         }
     }
 }
