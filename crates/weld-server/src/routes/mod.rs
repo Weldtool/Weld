@@ -2,9 +2,12 @@ use crate::state::AppState;
 use axum::Json;
 use axum::extract::State;
 use axum::response::IntoResponse;
-use axum::{Router, routing::get, routing::post};
+use axum::routing::{delete, get, patch, post};
+use axum::{Router, routing};
 use serde_json::json;
 mod auth;
+mod projects;
+mod teams;
 mod users;
 pub fn router() -> Router<AppState> {
     let public = Router::new()
@@ -14,7 +17,17 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/auth/logout", post(auth::logout))
         .route("/api/v1/auth/refresh", post(auth::refresh_token));
 
-    let protected = Router::new().route("/api/v1/users/me", get(users::me));
+    let protected = Router::new()
+        .route("/api/v1/users/me", get(users::me))
+        .route("/api/v1/teams", post(teams::create))
+        .route("/api/v1/teams/{team_id}/members", post(teams::add_member))
+        .route(
+            "/api/v1/teams/{team_id}/projects",
+            routing::get(projects::list_for_team).post(projects::create),
+        )
+        .route("/api/v1/projects/{id}", get(projects::get_by_id))
+        .route("/api/v1/projects/{id}", patch(projects::update))
+        .route("/api/v1/projects/{id}", delete(projects::delete));
 
     public.merge(protected)
 }

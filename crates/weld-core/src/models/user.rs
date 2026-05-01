@@ -21,6 +21,7 @@ pub struct Team {
     pub slug: String,
     pub owner_id: Uuid,
     pub created_at: DateTime<Utc>,
+    pub deleted_at: Option<DateTime<Utc>>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TeamMembership {

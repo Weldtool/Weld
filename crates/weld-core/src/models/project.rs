@@ -11,4 +11,5 @@ pub struct Project {
     pub github_repo: Option<String>, // "owner/repo"
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub deleted_at: Option<DateTime<Utc>>,
 }
