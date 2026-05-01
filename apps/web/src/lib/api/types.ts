@@ -22,6 +22,10 @@ export interface Team {
 	created_at: string;
 }
 
+export interface UserTeam extends Team {
+	role: TeamRole;
+}
+
 export interface Project {
 	id: string;
 	team_id: string;

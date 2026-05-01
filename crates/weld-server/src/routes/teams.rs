@@ -26,6 +26,16 @@ pub struct TeamResponse {
     pub created_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Serialize)]
+pub struct UserTeamResponse {
+    pub id: Uuid,
+    pub name: String,
+    pub slug: String,
+    pub owner_id: Uuid,
+    pub role: TeamRole,
+    pub created_at: DateTime<Utc>,
+}
+
 #[derive(Debug, Deserialize, Validate)]
 pub struct AddMemberRequest {
     pub user_id: Uuid,
@@ -51,6 +61,26 @@ pub async fn create(
             owner_id: created.owner_id,
             created_at: created.created_at,
         }),
+    ))
+}
+
+pub async fn list(
+    auth: AuthUser,
+    State(state): State<AppState>,
+) -> Result<Json<Vec<UserTeamResponse>>, ApiError> {
+    let teams = team::list_user_teams(&state.db, auth.user_id).await?;
+    Ok(Json(
+        teams
+            .into_iter()
+            .map(|t| UserTeamResponse {
+                id: t.id,
+                name: t.name,
+                slug: t.slug,
+                owner_id: t.owner_id,
+                role: t.role,
+                created_at: t.created_at,
+            })
+            .collect(),
     ))
 }
 

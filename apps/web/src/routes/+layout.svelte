@@ -6,6 +6,7 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import Sidebar from '$lib/components/sidebar.svelte';
 	import { auth } from '$lib/auth.svelte';
+	import { projects } from '$lib/projects.svelte';
 	import { ModeWatcher } from 'mode-watcher';
 
 	let { children } = $props();
@@ -25,6 +26,15 @@
 			void goto(resolve('/login'));
 		} else if (auth.isAuthenticated && isPublicRoute) {
 			void goto(resolve('/'));
+		}
+	});
+
+	$effect(() => {
+		if (!auth.ready) return;
+		if (auth.isAuthenticated) {
+			void projects.ensureLoaded();
+		} else {
+			projects.reset();
 		}
 	});
 </script>

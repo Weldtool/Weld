@@ -537,3 +537,57 @@ async fn create_project_validates_name_length() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
 }
+
+#[tokio::test]
+async fn list_teams_returns_only_users_active_teams() {
+    let app = setup_app().await;
+    let user = register_and_login(&app).await;
+    let team_a = create_team(&app, &user, "Team A").await;
+    let team_b = create_team(&app, &user, "Team B").await;
+
+    let other = register_and_login(&app).await;
+    create_team(&app, &other, "Other team").await;
+
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/v1/teams")
+                .header("Authorization", format!("Bearer {}", user.access_token))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let json: Value = serde_json::from_slice(&body).unwrap();
+    let teams = json.as_array().unwrap();
+    assert_eq!(teams.len(), 2);
+    let ids: Vec<Uuid> = teams
+        .iter()
+        .map(|t| Uuid::parse_str(t["id"].as_str().unwrap()).unwrap())
+        .collect();
+    assert!(ids.contains(&team_a));
+    assert!(ids.contains(&team_b));
+    assert_eq!(teams[0]["role"], "owner");
+}
+
+#[tokio::test]
+async fn list_teams_requires_auth() {
+    let app = setup_app().await;
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/v1/teams")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+}

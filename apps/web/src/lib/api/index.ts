@@ -3,7 +3,7 @@ export * from './types';
 
 import { apiRequest, type RequestOptions } from './client';
 import { auth as authStore } from '$lib/auth.svelte';
-import type { LoginResponse, Project, Team, User } from './types';
+import type { LoginResponse, Project, Team, User, UserTeam } from './types';
 
 /**
  * Authenticated namespaces (`users`, `teams`, `projects`) route through
@@ -33,6 +33,8 @@ export const users = {
 };
 
 export const teams = {
+	list: (opts?: RequestOptions) => authStore.fetch<UserTeam[]>('/api/v1/teams', opts),
+
 	create: (body: { name: string }, opts?: RequestOptions) =>
 		authStore.fetch<Team>('/api/v1/teams', { ...opts, method: 'POST', body })
 };
