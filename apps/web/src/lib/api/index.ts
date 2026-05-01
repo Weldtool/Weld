@@ -2,7 +2,15 @@ export { apiRequest, ApiError, type RequestOptions } from './client';
 export * from './types';
 
 import { apiRequest, type RequestOptions } from './client';
+import { auth as authStore } from '$lib/auth.svelte';
 import type { LoginResponse, Project, Team, User } from './types';
+
+/**
+ * Authenticated namespaces (`users`, `teams`, `projects`) route through
+ * `authStore.fetch`, which transparently refreshes-and-retries on 401.
+ * The `auth` namespace bypasses that — its endpoints are the refresh
+ * mechanism itself, and must not loop through it.
+ */
 
 export const auth = {
 	register: (
@@ -21,33 +29,34 @@ export const auth = {
 };
 
 export const users = {
-	me: (opts?: RequestOptions) => apiRequest<User>('/api/v1/users/me', opts)
+	me: (opts?: RequestOptions) => authStore.fetch<User>('/api/v1/users/me', opts)
 };
 
 export const teams = {
 	create: (body: { name: string }, opts?: RequestOptions) =>
-		apiRequest<Team>('/api/v1/teams', { ...opts, method: 'POST', body })
+		authStore.fetch<Team>('/api/v1/teams', { ...opts, method: 'POST', body })
 };
 
 export const projects = {
 	listForTeam: (teamId: string, opts?: RequestOptions) =>
-		apiRequest<Project[]>(`/api/v1/teams/${teamId}/projects`, opts),
+		authStore.fetch<Project[]>(`/api/v1/teams/${teamId}/projects`, opts),
 
 	create: (teamId: string, body: { name: string; description?: string }, opts?: RequestOptions) =>
-		apiRequest<Project>(`/api/v1/teams/${teamId}/projects`, {
+		authStore.fetch<Project>(`/api/v1/teams/${teamId}/projects`, {
 			...opts,
 			method: 'POST',
 			body
 		}),
 
-	get: (id: string, opts?: RequestOptions) => apiRequest<Project>(`/api/v1/projects/${id}`, opts),
+	get: (id: string, opts?: RequestOptions) =>
+		authStore.fetch<Project>(`/api/v1/projects/${id}`, opts),
 
 	update: (
 		id: string,
 		body: { name?: string; description?: string | null; github_repo?: string | null },
 		opts?: RequestOptions
-	) => apiRequest<Project>(`/api/v1/projects/${id}`, { ...opts, method: 'PATCH', body }),
+	) => authStore.fetch<Project>(`/api/v1/projects/${id}`, { ...opts, method: 'PATCH', body }),
 
 	delete: (id: string, opts?: RequestOptions) =>
-		apiRequest<void>(`/api/v1/projects/${id}`, { ...opts, method: 'DELETE' })
+		authStore.fetch<void>(`/api/v1/projects/${id}`, { ...opts, method: 'DELETE' })
 };

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
+	import { auth } from '$lib/auth.svelte';
 	import { cn } from '$lib/utils';
 	import {
 		Kanban,
@@ -9,6 +10,7 @@
 		KeyRound,
 		Settings,
 		LayoutDashboard,
+		LogOut,
 		Moon,
 		Sun
 	} from 'lucide-svelte';
@@ -52,18 +54,38 @@
 		{/each}
 	</nav>
 
-	<button
-		type="button"
-		onclick={toggleMode}
-		class="mt-3 flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--accent-foreground)]"
-		aria-label="Toggle theme"
-	>
-		{#if mode.current === 'dark'}
-			<Sun class="h-4 w-4" />
-			Light mode
-		{:else}
-			<Moon class="h-4 w-4" />
-			Dark mode
+	<div class="mt-3 flex flex-col gap-1 border-t border-[var(--border)] pt-3">
+		{#if auth.user}
+			<div class="px-3 py-1.5 text-xs">
+				<div class="truncate font-medium text-[var(--foreground)]">
+					{auth.user.display_name}
+				</div>
+				<div class="truncate text-[var(--muted-foreground)]">{auth.user.email}</div>
+			</div>
 		{/if}
-	</button>
+
+		<button
+			type="button"
+			onclick={toggleMode}
+			class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--accent-foreground)]"
+			aria-label="Toggle theme"
+		>
+			{#if mode.current === 'dark'}
+				<Sun class="h-4 w-4" />
+				Light mode
+			{:else}
+				<Moon class="h-4 w-4" />
+				Dark mode
+			{/if}
+		</button>
+
+		<button
+			type="button"
+			onclick={() => auth.logout()}
+			class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--accent-foreground)]"
+		>
+			<LogOut class="h-4 w-4" />
+			Sign out
+		</button>
+	</div>
 </aside>

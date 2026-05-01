@@ -1,19 +1,51 @@
 <script lang="ts">
 	import '../app.css';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import favicon from '$lib/assets/favicon.svg';
 	import Sidebar from '$lib/components/sidebar.svelte';
+	import { auth } from '$lib/auth.svelte';
 	import { ModeWatcher } from 'mode-watcher';
 
 	let { children } = $props();
+
+	const PUBLIC_ROUTES = new Set(['/login', '/register']);
+	const isPublicRoute = $derived(PUBLIC_ROUTES.has(page.url.pathname));
+
+	$effect(() => {
+		if (!auth.ready) {
+			void auth.bootstrap();
+		}
+	});
+
+	$effect(() => {
+		if (!auth.ready) return;
+		if (!auth.isAuthenticated && !isPublicRoute) {
+			void goto(resolve('/login'));
+		} else if (auth.isAuthenticated && isPublicRoute) {
+			void goto(resolve('/'));
+		}
+	});
 </script>
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
 
 <ModeWatcher />
 
-<div class="flex min-h-screen">
-	<Sidebar />
-	<main class="flex-1 overflow-y-auto p-8">
+{#if !auth.ready}
+	<div class="flex min-h-screen items-center justify-center text-sm text-[var(--muted-foreground)]">
+		Loading…
+	</div>
+{:else if isPublicRoute}
+	<div class="min-h-screen">
 		{@render children()}
-	</main>
-</div>
+	</div>
+{:else if auth.isAuthenticated}
+	<div class="flex min-h-screen">
+		<Sidebar />
+		<main class="flex-1 overflow-y-auto p-8">
+			{@render children()}
+		</main>
+	</div>
+{/if}
