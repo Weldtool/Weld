@@ -1,13 +1,41 @@
-<header class="mb-6">
-	<h1 class="text-2xl font-semibold tracking-tight">Board</h1>
-	<p class="text-sm text-[var(--muted-foreground)]">
-		The Kanban board lands in Phase 2 — drag-and-drop columns, real-time sync, and task detail
-		views.
-	</p>
+<script lang="ts">
+	import { resolve } from '$app/paths';
+	import Board from '$lib/components/board/Board.svelte';
+	import { boardStore } from '$lib/board.svelte';
+	import { projects } from '$lib/projects.svelte';
+
+	$effect(() => {
+		const projectId = projects.selectedId;
+		if (projectId && boardStore.projectId !== projectId) {
+			boardStore.loadBoard(projectId);
+		} else if (!projectId) {
+			boardStore.reset();
+		}
+	});
+</script>
+
+<header class="mb-6 flex items-end justify-between gap-3">
+	<div>
+		<h1 class="text-2xl font-semibold tracking-tight">Board</h1>
+		<p class="text-sm text-[var(--muted-foreground)]">
+			{#if projects.current}
+				{projects.current.name}
+			{:else}
+				Select a project to view its board.
+			{/if}
+		</p>
+	</div>
 </header>
 
-<div
-	class="rounded-lg border border-dashed border-[var(--border)] bg-[var(--card)] p-10 text-center text-sm text-[var(--muted-foreground)]"
->
-	Coming soon.
-</div>
+{#if !projects.current}
+	<div
+		class="rounded-lg border border-dashed border-[var(--border)] bg-[var(--card)] p-10 text-center text-sm text-[var(--muted-foreground)]"
+	>
+		No active project.
+		<a class="ml-1 underline" href={resolve('/projects')}>Pick one</a> to load its board.
+	</div>
+{:else}
+	<div class="flex flex-1 flex-col">
+		<Board />
+	</div>
+{/if}

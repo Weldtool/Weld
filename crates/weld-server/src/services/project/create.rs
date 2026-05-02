@@ -6,6 +6,11 @@ use uuid::Uuid;
 use weld_core::models::enums::TeamRole;
 use weld_core::models::project::Project;
 
+/// Default columns seeded into every new project. Users can rename, reorder,
+/// or delete them from the board UI; this is purely a starting point so the
+/// board isn't empty on first load.
+const DEFAULT_COLUMNS: &[&str] = &["Backlog", "In Progress", "Review", "Completed"];
+
 /// Create a project under the given team. Caller must be Admin or Owner of the team.
 pub async fn create_project(
     pool: &PgPool,
@@ -23,6 +28,8 @@ pub async fn create_project(
 
     let slug = generate_unique_project_slug(pool, trimmed).await?;
 
+    let mut tx = pool.begin().await?;
+
     let project = sqlx::query_as!(
         Project,
         r#"
@@ -36,8 +43,22 @@ pub async fn create_project(
         slug,
         description
     )
-    .fetch_one(pool)
+    .fetch_one(&mut *tx)
     .await?;
+
+    for (idx, col_name) in DEFAULT_COLUMNS.iter().enumerate() {
+        let position = (idx + 1) as f64;
+        sqlx::query!(
+            "INSERT INTO columns (project_id, name, position) VALUES ($1, $2, $3)",
+            project.id,
+            col_name,
+            position
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+
+    tx.commit().await?;
 
     Ok(project)
 }

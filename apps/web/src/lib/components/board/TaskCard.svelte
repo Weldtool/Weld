@@ -1,0 +1,53 @@
+<script lang="ts">
+	import type { Label, Task } from '$lib/api/types';
+
+	interface Props {
+		task: Task;
+		labelMap: Map<string, Label>;
+	}
+
+	const { task, labelMap }: Props = $props();
+
+	const priorityClass: Record<Task['priority'], string> = {
+		critical: 'bg-red-500/20 text-red-700 dark:text-red-300',
+		high: 'bg-orange-500/20 text-orange-700 dark:text-orange-300',
+		medium: 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-300',
+		low: 'bg-blue-500/20 text-blue-700 dark:text-blue-300',
+		none: 'bg-[var(--muted)] text-[var(--muted-foreground)]'
+	};
+
+	const dueLabel = $derived(
+		task.due_date
+			? new Date(task.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+			: null
+	);
+</script>
+
+<article
+	class="cursor-grab rounded-md border border-[var(--border)] bg-[var(--card)] p-3 shadow-sm transition-colors hover:border-[var(--ring)] active:cursor-grabbing"
+>
+	<h3 class="text-sm leading-snug font-medium">{task.title}</h3>
+
+	{#if task.labels.length > 0}
+		<div class="mt-2 flex flex-wrap gap-1">
+			{#each task.labels as labelId (labelId)}
+				{@const label = labelMap.get(labelId)}
+				{#if label}
+					<span
+						class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium"
+						style="background-color: {label.color}20; color: {label.color};"
+					>
+						{label.name}
+					</span>
+				{/if}
+			{/each}
+		</div>
+	{/if}
+
+	<div class="mt-2 flex items-center justify-between text-[11px] text-[var(--muted-foreground)]">
+		<span class="rounded px-1.5 py-0.5 {priorityClass[task.priority]}">{task.priority}</span>
+		{#if dueLabel}
+			<span>Due {dueLabel}</span>
+		{/if}
+	</div>
+</article>

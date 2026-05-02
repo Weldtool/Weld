@@ -41,3 +41,48 @@ export interface LoginResponse {
 	access_token: string;
 	token_type: 'Bearer';
 }
+
+export type Priority = 'critical' | 'high' | 'medium' | 'low' | 'none';
+
+export interface Column {
+	id: string;
+	project_id: string;
+	name: string;
+	position: number;
+	wip_limit: number | null;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface Label {
+	id: string;
+	project_id: string;
+	name: string;
+	color: string;
+	created_at: string;
+}
+
+export interface Task {
+	id: string;
+	project_id: string;
+	column_id: string;
+	title: string;
+	description: string | null;
+	assignee_id: string | null;
+	reporter_id: string;
+	priority: Priority;
+	position: number;
+	due_date: string | null;
+	estimate_hours: number | null;
+	github_issue_id: number | null;
+	github_pr_id: number | null;
+	labels: string[];
+	created_at: string;
+	updated_at: string;
+}
+
+export interface BoardState {
+	columns: Column[];
+	tasks: Task[];
+	labels: Label[];
+}

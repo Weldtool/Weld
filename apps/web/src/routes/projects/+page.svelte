@@ -97,15 +97,15 @@
 		<ul class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
 			{#each projects.projects as project (project.id)}
 				<li
-					class="flex flex-col gap-2 rounded-lg border border-[var(--border)] bg-[var(--card)] p-4 transition-colors hover:border-[var(--ring)]"
+					class="relative flex flex-col gap-2 rounded-lg border border-[var(--border)] bg-[var(--card)] p-4 transition-colors focus-within:border-[var(--ring)] hover:border-[var(--ring)]"
 				>
+					<a
+						href={resolve(`/projects/${project.id}/settings`)}
+						aria-label={`Open ${project.name} settings`}
+						class="absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
+					></a>
 					<div class="flex items-start justify-between gap-2">
-						<a
-							href={resolve(`/projects/${project.id}/settings`)}
-							class="text-base font-semibold tracking-tight hover:underline"
-						>
-							{project.name}
-						</a>
+						<h2 class="text-base font-semibold tracking-tight">{project.name}</h2>
 						{#if projects.selectedId === project.id}
 							<span
 								class="rounded-full bg-[var(--accent)] px-2 py-0.5 text-xs text-[var(--accent-foreground)]"
@@ -121,9 +121,12 @@
 						<span class="text-[var(--muted-foreground)]">{project.slug}</span>
 						<button
 							type="button"
-							onclick={() => projects.select(project.id)}
+							onclick={(e) => {
+								e.stopPropagation();
+								projects.select(project.id);
+							}}
 							disabled={projects.selectedId === project.id}
-							class="font-medium text-[var(--foreground)] hover:underline disabled:opacity-50"
+							class="relative z-10 font-medium text-[var(--foreground)] hover:underline disabled:opacity-50"
 						>
 							{projects.selectedId === project.id ? 'Selected' : 'Select'}
 						</button>

@@ -52,9 +52,9 @@
 		{@render children()}
 	</div>
 {:else if auth.isAuthenticated}
-	<div class="flex min-h-screen">
+	<div class="flex h-screen">
 		<Sidebar />
-		<main class="flex-1 overflow-y-auto p-8">
+		<main class="flex flex-1 flex-col overflow-y-auto p-8">
 			{@render children()}
 		</main>
 	</div>
