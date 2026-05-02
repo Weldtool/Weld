@@ -7,6 +7,7 @@
 	import Sidebar from '$lib/components/sidebar.svelte';
 	import { auth } from '$lib/auth.svelte';
 	import { projects } from '$lib/projects.svelte';
+	import { realtime } from '$lib/realtime.svelte';
 	import { ModeWatcher } from 'mode-watcher';
 
 	let { children } = $props();
@@ -33,8 +34,10 @@
 		if (!auth.ready) return;
 		if (auth.isAuthenticated) {
 			void projects.ensureLoaded();
+			if (auth.accessToken) realtime.connect(auth.accessToken);
 		} else {
 			projects.reset();
+			realtime.disconnect();
 		}
 	});
 </script>

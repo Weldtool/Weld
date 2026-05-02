@@ -1,7 +1,10 @@
+use std::sync::Arc;
+
 use axum::Router;
 use sqlx::PgPool;
 use tokio::net::TcpListener;
 use weld_server::config;
+use weld_server::realtime::Hub;
 use weld_server::routes;
 use weld_server::state::AppState;
 
@@ -19,6 +22,7 @@ async fn main() {
         db: pool,
         jwt_secret: config.jwt_secret,
         secure_cookies: config.secure_cookies,
+        hub: Arc::new(Hub::new()),
     };
     let app = Router::new().merge(routes::router()).with_state(state);
 

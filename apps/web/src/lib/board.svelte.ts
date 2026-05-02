@@ -5,6 +5,7 @@ import {
 	tasks as tasksApi
 } from '$lib/api';
 import type { Column, Label, Priority, Task } from '$lib/api/types';
+import { realtime, type RealtimeEnvelope } from '$lib/realtime.svelte';
 
 export interface BoardFilters {
 	search: string;
@@ -62,6 +63,9 @@ class BoardStore {
 			.sort((a, b) => a.position - b.position);
 	}
 
+	#unsubs: Array<() => void> = [];
+	#joinedRoom: string | null = null;
+
 	async loadBoard(projectId: string): Promise<void> {
 		this.loading = true;
 		this.error = null;
@@ -71,6 +75,7 @@ class BoardStore {
 			this.columns = [...data.columns].sort((a, b) => a.position - b.position);
 			this.tasks = data.tasks;
 			this.labels = data.labels;
+			this.#subscribeRealtime(projectId);
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : 'Failed to load board.';
 		} finally {
@@ -83,12 +88,100 @@ class BoardStore {
 	}
 
 	reset(): void {
+		this.#teardownRealtime();
 		this.projectId = null;
 		this.columns = [];
 		this.tasks = [];
 		this.labels = [];
 		this.filters = { ...EMPTY_FILTERS };
 		this.error = null;
+	}
+
+	#subscribeRealtime(projectId: string): void {
+		const room = `project:${projectId}`;
+		if (this.#joinedRoom === room) return;
+		this.#teardownRealtime();
+		realtime.join(room);
+		this.#joinedRoom = room;
+		this.#unsubs = [
+			realtime.on('task.created', (e) => this.#applyTaskUpsert(e)),
+			realtime.on('task.updated', (e) => this.#applyTaskUpsert(e)),
+			realtime.on('task.moved', (e) => this.#applyTaskUpsert(e)),
+			realtime.on('task.deleted', (e) => this.#applyTaskDelete(e)),
+			realtime.on('column.created', (e) => this.#applyColumnUpsert(e)),
+			realtime.on('column.updated', (e) => this.#applyColumnUpsert(e)),
+			realtime.on('column.deleted', (e) => this.#applyColumnDelete(e)),
+			realtime.on('label.created', (e) => this.#applyLabelUpsert(e)),
+			realtime.on('label.updated', (e) => this.#applyLabelUpsert(e)),
+			realtime.on('label.deleted', (e) => this.#applyLabelDelete(e))
+		];
+	}
+
+	#teardownRealtime(): void {
+		for (const unsub of this.#unsubs) unsub();
+		this.#unsubs = [];
+		if (this.#joinedRoom) {
+			realtime.leave(this.#joinedRoom);
+			this.#joinedRoom = null;
+		}
+	}
+
+	#expectedRoom(): string | null {
+		return this.projectId ? `project:${this.projectId}` : null;
+	}
+
+	#applyTaskUpsert(envelope: RealtimeEnvelope): void {
+		if (envelope.room !== this.#expectedRoom()) return;
+		const incoming = envelope.payload as unknown as Task;
+		const existing = this.tasks.find((t) => t.id === incoming.id);
+		// Server is source of truth: take its position/column even if our
+		// optimistic update placed the task elsewhere.
+		if (existing) {
+			this.tasks = this.tasks.map((t) => (t.id === incoming.id ? incoming : t));
+		} else {
+			this.tasks = [...this.tasks, incoming];
+		}
+	}
+
+	#applyTaskDelete(envelope: RealtimeEnvelope): void {
+		if (envelope.room !== this.#expectedRoom()) return;
+		const id = envelope.payload.task_id as string | undefined;
+		if (!id) return;
+		this.tasks = this.tasks.filter((t) => t.id !== id);
+	}
+
+	#applyColumnUpsert(envelope: RealtimeEnvelope): void {
+		if (envelope.room !== this.#expectedRoom()) return;
+		const incoming = envelope.payload as unknown as Column;
+		const next = this.columns.some((c) => c.id === incoming.id)
+			? this.columns.map((c) => (c.id === incoming.id ? incoming : c))
+			: [...this.columns, incoming];
+		this.columns = next.sort((a, b) => a.position - b.position);
+	}
+
+	#applyColumnDelete(envelope: RealtimeEnvelope): void {
+		if (envelope.room !== this.#expectedRoom()) return;
+		const id = envelope.payload.column_id as string | undefined;
+		if (!id) return;
+		this.columns = this.columns.filter((c) => c.id !== id);
+	}
+
+	#applyLabelUpsert(envelope: RealtimeEnvelope): void {
+		if (envelope.room !== this.#expectedRoom()) return;
+		const incoming = envelope.payload as unknown as Label;
+		this.labels = this.labels.some((l) => l.id === incoming.id)
+			? this.labels.map((l) => (l.id === incoming.id ? incoming : l))
+			: [...this.labels, incoming];
+	}
+
+	#applyLabelDelete(envelope: RealtimeEnvelope): void {
+		if (envelope.room !== this.#expectedRoom()) return;
+		const id = envelope.payload.label_id as string | undefined;
+		if (!id) return;
+		this.labels = this.labels.filter((l) => l.id !== id);
+		this.tasks = this.tasks.map((t) =>
+			t.labels.includes(id) ? { ...t, labels: t.labels.filter((l) => l !== id) } : t
+		);
 	}
 
 	setFilter<K extends keyof BoardFilters>(key: K, value: BoardFilters[K]): void {

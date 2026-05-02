@@ -1,5 +1,6 @@
 use crate::errors::ApiError;
 use crate::middleware::auth::AuthUser;
+use crate::realtime::broadcast::publish_project_event;
 use crate::services::column::{self, UpdateColumnInput};
 use crate::state::AppState;
 use axum::Json;
@@ -73,7 +74,9 @@ pub async fn create(
         input.wip_limit,
     )
     .await?;
-    Ok((StatusCode::CREATED, Json(column.into())))
+    let resp: ColumnResponse = column.into();
+    publish_project_event(&state.hub, resp.project_id, "column.created", &resp);
+    Ok((StatusCode::CREATED, Json(resp)))
 }
 
 pub async fn update(
@@ -93,7 +96,9 @@ pub async fn update(
         },
     )
     .await?;
-    Ok(Json(column.into()))
+    let resp: ColumnResponse = column.into();
+    publish_project_event(&state.hub, resp.project_id, "column.updated", &resp);
+    Ok(Json(resp))
 }
 
 pub async fn delete(
@@ -101,6 +106,14 @@ pub async fn delete(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, ApiError> {
+    let existing = column::helpers::fetch_column(&state.db, id).await?;
+    let project_id = existing.project_id;
     column::delete_column(&state.db, id, auth.user_id).await?;
+    publish_project_event(
+        &state.hub,
+        project_id,
+        "column.deleted",
+        &serde_json::json!({ "column_id": id, "project_id": project_id }),
+    );
     Ok(StatusCode::NO_CONTENT)
 }

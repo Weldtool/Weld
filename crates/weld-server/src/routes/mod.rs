@@ -13,13 +13,15 @@ mod projects;
 pub mod tasks;
 mod teams;
 mod users;
+mod ws;
 pub fn router() -> Router<AppState> {
     let public = Router::new()
         .route("/health", get(health_check))
         .route("/api/v1/auth/register", post(auth::register))
         .route("/api/v1/auth/login", post(auth::login))
         .route("/api/v1/auth/logout", post(auth::logout))
-        .route("/api/v1/auth/refresh", post(auth::refresh_token));
+        .route("/api/v1/auth/refresh", post(auth::refresh_token))
+        .route("/api/v1/ws", get(ws::ws_upgrade));
 
     let protected = Router::new()
         .route("/api/v1/users/me", get(users::me))

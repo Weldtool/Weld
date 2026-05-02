@@ -1,5 +1,6 @@
 use crate::errors::ApiError;
 use crate::middleware::auth::AuthUser;
+use crate::realtime::broadcast::publish_project_event;
 use crate::services::task::{self, CreateTaskInput, TaskWithLabels, UpdateTaskInput};
 use crate::state::AppState;
 use axum::Json;
@@ -117,7 +118,9 @@ pub async fn create(
         },
     )
     .await?;
-    Ok((StatusCode::CREATED, Json(task.into())))
+    let resp: TaskResponse = task.into();
+    publish_project_event(&state.hub, project_id, "task.created", &resp);
+    Ok((StatusCode::CREATED, Json(resp)))
 }
 
 pub async fn get_by_id(
@@ -150,7 +153,9 @@ pub async fn update(
         },
     )
     .await?;
-    Ok(Json(task.into()))
+    let resp: TaskResponse = task.into();
+    publish_project_event(&state.hub, resp.project_id, "task.updated", &resp);
+    Ok(Json(resp))
 }
 
 pub async fn delete(
@@ -158,7 +163,15 @@ pub async fn delete(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, ApiError> {
+    let existing = task::get_task(&state.db, id, auth.user_id).await?;
+    let project_id = existing.task.project_id;
     task::delete_task(&state.db, id, auth.user_id).await?;
+    publish_project_event(
+        &state.hub,
+        project_id,
+        "task.deleted",
+        &serde_json::json!({ "task_id": id, "project_id": project_id }),
+    );
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -170,5 +183,7 @@ pub async fn move_task(
 ) -> Result<Json<TaskResponse>, ApiError> {
     let task =
         task::move_task(&state.db, id, auth.user_id, input.column_id, input.position).await?;
-    Ok(Json(task.into()))
+    let resp: TaskResponse = task.into();
+    publish_project_event(&state.hub, resp.project_id, "task.moved", &resp);
+    Ok(Json(resp))
 }

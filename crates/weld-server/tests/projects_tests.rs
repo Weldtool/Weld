@@ -15,6 +15,7 @@ async fn setup_app() -> Router {
         db: pool,
         jwt_secret: config.jwt_secret,
         secure_cookies: false,
+        hub: std::sync::Arc::new(weld_server::realtime::Hub::new()),
     };
     weld_server::routes::router().with_state(state)
 }
