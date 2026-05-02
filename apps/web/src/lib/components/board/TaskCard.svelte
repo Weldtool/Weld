@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import type { Label, Task } from '$lib/api/types';
 
 	interface Props {
@@ -7,6 +10,24 @@
 	}
 
 	const { task, labelMap }: Props = $props();
+
+	function open() {
+		const url = new URL(page.url);
+		url.searchParams.set('task', task.id);
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- resolve('/board') is the base; query string is appended dynamically
+		goto(resolve('/board') + url.search, {
+			replaceState: false,
+			keepFocus: true,
+			noScroll: true
+		});
+	}
+
+	function onKey(e: KeyboardEvent) {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			open();
+		}
+	}
 
 	const priorityClass: Record<Task['priority'], string> = {
 		critical: 'bg-red-500/20 text-red-700 dark:text-red-300',
@@ -23,8 +44,12 @@
 	);
 </script>
 
-<article
-	class="cursor-grab rounded-md border border-[var(--border)] bg-[var(--card)] p-3 shadow-sm transition-colors hover:border-[var(--ring)] active:cursor-grabbing"
+<div
+	role="button"
+	tabindex="0"
+	onclick={open}
+	onkeydown={onKey}
+	class="cursor-pointer rounded-md border border-[var(--border)] bg-[var(--card)] p-3 text-left shadow-sm transition-colors hover:border-[var(--ring)] focus:border-[var(--ring)] focus:outline-none active:cursor-grabbing"
 >
 	<h3 class="text-sm leading-snug font-medium">{task.title}</h3>
 
@@ -50,4 +75,4 @@
 			<span>Due {dueLabel}</span>
 		{/if}
 	</div>
-</article>
+</div>

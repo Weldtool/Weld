@@ -12,6 +12,7 @@ import type {
 	Project,
 	Task,
 	Team,
+	TeamMember,
 	User,
 	UserTeam
 } from './types';
@@ -47,7 +48,10 @@ export const teams = {
 	list: (opts?: RequestOptions) => authStore.fetch<UserTeam[]>('/api/v1/teams', opts),
 
 	create: (body: { name: string }, opts?: RequestOptions) =>
-		authStore.fetch<Team>('/api/v1/teams', { ...opts, method: 'POST', body })
+		authStore.fetch<Team>('/api/v1/teams', { ...opts, method: 'POST', body }),
+
+	listMembers: (teamId: string, opts?: RequestOptions) =>
+		authStore.fetch<TeamMember[]>(`/api/v1/teams/${teamId}/members`, opts)
 };
 
 export const projects = {

@@ -26,6 +26,15 @@ export interface UserTeam extends Team {
 	role: TeamRole;
 }
 
+export interface TeamMember {
+	user_id: string;
+	email: string;
+	display_name: string;
+	avatar_url: string | null;
+	role: TeamRole;
+	joined_at: string;
+}
+
 export interface Project {
 	id: string;
 	team_id: string;

@@ -2,10 +2,12 @@ import {
 	board as boardApi,
 	columns as columnsApi,
 	labels as labelsApi,
-	tasks as tasksApi
+	tasks as tasksApi,
+	teams as teamsApi
 } from '$lib/api';
-import type { Column, Label, Priority, Task } from '$lib/api/types';
+import type { Column, Label, Priority, Task, TeamMember } from '$lib/api/types';
 import { realtime, type RealtimeEnvelope } from '$lib/realtime.svelte';
+import { projects } from '$lib/projects.svelte';
 
 export interface BoardFilters {
 	search: string;
@@ -38,9 +40,20 @@ class BoardStore {
 	columns = $state<Column[]>([]);
 	tasks = $state<Task[]>([]);
 	labels = $state<Label[]>([]);
+	members = $state<TeamMember[]>([]);
 	filters = $state<BoardFilters>({ ...EMPTY_FILTERS });
 	loading = $state(false);
 	error = $state<string | null>(null);
+
+	taskById(id: string): Task | undefined {
+		return this.tasks.find((t) => t.id === id);
+	}
+
+	applyTaskUpdate(task: Task): void {
+		this.tasks = this.tasks.some((t) => t.id === task.id)
+			? this.tasks.map((t) => (t.id === task.id ? task : t))
+			: [...this.tasks, task];
+	}
 
 	get filteredTasks(): Task[] {
 		const f = this.filters;
@@ -76,6 +89,7 @@ class BoardStore {
 			this.tasks = data.tasks;
 			this.labels = data.labels;
 			this.#subscribeRealtime(projectId);
+			void this.#loadMembers();
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : 'Failed to load board.';
 		} finally {
@@ -93,8 +107,20 @@ class BoardStore {
 		this.columns = [];
 		this.tasks = [];
 		this.labels = [];
+		this.members = [];
 		this.filters = { ...EMPTY_FILTERS };
 		this.error = null;
+	}
+
+	async #loadMembers(): Promise<void> {
+		const teamId = projects.team?.id;
+		if (!teamId) return;
+		try {
+			this.members = await teamsApi.listMembers(teamId);
+		} catch {
+			// Members are nice-to-have for the assignee picker; don't block
+			// the board if the request fails.
+		}
 	}
 
 	#subscribeRealtime(projectId: string): void {

@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import Board from '$lib/components/board/Board.svelte';
+	import TaskDetail from '$lib/components/board/TaskDetail.svelte';
 	import { boardStore } from '$lib/board.svelte';
 	import { projects } from '$lib/projects.svelte';
 
@@ -12,6 +14,8 @@
 			boardStore.reset();
 		}
 	});
+
+	const taskId = $derived(page.url.searchParams.get('task'));
 </script>
 
 <header class="mb-6 flex items-end justify-between gap-3">
@@ -38,4 +42,10 @@
 	<div class="flex flex-1 flex-col">
 		<Board />
 	</div>
+{/if}
+
+{#if taskId}
+	{#key taskId}
+		<TaskDetail {taskId} />
+	{/key}
 {/if}

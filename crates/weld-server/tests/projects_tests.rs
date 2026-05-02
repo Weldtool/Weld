@@ -578,6 +578,56 @@ async fn list_teams_returns_only_users_active_teams() {
 }
 
 #[tokio::test]
+async fn list_team_members_returns_owner_and_added_members() {
+    let app = setup_app().await;
+    let owner = register_and_login(&app).await;
+    let team_id = create_team(&app, &owner, "Member List Team").await;
+
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/api/v1/teams/{team_id}/members"))
+                .header("Authorization", format!("Bearer {}", owner.access_token))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let json: Value = serde_json::from_slice(&body).unwrap();
+    let members = json.as_array().unwrap();
+    assert_eq!(members.len(), 1);
+    assert_eq!(members[0]["user_id"], owner.id.to_string());
+    assert_eq!(members[0]["role"], "owner");
+}
+
+#[tokio::test]
+async fn list_team_members_forbidden_for_non_member() {
+    let app = setup_app().await;
+    let owner = register_and_login(&app).await;
+    let outsider = register_and_login(&app).await;
+    let team_id = create_team(&app, &owner, "Closed Team").await;
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/api/v1/teams/{team_id}/members"))
+                .header("Authorization", format!("Bearer {}", outsider.access_token))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
 async fn list_teams_requires_auth() {
     let app = setup_app().await;
     let resp = app

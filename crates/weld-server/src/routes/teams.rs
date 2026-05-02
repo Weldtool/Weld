@@ -84,6 +84,37 @@ pub async fn list(
     ))
 }
 
+#[derive(Debug, Serialize)]
+pub struct TeamMemberResponse {
+    pub user_id: Uuid,
+    pub email: String,
+    pub display_name: String,
+    pub avatar_url: Option<String>,
+    pub role: TeamRole,
+    pub joined_at: DateTime<Utc>,
+}
+
+pub async fn list_members(
+    auth: AuthUser,
+    State(state): State<AppState>,
+    Path(team_id): Path<Uuid>,
+) -> Result<Json<Vec<TeamMemberResponse>>, ApiError> {
+    let members = team::list_team_members(&state.db, team_id, auth.user_id).await?;
+    Ok(Json(
+        members
+            .into_iter()
+            .map(|m| TeamMemberResponse {
+                user_id: m.user_id,
+                email: m.email,
+                display_name: m.display_name,
+                avatar_url: m.avatar_url,
+                role: m.role,
+                joined_at: m.joined_at,
+            })
+            .collect(),
+    ))
+}
+
 pub async fn add_member(
     auth: AuthUser,
     State(state): State<AppState>,

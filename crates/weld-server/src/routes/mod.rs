@@ -26,7 +26,10 @@ pub fn router() -> Router<AppState> {
     let protected = Router::new()
         .route("/api/v1/users/me", get(users::me))
         .route("/api/v1/teams", get(teams::list).post(teams::create))
-        .route("/api/v1/teams/{team_id}/members", post(teams::add_member))
+        .route(
+            "/api/v1/teams/{team_id}/members",
+            get(teams::list_members).post(teams::add_member),
+        )
         .route(
             "/api/v1/teams/{team_id}/projects",
             routing::get(projects::list_for_team).post(projects::create),
