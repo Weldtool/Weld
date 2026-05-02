@@ -6,7 +6,11 @@ use axum::routing::{delete, get, patch, post};
 use axum::{Router, routing};
 use serde_json::json;
 mod auth;
+mod board;
+pub mod columns;
+pub mod labels;
 mod projects;
+pub mod tasks;
 mod teams;
 mod users;
 pub fn router() -> Router<AppState> {
@@ -27,7 +31,19 @@ pub fn router() -> Router<AppState> {
         )
         .route("/api/v1/projects/{id}", get(projects::get_by_id))
         .route("/api/v1/projects/{id}", patch(projects::update))
-        .route("/api/v1/projects/{id}", delete(projects::delete));
+        .route("/api/v1/projects/{id}", delete(projects::delete))
+        .route("/api/v1/projects/{id}/board", get(board::get_board))
+        .route("/api/v1/projects/{id}/columns", post(columns::create))
+        .route("/api/v1/columns/{id}", patch(columns::update))
+        .route("/api/v1/columns/{id}", delete(columns::delete))
+        .route("/api/v1/projects/{id}/labels", post(labels::create))
+        .route("/api/v1/labels/{id}", patch(labels::update))
+        .route("/api/v1/labels/{id}", delete(labels::delete))
+        .route("/api/v1/projects/{id}/tasks", post(tasks::create))
+        .route("/api/v1/tasks/{id}", get(tasks::get_by_id))
+        .route("/api/v1/tasks/{id}", patch(tasks::update))
+        .route("/api/v1/tasks/{id}", delete(tasks::delete))
+        .route("/api/v1/tasks/{id}/move", post(tasks::move_task));
 
     public.merge(protected)
 }
