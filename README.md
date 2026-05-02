@@ -140,43 +140,46 @@ curl http://127.0.0.1:3000/health
 ```bash
 make setup        # First-time setup
 make start        # Start Docker + run migrations
-make server       # Start Axum backend
-make web          # Start SvelteKit dev server
-make test         # Run all Rust tests
-make lint         # Run clippy + format check
-make fmt          # Format all Rust code
+make server       # Start Axum backend (loads .env automatically)
+make pr           # fmt, clippy -D warnings, tests, sqlx prepare, audit
 make stop         # Stop Docker containers
 make clean        # Stop containers + delete data volumes
+
+# Web frontend (separate terminal)
+cd apps/web && pnpm install && pnpm dev
 ```
 
 ## Current Status
 
-Weld is in active early development. Here's where things stand:
+Weld is in active early development.
 
-### Phase 1: Foundation — In Progress
+### Phase 1: Foundation — Complete
 
-- [x] Cargo workspace and project structure
-- [x] Domain models in weld-core (all entities defined)
-- [x] Axum server skeleton with health check
-- [x] PostgreSQL setup with sqlx migrations (users, teams, projects)
-- [x] Docker Compose for local dev (Postgres, Redis, MinIO)
-- [x] Developer experience (setup scripts, Makefile)
+- [x] Cargo workspace, domain models in `weld-core`, Axum server skeleton
+- [x] PostgreSQL + sqlx migrations, Docker Compose stack (Postgres, Redis, MinIO)
+- [x] Developer experience: `make setup`, `make start`, `make pr`
 - [x] CI/CD pipeline (fmt, clippy, test, security audit)
-- [x] Auth system (register, login, JWT middleware, refresh token rotation, logout)
-- [x] Auth service layer (separated business logic from route handlers)
-- [ ] SvelteKit project setup
-- [ ] Project CRUD (API + web UI)
+- [x] Auth: register, login, JWT middleware, refresh token rotation, logout
+- [x] Project CRUD (teams, projects, RBAC, soft-delete) — API + web UI
+- [x] SvelteKit + Tailwind 4 + shadcn-svelte web shell, auth UI, project switcher
+
+### Phase 2: Task Board — Complete
+
+- [x] Schema (columns, tasks, labels) + board CRUD API with fractional indexing
+- [x] Kanban UI with drag-and-drop columns/cards, filters, label management
+- [x] WebSocket hub + live board updates across clients
+- [x] Task detail panel with debounced inline editing and real-time reconciliation
+- [x] Tiptap markdown editor with shortcuts, focus-aware reconciliation, and round-trip markdown serialization
 
 ### Upcoming Phases
 
-1. **Task Board** — Kanban with drag-and-drop, real-time sync
-2. **Chat** — Channels, threading, typing indicators
-3. **Time Tracking** — Timers, manual entry, timesheets
-4. **Secrets Management** — Encrypted vault, audit logging
-5. **GitHub Integration** — App installation, webhooks, two-way sync
-6. **Desktop App** — Tauri v2 with system tray, notifications
-7. **Mobile Apps** — Android (Compose) + iOS (SwiftUI) via UniFFI
-8. **TUI** — Terminal interface with Ratatui
+3. **Chat** — Channels, threading, typing indicators
+4. **Time Tracking** — Timers, manual entry, timesheets
+5. **Secrets Management** — Encrypted vault, audit logging
+6. **GitHub Integration** — App installation, webhooks, two-way sync
+7. **Desktop App** — Tauri v2 with system tray, notifications
+8. **Mobile Apps** — Android (Compose) + iOS (SwiftUI) via UniFFI
+9. **TUI** — Terminal interface with Ratatui
 
 ## Contributing
 

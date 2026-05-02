@@ -30,18 +30,15 @@
 
 	const saver = new TaskSaver(taskId);
 
-	// Local-edit state: each field tracks whether it's currently focused.
-	// While focused, we don't sync from the store — preserves typing.
+	// Title is a plain input → mirror the store value while not focused so
+	// incoming WS updates don't clobber typed-but-not-saved text. The Tiptap
+	// description editor handles its own focus-aware reconciliation.
 	let titleFocused = $state(false);
-	let descriptionFocused = $state(false);
-
 	let titleLocal = $state('');
-	let descriptionLocal = $state('');
 
 	$effect(() => {
 		if (!task) return;
 		if (!titleFocused) titleLocal = task.title;
-		if (!descriptionFocused) descriptionLocal = task.description ?? '';
 	});
 
 	function close() {
@@ -69,8 +66,8 @@
 	}
 
 	function onDescriptionInput(next: string) {
-		descriptionLocal = next;
-		patch('description', next === '' ? null : next);
+		const trimmed = next.trim();
+		patch('description', trimmed === '' ? null : next);
 	}
 
 	function onAssigneeChange(next: string | null) {
@@ -170,15 +167,11 @@
 			{/if}
 
 			<DescriptionEditor
-				value={descriptionLocal}
+				value={task.description ?? ''}
 				disabled={!editable}
 				saving={saver.saving}
 				onInput={onDescriptionInput}
-				onFocus={() => (descriptionFocused = true)}
-				onBlur={() => {
-					descriptionFocused = false;
-					saver.flush();
-				}}
+				onBlur={() => saver.flush()}
 			/>
 
 			<div class="grid gap-4 sm:grid-cols-2">
