@@ -24,6 +24,12 @@ pub enum TeamRole {
     Viewer,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
+#[cfg_attr(
+    feature = "sqlx",
+    sqlx(type_name = "priority", rename_all = "lowercase")
+)]
 pub enum Priority {
     Critical,
     High,
