@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE channels SET deleted_at = NOW(), updated_at = NOW()\n         WHERE id = $1 AND deleted_at IS NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1283210d55c75e4560fb36b2b473e03c8d4b81f79ac2f8f099369e13053fd3bd"
+}

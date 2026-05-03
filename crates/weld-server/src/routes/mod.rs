@@ -7,6 +7,7 @@ use axum::{Router, routing};
 use serde_json::json;
 mod auth;
 mod board;
+pub mod chat;
 pub mod columns;
 pub mod labels;
 mod projects;
@@ -48,7 +49,32 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/tasks/{id}", get(tasks::get_by_id))
         .route("/api/v1/tasks/{id}", patch(tasks::update))
         .route("/api/v1/tasks/{id}", delete(tasks::delete))
-        .route("/api/v1/tasks/{id}/move", post(tasks::move_task));
+        .route("/api/v1/tasks/{id}/move", post(tasks::move_task))
+        .route(
+            "/api/v1/teams/{team_id}/channels",
+            get(chat::list_channels).post(chat::create_channel),
+        )
+        .route(
+            "/api/v1/channels/{id}",
+            get(chat::get_channel)
+                .patch(chat::update_channel)
+                .delete(chat::archive_channel),
+        )
+        .route("/api/v1/channels/{id}/members", post(chat::add_member))
+        .route(
+            "/api/v1/channels/{channel_id}/members/{user_id}",
+            delete(chat::remove_member),
+        )
+        .route("/api/v1/channels/{id}/read", post(chat::mark_read))
+        .route(
+            "/api/v1/channels/{id}/messages",
+            get(chat::list_messages).post(chat::post_message),
+        )
+        .route("/api/v1/messages/{id}/thread", get(chat::get_thread))
+        .route(
+            "/api/v1/messages/{id}",
+            patch(chat::edit_message).delete(chat::delete_message),
+        );
 
     public.merge(protected)
 }
