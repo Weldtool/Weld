@@ -4,9 +4,9 @@
  * In dev, requests to `/api/*` are proxied to the Rust server (see vite.config.ts).
  * In production builds, set PUBLIC_API_BASE_URL to the deployed backend origin.
  */
-import { PUBLIC_API_BASE_URL } from '$env/static/public';
+import { env } from '$env/dynamic/public';
 
-const API_BASE = (PUBLIC_API_BASE_URL ?? '').replace(/\/$/, '');
+const API_BASE = (env.PUBLIC_API_BASE_URL ?? '').replace(/\/$/, '');
 
 export class ApiError extends Error {
 	constructor(
