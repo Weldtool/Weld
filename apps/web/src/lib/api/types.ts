@@ -95,3 +95,37 @@ export interface BoardState {
 	tasks: Task[];
 	labels: Label[];
 }
+
+export interface Channel {
+	id: string;
+	team_id: string;
+	project_id: string | null;
+	name: string;
+	topic: string | null;
+	is_direct: boolean;
+	is_private: boolean;
+	created_by: string;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface ChatMessage {
+	id: string;
+	channel_id: string;
+	sender_id: string;
+	content: string;
+	thread_parent_id: string | null;
+	mentions: string[];
+	edited_at: string | null;
+	created_at: string;
+}
+
+export interface MessagePage {
+	messages: ChatMessage[];
+	next_before: string | null;
+}
+
+export interface ThreadView {
+	parent: ChatMessage;
+	replies: ChatMessage[];
+}

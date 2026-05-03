@@ -5,12 +5,20 @@ use sqlx::PgPool;
 use uuid::Uuid;
 use weld_core::models::enums::TeamRole;
 
+pub struct DeletedMessage {
+    pub id: Uuid,
+    pub channel_id: Uuid,
+    pub thread_parent_id: Option<Uuid>,
+}
+
 /// Soft-delete a message. Allowed for the author or a team Admin+.
+/// Returns the message's channel_id and thread_parent_id so callers can
+/// publish realtime events without re-querying.
 pub async fn delete_message(
     pool: &PgPool,
     message_id: Uuid,
     caller_id: Uuid,
-) -> Result<(), ApiError> {
+) -> Result<DeletedMessage, ApiError> {
     let existing = fetch_active_message(pool, message_id).await?;
     let channel = fetch_active_channel(pool, existing.channel_id).await?;
 
@@ -26,5 +34,9 @@ pub async fn delete_message(
     )
     .execute(pool)
     .await?;
-    Ok(())
+    Ok(DeletedMessage {
+        id: existing.id,
+        channel_id: existing.channel_id,
+        thread_parent_id: existing.thread_parent_id,
+    })
 }

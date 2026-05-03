@@ -5,14 +5,18 @@ import { apiRequest, type RequestOptions } from './client';
 import { auth as authStore } from '$lib/auth.svelte';
 import type {
 	BoardState,
+	Channel,
+	ChatMessage,
 	Column,
 	Label,
 	LoginResponse,
+	MessagePage,
 	Priority,
 	Project,
 	Task,
 	Team,
 	TeamMember,
+	ThreadView,
 	User,
 	UserTeam
 } from './types';
@@ -166,4 +170,83 @@ export const tasks = {
 			method: 'POST',
 			body
 		})
+};
+
+export const channels = {
+	listForTeam: (teamId: string, opts?: RequestOptions) =>
+		authStore.fetch<Channel[]>(`/api/v1/teams/${teamId}/channels`, opts),
+
+	create: (
+		teamId: string,
+		body: {
+			name: string;
+			topic?: string;
+			project_id?: string;
+			is_private?: boolean;
+			is_direct?: boolean;
+			members?: string[];
+		},
+		opts?: RequestOptions
+	) =>
+		authStore.fetch<Channel>(`/api/v1/teams/${teamId}/channels`, {
+			...opts,
+			method: 'POST',
+			body
+		}),
+
+	get: (id: string, opts?: RequestOptions) =>
+		authStore.fetch<Channel>(`/api/v1/channels/${id}`, opts),
+
+	update: (id: string, body: { name?: string; topic?: string | null }, opts?: RequestOptions) =>
+		authStore.fetch<Channel>(`/api/v1/channels/${id}`, { ...opts, method: 'PATCH', body }),
+
+	archive: (id: string, opts?: RequestOptions) =>
+		authStore.fetch<void>(`/api/v1/channels/${id}`, { ...opts, method: 'DELETE' }),
+
+	addMember: (id: string, body: { user_id: string }, opts?: RequestOptions) =>
+		authStore.fetch<void>(`/api/v1/channels/${id}/members`, {
+			...opts,
+			method: 'POST',
+			body
+		}),
+
+	removeMember: (channelId: string, userId: string, opts?: RequestOptions) =>
+		authStore.fetch<void>(`/api/v1/channels/${channelId}/members/${userId}`, {
+			...opts,
+			method: 'DELETE'
+		}),
+
+	markRead: (id: string, opts?: RequestOptions) =>
+		authStore.fetch<void>(`/api/v1/channels/${id}/read`, { ...opts, method: 'POST' })
+};
+
+export const messages = {
+	list: (channelId: string, query?: { before?: string; limit?: number }, opts?: RequestOptions) => {
+		const params = new URLSearchParams();
+		if (query?.before) params.set('before', query.before);
+		if (query?.limit !== undefined) params.set('limit', String(query.limit));
+		const qs = params.toString();
+		const path = `/api/v1/channels/${channelId}/messages${qs ? `?${qs}` : ''}`;
+		return authStore.fetch<MessagePage>(path, opts);
+	},
+
+	post: (
+		channelId: string,
+		body: { content: string; thread_parent_id?: string },
+		opts?: RequestOptions
+	) =>
+		authStore.fetch<ChatMessage>(`/api/v1/channels/${channelId}/messages`, {
+			...opts,
+			method: 'POST',
+			body
+		}),
+
+	thread: (id: string, opts?: RequestOptions) =>
+		authStore.fetch<ThreadView>(`/api/v1/messages/${id}/thread`, opts),
+
+	edit: (id: string, body: { content: string }, opts?: RequestOptions) =>
+		authStore.fetch<ChatMessage>(`/api/v1/messages/${id}`, { ...opts, method: 'PATCH', body }),
+
+	delete: (id: string, opts?: RequestOptions) =>
+		authStore.fetch<void>(`/api/v1/messages/${id}`, { ...opts, method: 'DELETE' })
 };

@@ -1,5 +1,6 @@
 use crate::errors::ApiError;
 use crate::middleware::auth::AuthUser;
+use crate::realtime::broadcast::publish_channel_event;
 use crate::services::chat::{
     self, CreateChannelInput, MessagePage, PostMessageInput, ThreadView, UpdateChannelInput,
 };
@@ -249,6 +250,16 @@ pub async fn mark_read(
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, ApiError> {
     chat::mark_channel_read(&state.db, id, auth.user_id).await?;
+    publish_channel_event(
+        &state.hub,
+        id,
+        "chat.read",
+        &serde_json::json!({
+            "channel_id": id,
+            "user_id": auth.user_id,
+            "at": chrono::Utc::now(),
+        }),
+    );
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -278,7 +289,9 @@ pub async fn post_message(
         },
     )
     .await?;
-    Ok((StatusCode::CREATED, Json(msg.into())))
+    let resp: MessageResponse = msg.into();
+    publish_channel_event(&state.hub, id, "chat.message.new", &resp);
+    Ok((StatusCode::CREATED, Json(resp)))
 }
 
 pub async fn get_thread(
@@ -297,7 +310,9 @@ pub async fn edit_message(
     Json(input): Json<EditMessageRequest>,
 ) -> Result<Json<MessageResponse>, ApiError> {
     let msg = chat::edit_message(&state.db, id, auth.user_id, input.content).await?;
-    Ok(Json(msg.into()))
+    let resp: MessageResponse = msg.into();
+    publish_channel_event(&state.hub, resp.channel_id, "chat.message.edited", &resp);
+    Ok(Json(resp))
 }
 
 pub async fn delete_message(
@@ -305,6 +320,16 @@ pub async fn delete_message(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, ApiError> {
-    chat::delete_message(&state.db, id, auth.user_id).await?;
+    let deleted = chat::delete_message(&state.db, id, auth.user_id).await?;
+    publish_channel_event(
+        &state.hub,
+        deleted.channel_id,
+        "chat.message.deleted",
+        &serde_json::json!({
+            "id": deleted.id,
+            "channel_id": deleted.channel_id,
+            "thread_parent_id": deleted.thread_parent_id,
+        }),
+    );
     Ok(StatusCode::NO_CONTENT)
 }

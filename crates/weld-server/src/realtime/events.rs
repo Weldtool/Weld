@@ -56,6 +56,10 @@ pub enum ClientMessage {
     Subscribe { rooms: Vec<String> },
     #[serde(rename = "ws.unsubscribe")]
     Unsubscribe { rooms: Vec<String> },
+    /// Ephemeral typing indicator. Server re-broadcasts as
+    /// `chat.user.typing { channel_id, user_id }` to the channel room.
+    #[serde(rename = "chat.typing")]
+    ChatTyping { channel_id: Uuid },
 }
 
 /// Outbound envelope sent to clients. Matches the wire protocol in CLAUDE.md.

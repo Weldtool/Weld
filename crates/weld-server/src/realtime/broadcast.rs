@@ -13,6 +13,20 @@ pub fn publish_project_event<T: Serialize>(
     event_type: &'static str,
     payload: &T,
 ) {
+    publish(hub, RoomKey::Project(project_id), event_type, payload);
+}
+
+/// Serialize `payload` and broadcast to the channel room.
+pub fn publish_channel_event<T: Serialize>(
+    hub: &Arc<Hub>,
+    channel_id: Uuid,
+    event_type: &'static str,
+    payload: &T,
+) {
+    publish(hub, RoomKey::Channel(channel_id), event_type, payload);
+}
+
+fn publish<T: Serialize>(hub: &Arc<Hub>, room: RoomKey, event_type: &'static str, payload: &T) {
     let value = match serde_json::to_value(payload) {
         Ok(v) => v,
         Err(err) => {
@@ -20,6 +34,6 @@ pub fn publish_project_event<T: Serialize>(
             return;
         }
     };
-    let envelope = Envelope::new(event_type, RoomKey::Project(project_id), value);
+    let envelope = Envelope::new(event_type, room, value);
     hub.broadcast(&envelope);
 }

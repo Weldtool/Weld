@@ -17,7 +17,7 @@ mod update_channel;
 pub use add_member::add_channel_member;
 pub use archive_channel::archive_channel;
 pub use create_channel::{CreateChannelInput, create_channel};
-pub use delete_message::delete_message;
+pub use delete_message::{DeletedMessage, delete_message};
 pub use edit_message::edit_message;
 pub use get_channel::get_channel;
 pub use get_thread::{ThreadView, get_thread};

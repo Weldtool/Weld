@@ -105,7 +105,7 @@ async fn create_team(client: &reqwest::Client, addr: SocketAddr, user: &AuthedUs
         addr,
         "/api/v1/teams",
         Some(&user.access_token),
-        json!({"name": "Realtime Team"}),
+        json!({"name": format!("Realtime Team {}", Uuid::new_v4())}),
     )
     .await;
     assert!(status.is_success(), "team: {status} {body}");
@@ -249,6 +249,111 @@ async fn task_create_broadcasts_to_subscribed_client() {
     let _ = ws.close(None).await;
     // Suppress "unused" on user.id without changing test semantics.
     let _ = user.id;
+}
+
+async fn create_channel(
+    client: &reqwest::Client,
+    addr: SocketAddr,
+    user: &AuthedUser,
+    team_id: Uuid,
+    name: &str,
+) -> Uuid {
+    let (status, body) = http_post(
+        client,
+        addr,
+        &format!("/api/v1/teams/{team_id}/channels"),
+        Some(&user.access_token),
+        json!({"name": name}),
+    )
+    .await;
+    assert!(status.is_success(), "channel: {status} {body}");
+    Uuid::parse_str(body["id"].as_str().unwrap()).unwrap()
+}
+
+#[tokio::test]
+async fn chat_message_new_broadcasts_to_subscribed_client() {
+    let addr = spawn_server().await;
+    let client = reqwest::Client::builder().build().unwrap();
+    let user = register_login(&client, addr).await;
+    let team_id = create_team(&client, addr, &user).await;
+    let channel_id = create_channel(&client, addr, &user, team_id, "general").await;
+
+    let url = format!("ws://{addr}/api/v1/ws?token={}", user.access_token);
+    let (mut ws, _) = connect_async(url).await.expect("ws connect");
+    let sub = json!({"type": "ws.subscribe", "rooms": [format!("channel:{channel_id}")]});
+    ws.send(Message::Text(sub.to_string().into()))
+        .await
+        .unwrap();
+    let _ack = next_event_matching(&mut ws, |v| v["type"] == "ws.subscribed")
+        .await
+        .expect("subscribed ack");
+
+    let (status, _body) = http_post(
+        &client,
+        addr,
+        &format!("/api/v1/channels/{channel_id}/messages"),
+        Some(&user.access_token),
+        json!({"content": "hi realtime"}),
+    )
+    .await;
+    assert!(status.is_success());
+
+    let evt = next_event_matching(&mut ws, |v| v["type"] == "chat.message.new")
+        .await
+        .expect("chat.message.new event");
+    assert_eq!(evt["room"], format!("channel:{channel_id}"));
+    assert_eq!(evt["payload"]["content"], "hi realtime");
+    let _ = ws.close(None).await;
+    let _ = user.id;
+}
+
+#[tokio::test]
+async fn chat_typing_rebroadcasts_as_user_typing() {
+    let addr = spawn_server().await;
+    let client = reqwest::Client::builder().build().unwrap();
+    let owner = register_login(&client, addr).await;
+    let watcher = register_login(&client, addr).await;
+    let team_id = create_team(&client, addr, &owner).await;
+    // add watcher as a member
+    let (status, _) = http_post(
+        &client,
+        addr,
+        &format!("/api/v1/teams/{team_id}/members"),
+        Some(&owner.access_token),
+        json!({"user_id": watcher.id, "role": "member"}),
+    )
+    .await;
+    assert!(status.is_success());
+    let channel_id = create_channel(&client, addr, &owner, team_id, "general").await;
+
+    // watcher subscribes
+    let url = format!("ws://{addr}/api/v1/ws?token={}", watcher.access_token);
+    let (mut watcher_ws, _) = connect_async(url).await.unwrap();
+    let sub = json!({"type": "ws.subscribe", "rooms": [format!("channel:{channel_id}")]});
+    watcher_ws
+        .send(Message::Text(sub.to_string().into()))
+        .await
+        .unwrap();
+    let _ = next_event_matching(&mut watcher_ws, |v| v["type"] == "ws.subscribed")
+        .await
+        .expect("subscribed ack");
+
+    // owner sends a typing event
+    let url = format!("ws://{addr}/api/v1/ws?token={}", owner.access_token);
+    let (mut owner_ws, _) = connect_async(url).await.unwrap();
+    let typing = json!({"type": "chat.typing", "channel_id": channel_id});
+    owner_ws
+        .send(Message::Text(typing.to_string().into()))
+        .await
+        .unwrap();
+
+    let evt = next_event_matching(&mut watcher_ws, |v| v["type"] == "chat.user.typing")
+        .await
+        .expect("chat.user.typing");
+    assert_eq!(evt["payload"]["channel_id"], channel_id.to_string());
+    assert_eq!(evt["payload"]["user_id"], owner.id.to_string());
+    let _ = owner_ws.close(None).await;
+    let _ = watcher_ws.close(None).await;
 }
 
 #[tokio::test]

@@ -1,7 +1,9 @@
 use crate::middleware::auth::Claims;
+use crate::realtime::broadcast::publish_channel_event;
 use crate::realtime::events::{ClientMessage, ServerAck};
 use crate::realtime::hub::{ClientHandle, ConnId};
 use crate::realtime::{Hub, RoomKey};
+use crate::services::chat::helpers::{fetch_active_channel, require_channel_access};
 use crate::services::team::helpers::require_team_role;
 use crate::state::AppState;
 use axum::extract::ws::{CloseFrame, Message, WebSocket, WebSocketUpgrade};
@@ -169,6 +171,29 @@ async fn handle_client_message(text: &str, conn_id: ConnId, user_id: Uuid, state
             }
             send_ack(&state.hub, conn_id, ServerAck::Unsubscribed { rooms: keys });
         }
+        ClientMessage::ChatTyping { channel_id } => {
+            // Re-broadcast as chat.user.typing only if the user can access the
+            // channel. Don't echo back to the typing user.
+            let channel = match fetch_active_channel(&state.db, channel_id).await {
+                Ok(c) => c,
+                Err(_) => return,
+            };
+            if require_channel_access(&state.db, &channel, user_id)
+                .await
+                .is_err()
+            {
+                return;
+            }
+            publish_channel_event(
+                &state.hub,
+                channel_id,
+                "chat.user.typing",
+                &serde_json::json!({
+                    "channel_id": channel_id,
+                    "user_id": user_id,
+                }),
+            );
+        }
         ClientMessage::Auth { .. } => { /* already authenticated */ }
     }
 }
@@ -206,9 +231,14 @@ async fn resolve_and_authorize(
                 .map_err(|_| "forbidden".to_string())?;
             Ok(key)
         }
-        RoomKey::Channel(_) => {
-            // Channels arrive in a later phase; reject for now.
-            Err("channel rooms not yet supported".to_string())
+        RoomKey::Channel(channel_id) => {
+            let channel = fetch_active_channel(pool, channel_id)
+                .await
+                .map_err(|_| "channel not found".to_string())?;
+            require_channel_access(pool, &channel, user_id)
+                .await
+                .map_err(|_| "forbidden".to_string())?;
+            Ok(key)
         }
     }
 }

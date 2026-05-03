@@ -123,6 +123,10 @@ class RealtimeClient {
 		}, delay);
 	}
 
+	send(message: unknown): void {
+		this.#send(message);
+	}
+
 	#sendSubscribe(rooms: string[]): void {
 		this.#send({ type: 'ws.subscribe', rooms });
 	}
