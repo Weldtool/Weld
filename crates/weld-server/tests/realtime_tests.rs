@@ -357,6 +357,109 @@ async fn chat_typing_rebroadcasts_as_user_typing() {
 }
 
 #[tokio::test]
+async fn ws_subscribe_with_since_replays_missed_messages() {
+    let addr = spawn_server().await;
+    let client = reqwest::Client::builder().build().unwrap();
+    let user = register_login(&client, addr).await;
+    let team_id = create_team(&client, addr, &user).await;
+    let channel_id = create_channel(&client, addr, &user, team_id, "general").await;
+
+    // Post one message *before* connecting — must NOT be replayed.
+    let (status, before_msg) = http_post(
+        &client,
+        addr,
+        &format!("/api/v1/channels/{channel_id}/messages"),
+        Some(&user.access_token),
+        json!({"content": "before cursor"}),
+    )
+    .await;
+    assert!(status.is_success());
+    let cursor = before_msg["created_at"].as_str().unwrap().to_string();
+
+    // Post a second message *after* the cursor — must be replayed on subscribe.
+    let (status, _) = http_post(
+        &client,
+        addr,
+        &format!("/api/v1/channels/{channel_id}/messages"),
+        Some(&user.access_token),
+        json!({"content": "after cursor"}),
+    )
+    .await;
+    assert!(status.is_success());
+
+    // Now connect with `since = cursor` and expect the second message replayed.
+    let url = format!("ws://{addr}/api/v1/ws?token={}", user.access_token);
+    let (mut ws, _) = connect_async(url).await.unwrap();
+    let sub = json!({
+        "type": "ws.subscribe",
+        "rooms": [format!("channel:{channel_id}")],
+        "since": cursor,
+    });
+    ws.send(Message::Text(sub.to_string().into()))
+        .await
+        .unwrap();
+
+    let evt = next_event_matching(&mut ws, |v| {
+        v["type"] == "chat.message.new" && v["payload"]["content"] == "after cursor"
+    })
+    .await
+    .expect("backfilled chat.message.new");
+    assert_eq!(evt["room"], format!("channel:{channel_id}"));
+
+    // The before-cursor message must not be replayed.
+    let stray = next_event_matching(&mut ws, |v| {
+        v["type"] == "chat.message.new" && v["payload"]["content"] == "before cursor"
+    })
+    .await;
+    assert!(stray.is_none(), "messages older than cursor leaked through");
+
+    let _ = ws.close(None).await;
+}
+
+#[tokio::test]
+async fn ws_connect_broadcasts_presence_online_to_team() {
+    let addr = spawn_server().await;
+    let client = reqwest::Client::builder().build().unwrap();
+    let owner = register_login(&client, addr).await;
+    let watcher = register_login(&client, addr).await;
+    let team_id = create_team(&client, addr, &owner).await;
+    let (status, _) = http_post(
+        &client,
+        addr,
+        &format!("/api/v1/teams/{team_id}/members"),
+        Some(&owner.access_token),
+        json!({"user_id": watcher.id, "role": "member"}),
+    )
+    .await;
+    assert!(status.is_success());
+
+    // Watcher connects first and subscribes to the team room.
+    let url = format!("ws://{addr}/api/v1/ws?token={}", watcher.access_token);
+    let (mut watcher_ws, _) = connect_async(url).await.unwrap();
+    let sub = json!({"type": "ws.subscribe", "rooms": [format!("team:{team_id}")]});
+    watcher_ws
+        .send(Message::Text(sub.to_string().into()))
+        .await
+        .unwrap();
+    let _ack = next_event_matching(&mut watcher_ws, |v| v["type"] == "ws.subscribed")
+        .await
+        .expect("subscribed ack");
+
+    // Owner connects → triggers presence.online to the team room.
+    let url = format!("ws://{addr}/api/v1/ws?token={}", owner.access_token);
+    let (mut owner_ws, _) = connect_async(url).await.unwrap();
+
+    let evt = next_event_matching(&mut watcher_ws, |v| v["type"] == "presence.online")
+        .await
+        .expect("presence.online");
+    assert_eq!(evt["room"], format!("team:{team_id}"));
+    assert_eq!(evt["payload"]["user_id"], owner.id.to_string());
+
+    let _ = owner_ws.close(None).await;
+    let _ = watcher_ws.close(None).await;
+}
+
+#[tokio::test]
 async fn ws_subscribe_to_unauthorized_project_is_rejected() {
     let addr = spawn_server().await;
     let client = reqwest::Client::builder().build().unwrap();

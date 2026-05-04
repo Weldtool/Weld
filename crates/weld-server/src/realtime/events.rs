@@ -53,7 +53,14 @@ pub enum ClientMessage {
     #[serde(rename = "auth")]
     Auth { token: String },
     #[serde(rename = "ws.subscribe")]
-    Subscribe { rooms: Vec<String> },
+    Subscribe {
+        rooms: Vec<String>,
+        /// If set, server replays missed events newer than this timestamp to
+        /// the subscribing connection only. Currently only `chat.message.new`
+        /// for `channel:<uuid>` rooms is backfilled.
+        #[serde(default)]
+        since: Option<DateTime<Utc>>,
+    },
     #[serde(rename = "ws.unsubscribe")]
     Unsubscribe { rooms: Vec<String> },
     /// Ephemeral typing indicator. Server re-broadcasts as

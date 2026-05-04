@@ -1,21 +1,30 @@
 use crate::middleware::auth::Claims;
-use crate::realtime::broadcast::publish_channel_event;
-use crate::realtime::events::{ClientMessage, ServerAck};
+use crate::realtime::Hub;
+use crate::realtime::broadcast::{publish_channel_event, publish_team_event};
+use crate::realtime::events::{ClientMessage, Envelope, RoomKey, ServerAck};
 use crate::realtime::hub::{ClientHandle, ConnId};
-use crate::realtime::{Hub, RoomKey};
+use crate::routes::chat::MessageResponse;
 use crate::services::chat::helpers::{fetch_active_channel, require_channel_access};
 use crate::services::team::helpers::require_team_role;
 use crate::state::AppState;
 use axum::extract::ws::{CloseFrame, Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Query, State};
 use axum::response::Response;
+use chrono::{DateTime, Utc};
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
 use sqlx::PgPool;
 use std::str::FromStr;
+use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 use weld_core::models::enums::TeamRole;
+use weld_core::models::message::ChatMessage;
+
+/// Grace period before broadcasting `presence.offline` after a user's last
+/// connection drops. Bridges brief network blips and page reloads.
+const PRESENCE_OFFLINE_GRACE: Duration = Duration::from_secs(5);
 
 #[derive(Deserialize)]
 pub struct WsQuery {
@@ -51,10 +60,14 @@ async fn handle_socket(socket: WebSocket, state: AppState, initial_token: Option
     };
 
     let (tx, mut rx) = mpsc::unbounded_channel::<String>();
-    let conn_id = state.hub.register(ClientHandle {
+    let (conn_id, was_first) = state.hub.register(ClientHandle {
         user_id,
         sender: tx,
     });
+
+    if was_first {
+        broadcast_presence(&state, user_id, "presence.online").await;
+    }
 
     // Pump outbound messages from the hub channel to the socket.
     let writer = tokio::spawn(async move {
@@ -78,8 +91,42 @@ async fn handle_socket(socket: WebSocket, state: AppState, initial_token: Option
         }
     }
 
-    state.hub.unregister(conn_id);
+    let became_empty = state.hub.unregister(conn_id);
     writer.abort();
+
+    if became_empty.is_some() {
+        let state_clone = state.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(PRESENCE_OFFLINE_GRACE).await;
+            // If the user reconnected during the grace window, suppress the
+            // offline event — they're still online.
+            if !state_clone.hub.user_is_online(user_id) {
+                broadcast_presence(&state_clone, user_id, "presence.offline").await;
+            }
+        });
+    }
+}
+
+/// Fetch every team the user belongs to and broadcast a presence event to
+/// each `team:<uuid>` room. Used for both online and offline transitions.
+async fn broadcast_presence(state: &AppState, user_id: Uuid, event_type: &'static str) {
+    let teams: Vec<Uuid> = match sqlx::query_scalar!(
+        "SELECT team_id FROM team_memberships WHERE user_id = $1",
+        user_id
+    )
+    .fetch_all(&state.db)
+    .await
+    {
+        Ok(rows) => rows,
+        Err(err) => {
+            tracing::warn!(?err, %user_id, "presence team lookup failed");
+            return;
+        }
+    };
+    let payload = serde_json::json!({ "user_id": user_id });
+    for team_id in teams {
+        publish_team_event(&state.hub, team_id, event_type, &payload);
+    }
 }
 
 async fn resolve_user_id(
@@ -135,13 +182,15 @@ async fn handle_client_message(text: &str, conn_id: ConnId, user_id: Uuid, state
         }
     };
     match parsed {
-        ClientMessage::Subscribe { rooms } => {
+        ClientMessage::Subscribe { rooms, since } => {
             let mut accepted = Vec::with_capacity(rooms.len());
+            let mut accepted_keys = Vec::with_capacity(rooms.len());
             for room in rooms {
                 match resolve_and_authorize(&state.db, &room, user_id).await {
                     Ok(key) => {
                         state.hub.subscribe(conn_id, key);
                         accepted.push(room);
+                        accepted_keys.push(key);
                     }
                     Err(msg) => send_ack(
                         &state.hub,
@@ -159,6 +208,15 @@ async fn handle_client_message(text: &str, conn_id: ConnId, user_id: Uuid, state
                     conn_id,
                     ServerAck::Subscribed { rooms: accepted },
                 );
+            }
+            // After ack: replay any messages newer than `since` to this
+            // connection only. Skipped for non-channel rooms.
+            if let Some(since) = since {
+                for key in accepted_keys {
+                    if let RoomKey::Channel(channel_id) = key {
+                        backfill_channel(&state.db, &state.hub, conn_id, channel_id, since).await;
+                    }
+                }
             }
         }
         ClientMessage::Unsubscribe { rooms } => {
@@ -201,6 +259,55 @@ async fn handle_client_message(text: &str, conn_id: ConnId, user_id: Uuid, state
 fn send_ack(hub: &Hub, conn_id: ConnId, ack: ServerAck) {
     if let Ok(payload) = serde_json::to_string(&ack) {
         hub.send_to(conn_id, payload);
+    }
+}
+
+/// Replay messages in `channel_id` newer than `since` directly to `conn_id`
+/// as `chat.message.new` envelopes. Capped to avoid pathological backfills.
+async fn backfill_channel(
+    pool: &PgPool,
+    hub: &Arc<Hub>,
+    conn_id: ConnId,
+    channel_id: Uuid,
+    since: DateTime<Utc>,
+) {
+    const BACKFILL_MAX: i64 = 200;
+    let rows = match sqlx::query_as!(
+        ChatMessage,
+        r#"
+        SELECT id, channel_id, sender_id, content, thread_parent_id,
+               mentions as "mentions!: Vec<Uuid>",
+               edited_at, deleted_at, created_at
+        FROM messages
+        WHERE channel_id = $1
+          AND deleted_at IS NULL
+          AND created_at > $2
+        ORDER BY created_at ASC
+        LIMIT $3
+        "#,
+        channel_id,
+        since,
+        BACKFILL_MAX,
+    )
+    .fetch_all(pool)
+    .await
+    {
+        Ok(r) => r,
+        Err(err) => {
+            tracing::warn!(?err, %channel_id, "backfill query failed");
+            return;
+        }
+    };
+    for msg in rows {
+        let resp: MessageResponse = msg.into();
+        let payload = match serde_json::to_value(&resp) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        let envelope = Envelope::new("chat.message.new", RoomKey::Channel(channel_id), payload);
+        if let Ok(text) = serde_json::to_string(&envelope) {
+            hub.send_to(conn_id, text);
+        }
     }
 }
 

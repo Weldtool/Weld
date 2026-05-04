@@ -4,6 +4,16 @@ use serde::Serialize;
 use std::sync::Arc;
 use uuid::Uuid;
 
+/// Serialize `payload` and broadcast to the team room.
+pub fn publish_team_event<T: Serialize>(
+    hub: &Arc<Hub>,
+    team_id: Uuid,
+    event_type: &'static str,
+    payload: &T,
+) {
+    publish(hub, RoomKey::Team(team_id), event_type, payload);
+}
+
 /// Serialize `payload` and broadcast it to the project room. Failures are
 /// logged and dropped — a board mutation must not be rolled back because the
 /// realtime layer hiccupped.

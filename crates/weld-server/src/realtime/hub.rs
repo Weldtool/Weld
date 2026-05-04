@@ -22,6 +22,8 @@ struct HubInner {
     /// Reverse index: rooms each connection has joined, used so that
     /// `unregister` can clean up without scanning every room.
     conn_rooms: HashMap<ConnId, HashSet<RoomKey>>,
+    /// Connections per user — drives presence transitions.
+    user_conns: HashMap<Uuid, HashSet<ConnId>>,
 }
 
 /// Single-process in-memory connection registry. Cloned across handlers via
@@ -46,16 +48,25 @@ impl Hub {
         }
     }
 
-    pub fn register(&self, handle: ClientHandle) -> ConnId {
+    /// Register a new connection. Returns `(conn_id, was_first_for_user)`
+    /// where the bool is true iff this is the only live connection for
+    /// `handle.user_id` — callers use that to drive `presence.online`.
+    pub fn register(&self, handle: ClientHandle) -> (ConnId, bool) {
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
+        let user_id = handle.user_id;
         let mut inner = self.inner.lock().unwrap();
         inner.conns.insert(id, handle);
-        id
+        let entry = inner.user_conns.entry(user_id).or_default();
+        let was_first = entry.is_empty();
+        entry.insert(id);
+        (id, was_first)
     }
 
-    pub fn unregister(&self, conn_id: ConnId) {
+    /// Tear down a connection. Returns `Some(user_id)` iff that user has no
+    /// remaining live connections (caller can then schedule `presence.offline`).
+    pub fn unregister(&self, conn_id: ConnId) -> Option<Uuid> {
         let mut inner = self.inner.lock().unwrap();
-        inner.conns.remove(&conn_id);
+        let user_id = inner.conns.remove(&conn_id).map(|h| h.user_id);
         if let Some(rooms) = inner.conn_rooms.remove(&conn_id) {
             for room in rooms {
                 if let Some(set) = inner.rooms.get_mut(&room) {
@@ -66,6 +77,29 @@ impl Hub {
                 }
             }
         }
+        let user_id = user_id?;
+        let now_empty = if let Some(set) = inner.user_conns.get_mut(&user_id) {
+            set.remove(&conn_id);
+            set.is_empty()
+        } else {
+            false
+        };
+        if now_empty {
+            inner.user_conns.remove(&user_id);
+            Some(user_id)
+        } else {
+            None
+        }
+    }
+
+    /// Is the user currently connected (>=1 live socket)?
+    pub fn user_is_online(&self, user_id: Uuid) -> bool {
+        let inner = self.inner.lock().unwrap();
+        inner
+            .user_conns
+            .get(&user_id)
+            .map(|s| !s.is_empty())
+            .unwrap_or(false)
     }
 
     pub fn subscribe(&self, conn_id: ConnId, room: RoomKey) {
@@ -168,8 +202,8 @@ mod tests {
 
         let (h1, mut rx1) = make_handle();
         let (h2, mut rx2) = make_handle();
-        let c1 = hub.register(h1);
-        let c2 = hub.register(h2);
+        let (c1, _) = hub.register(h1);
+        let (c2, _) = hub.register(h2);
 
         hub.subscribe(c1, project);
         hub.subscribe(c2, other);
@@ -186,7 +220,7 @@ mod tests {
         let hub = Hub::new();
         let project = RoomKey::Project(Uuid::new_v4());
         let (h, mut rx) = make_handle();
-        let c = hub.register(h);
+        let (c, _) = hub.register(h);
         hub.subscribe(c, project);
         hub.unsubscribe(c, project);
 
@@ -200,7 +234,7 @@ mod tests {
         let hub = Hub::new();
         let project = RoomKey::Project(Uuid::new_v4());
         let (h, _rx) = make_handle();
-        let c = hub.register(h);
+        let (c, _) = hub.register(h);
         hub.subscribe(c, project);
         assert_eq!(hub.room_size(&project), 1);
         hub.unregister(c);
@@ -214,8 +248,8 @@ mod tests {
         let project = RoomKey::Project(Uuid::new_v4());
         let (h1, mut rx1) = make_handle();
         let (h2, mut rx2) = make_handle();
-        let c1 = hub.register(h1);
-        let c2 = hub.register(h2);
+        let (c1, _) = hub.register(h1);
+        let (c2, _) = hub.register(h2);
         hub.subscribe(c1, project);
         hub.subscribe(c2, project);
 

@@ -37,6 +37,8 @@ class RealtimeClient {
 	#desiredOpen = false;
 	#rooms = new Set<string>();
 	#handlers = new Map<string, Set<Handler>>();
+	/** room → ISO timestamp of last event seen; replayed via `since` on reconnect */
+	#cursors = new Map<string, string>();
 	#reconnectDelay = RECONNECT_INITIAL_MS;
 	#reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -51,6 +53,7 @@ class RealtimeClient {
 		this.#desiredOpen = false;
 		this.#token = null;
 		this.#rooms.clear();
+		this.#cursors.clear();
 		if (this.#reconnectTimer) {
 			clearTimeout(this.#reconnectTimer);
 			this.#reconnectTimer = null;
@@ -67,7 +70,19 @@ class RealtimeClient {
 
 	leave(room: string): void {
 		if (!this.#rooms.delete(room)) return;
+		this.#cursors.delete(room);
 		this.#send({ type: 'ws.unsubscribe', rooms: [room] });
+	}
+
+	/**
+	 * Record the latest event timestamp seen for `room`. On reconnect the
+	 * server uses this value as the `since` cursor to replay anything we
+	 * missed while disconnected.
+	 */
+	setCursor(room: string, isoTimestamp: string): void {
+		const prev = this.#cursors.get(room);
+		if (prev && prev >= isoTimestamp) return;
+		this.#cursors.set(room, isoTimestamp);
 	}
 
 	on(eventType: string, handler: Handler): () => void {
@@ -93,7 +108,7 @@ class RealtimeClient {
 		this.#socket = ws;
 		ws.addEventListener('open', () => {
 			this.#reconnectDelay = RECONNECT_INITIAL_MS;
-			if (this.#rooms.size > 0) this.#sendSubscribe([...this.#rooms]);
+			this.#resubscribeAll();
 		});
 		ws.addEventListener('message', (ev) => {
 			try {
@@ -129,6 +144,24 @@ class RealtimeClient {
 
 	#sendSubscribe(rooms: string[]): void {
 		this.#send({ type: 'ws.subscribe', rooms });
+	}
+
+	/**
+	 * Resubscribe to every desired room after (re)connect. Rooms with a
+	 * recorded cursor are sent individually with `since` so the server can
+	 * replay missed events to this connection only.
+	 */
+	#resubscribeAll(): void {
+		const fresh: string[] = [];
+		for (const room of this.#rooms) {
+			const since = this.#cursors.get(room);
+			if (since) {
+				this.#send({ type: 'ws.subscribe', rooms: [room], since });
+			} else {
+				fresh.push(room);
+			}
+		}
+		if (fresh.length > 0) this.#sendSubscribe(fresh);
 	}
 
 	#send(message: unknown): void {

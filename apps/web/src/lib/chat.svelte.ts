@@ -134,6 +134,8 @@ class ChatStore {
 					loadedAll: page.next_before === null
 				}
 			};
+			const newest = dedup[dedup.length - 1];
+			if (newest) realtime.setCursor(`channel:${channelId}`, newest.created_at);
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : 'Failed to load messages.';
 		}
@@ -163,6 +165,7 @@ class ChatStore {
 	#onMessageNew(envelope: RealtimeEnvelope): void {
 		const msg = envelope.payload as unknown as ChatMessage;
 		this.#applyMessageUpsert(msg);
+		realtime.setCursor(`channel:${msg.channel_id}`, msg.created_at);
 		if (msg.channel_id !== this.activeChannelId) {
 			this.unreadByChannel = {
 				...this.unreadByChannel,
