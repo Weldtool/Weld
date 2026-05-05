@@ -1,36 +1,82 @@
-import { channels as channelsApi, messages as messagesApi } from '$lib/api';
-import type { Channel, ChatMessage } from '$lib/api/types';
+import { channels as channelsApi, messages as messagesApi, teams as teamsApi } from '$lib/api';
+import type { Channel, ChatMessage, TeamMember } from '$lib/api/types';
+import { auth } from '$lib/auth.svelte';
 import { realtime, type RealtimeEnvelope } from '$lib/realtime.svelte';
 
 const TYPING_TTL_MS = 3_000;
 const TYPING_EMIT_INTERVAL_MS = 2_000;
 
+/** A message that has been optimistically appended but not yet ack'd by the
+ * server. Reconciled (or rolled back) when the POST resolves. */
+export type PendingMessage = ChatMessage & {
+	pending: true;
+	failed?: boolean;
+	clientId: string;
+};
+
+type AnyMessage = ChatMessage | PendingMessage;
+
 type ChannelMessages = {
-	messages: ChatMessage[];
+	messages: AnyMessage[];
 	nextBefore: string | null;
 	loadedAll: boolean;
 };
 
+type ThreadState = {
+	parent: ChatMessage | null;
+	replies: AnyMessage[];
+	loading: boolean;
+	error: string | null;
+};
+
 class ChatStore {
 	channels = $state<Channel[]>([]);
+	members = $state<TeamMember[]>([]);
 	messagesByChannel = $state<Record<string, ChannelMessages>>({});
 	/** channelId -> userId -> last seen typing timestamp (ms) */
 	typingByChannel = $state<Record<string, Record<string, number>>>({});
 	/** channelId -> count of unread messages since the active channel changed */
 	unreadByChannel = $state<Record<string, number>>({});
 	activeChannelId = $state<string | null>(null);
+	activeTeamId = $state<string | null>(null);
+	threadByParent = $state<Record<string, ThreadState>>({});
 	error = $state<string | null>(null);
 
 	#unsubs: Array<() => void> = [];
 	#joinedRooms = new Set<string>();
 	#typingTimer: ReturnType<typeof setInterval> | null = null;
 	#lastTypingEmitAt = 0;
+	#mentionListener: ((msg: ChatMessage) => void) | null = null;
 
-	async loadChannelsForTeam(teamId: string): Promise<void> {
+	async loadForTeam(teamId: string): Promise<void> {
+		if (this.activeTeamId === teamId && this.channels.length > 0) return;
+		this.activeTeamId = teamId;
 		try {
-			this.channels = await channelsApi.listForTeam(teamId);
+			const [chans, members] = await Promise.all([
+				channelsApi.listForTeam(teamId),
+				teamsApi.listMembers(teamId)
+			]);
+			this.channels = chans;
+			this.members = members;
 		} catch (err) {
-			this.error = err instanceof Error ? err.message : 'Failed to load channels.';
+			this.error = err instanceof Error ? err.message : 'Failed to load chat data.';
+		}
+	}
+
+	async createChannel(input: {
+		name: string;
+		topic?: string;
+		project_id?: string;
+		is_private?: boolean;
+	}): Promise<Channel | null> {
+		if (!this.activeTeamId) return null;
+		try {
+			const created = await channelsApi.create(this.activeTeamId, input);
+			this.channels = [...this.channels, created];
+			return created;
+		} catch (err) {
+			this.error = err instanceof Error ? err.message : 'Failed to create channel.';
+			return null;
 		}
 	}
 
@@ -42,9 +88,7 @@ class ChatStore {
 		}
 		this.#joinChannelRoom(channelId);
 		this.#ensureRealtimeWired();
-		void channelsApi.markRead(channelId).catch(() => {
-			// nice-to-have; don't block UI
-		});
+		void channelsApi.markRead(channelId).catch(() => {});
 	}
 
 	async loadOlder(channelId: string): Promise<void> {
@@ -53,22 +97,83 @@ class ChatStore {
 		await this.#fetchPage(channelId, cur.nextBefore);
 	}
 
+	/**
+	 * Optimistically append a message, POST it, and reconcile (or roll back).
+	 * Returns the server-confirmed message, or null on failure (the pending
+	 * entry is left in place with `failed: true` so the UI can offer Retry).
+	 */
 	async sendMessage(
 		channelId: string,
 		content: string,
 		threadParentId?: string
 	): Promise<ChatMessage | null> {
+		const trimmed = content.trim();
+		if (!trimmed) return null;
+
+		const clientId = `pending-${crypto.randomUUID()}`;
+		const pending: PendingMessage = {
+			id: clientId,
+			clientId,
+			channel_id: channelId,
+			sender_id: this.#selfSenderId(),
+			content: trimmed,
+			thread_parent_id: threadParentId ?? null,
+			mentions: [],
+			edited_at: null,
+			created_at: new Date().toISOString(),
+			pending: true
+		};
+		this.#applyMessageUpsert(pending);
+		if (threadParentId) this.#applyThreadUpsert(threadParentId, pending);
+
 		try {
-			const msg = await messagesApi.post(channelId, {
-				content,
+			const confirmed = await messagesApi.post(channelId, {
+				content: trimmed,
 				thread_parent_id: threadParentId
 			});
-			this.#applyMessageUpsert(msg);
-			return msg;
+			this.#replacePending(channelId, clientId, confirmed);
+			if (threadParentId) this.#replaceThreadPending(threadParentId, clientId, confirmed);
+			return confirmed;
 		} catch (err) {
+			this.#markPendingFailed(channelId, clientId);
+			if (threadParentId) this.#markThreadPendingFailed(threadParentId, clientId);
 			this.error = err instanceof Error ? err.message : 'Failed to send message.';
 			return null;
 		}
+	}
+
+	async retryPending(channelId: string, clientId: string): Promise<void> {
+		const cur = this.messagesByChannel[channelId];
+		const pending = cur?.messages.find(
+			(m): m is PendingMessage => isPending(m) && m.clientId === clientId
+		);
+		if (!pending) return;
+		// Drop the failed marker so UI shows "sending" again.
+		this.#updatePending(channelId, clientId, (p) => ({ ...p, failed: false }));
+		try {
+			const confirmed = await messagesApi.post(channelId, {
+				content: pending.content,
+				thread_parent_id: pending.thread_parent_id ?? undefined
+			});
+			this.#replacePending(channelId, clientId, confirmed);
+			if (pending.thread_parent_id)
+				this.#replaceThreadPending(pending.thread_parent_id, clientId, confirmed);
+		} catch (err) {
+			this.#markPendingFailed(channelId, clientId);
+			this.error = err instanceof Error ? err.message : 'Failed to send message.';
+		}
+	}
+
+	discardPending(channelId: string, clientId: string): void {
+		const cur = this.messagesByChannel[channelId];
+		if (!cur) return;
+		this.messagesByChannel = {
+			...this.messagesByChannel,
+			[channelId]: {
+				...cur,
+				messages: cur.messages.filter((m) => !(isPending(m) && m.clientId === clientId))
+			}
+		};
 	}
 
 	async editMessage(messageId: string, content: string): Promise<void> {
@@ -79,6 +184,56 @@ class ChatStore {
 	async deleteMessage(messageId: string, channelId: string): Promise<void> {
 		await messagesApi.delete(messageId);
 		this.#applyMessageDelete(channelId, messageId);
+	}
+
+	async openThread(parentId: string): Promise<void> {
+		const existing = this.threadByParent[parentId];
+		if (existing && existing.parent && !existing.loading) return;
+		this.threadByParent = {
+			...this.threadByParent,
+			[parentId]: {
+				parent: existing?.parent ?? null,
+				replies: existing?.replies ?? [],
+				loading: true,
+				error: null
+			}
+		};
+		try {
+			const view = await messagesApi.thread(parentId);
+			this.threadByParent = {
+				...this.threadByParent,
+				[parentId]: { parent: view.parent, replies: view.replies, loading: false, error: null }
+			};
+		} catch (err) {
+			this.threadByParent = {
+				...this.threadByParent,
+				[parentId]: {
+					parent: existing?.parent ?? null,
+					replies: existing?.replies ?? [],
+					loading: false,
+					error: err instanceof Error ? err.message : 'Failed to load thread.'
+				}
+			};
+		}
+	}
+
+	closeThread(parentId: string): void {
+		const next = { ...this.threadByParent };
+		delete next[parentId];
+		this.threadByParent = next;
+	}
+
+	/** Number of replies a parent message has, considering both loaded thread
+	 * state and any thread replies present in the channel cache. */
+	threadReplyCount(parentId: string): number {
+		const thread = this.threadByParent[parentId];
+		if (thread?.replies) return thread.replies.length;
+		// Fallback: count any cached thread children we've seen via realtime.
+		let count = 0;
+		for (const ch of Object.values(this.messagesByChannel)) {
+			for (const m of ch.messages) if (m.thread_parent_id === parentId) count++;
+		}
+		return count;
 	}
 
 	emitTyping(channelId: string): void {
@@ -97,6 +252,22 @@ class ChatStore {
 			.map(([uid]) => uid);
 	}
 
+	memberById(id: string | null | undefined): TeamMember | null {
+		if (!id) return null;
+		return this.members.find((m) => m.user_id === id) ?? null;
+	}
+
+	/** Subscribe to mention notifications. Fires for every incoming message
+	 * whose `mentions` array includes `selfId`. The caller passes `selfId`. */
+	onMention(selfId: string, handler: (msg: ChatMessage) => void): () => void {
+		this.#mentionListener = (msg: ChatMessage) => {
+			if (msg.mentions.includes(selfId)) handler(msg);
+		};
+		return () => {
+			this.#mentionListener = null;
+		};
+	}
+
 	reset(): void {
 		for (const unsub of this.#unsubs) unsub();
 		this.#unsubs = [];
@@ -107,11 +278,18 @@ class ChatStore {
 			this.#typingTimer = null;
 		}
 		this.channels = [];
+		this.members = [];
 		this.messagesByChannel = {};
 		this.typingByChannel = {};
 		this.unreadByChannel = {};
+		this.threadByParent = {};
 		this.activeChannelId = null;
+		this.activeTeamId = null;
 		this.error = null;
+	}
+
+	#selfSenderId(): string {
+		return auth.user?.id ?? '';
 	}
 
 	async #fetchPage(channelId: string, before: string | undefined): Promise<void> {
@@ -122,10 +300,9 @@ class ChatStore {
 				nextBefore: null,
 				loadedAll: false
 			};
-			// Server returns newest first; merge into ascending order.
-			const incoming = [...page.messages].reverse();
+			const incoming = [...page.messages].reverse(); // newest-first → ascending
 			const merged = before ? [...incoming, ...cur.messages] : [...cur.messages, ...incoming];
-			const dedup = dedupById(merged);
+			const dedup = dedupAndSort(merged);
 			this.messagesByChannel = {
 				...this.messagesByChannel,
 				[channelId]: {
@@ -135,7 +312,8 @@ class ChatStore {
 				}
 			};
 			const newest = dedup[dedup.length - 1];
-			if (newest) realtime.setCursor(`channel:${channelId}`, newest.created_at);
+			if (newest && !isPending(newest))
+				realtime.setCursor(`channel:${channelId}`, newest.created_at);
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : 'Failed to load messages.';
 		}
@@ -156,15 +334,19 @@ class ChatStore {
 			realtime.on('chat.message.deleted', (e) => this.#onMessageDeleted(e)),
 			realtime.on('chat.user.typing', (e) => this.#onUserTyping(e))
 		];
-		// Periodically prune expired typing entries so UI updates without an event.
-		this.#typingTimer = setInterval(() => {
-			this.#pruneExpiredTyping();
-		}, 1_000);
+		this.#typingTimer = setInterval(() => this.#pruneExpiredTyping(), 1_000);
 	}
 
 	#onMessageNew(envelope: RealtimeEnvelope): void {
-		const msg = envelope.payload as unknown as ChatMessage;
+		this.handleIncoming(envelope.payload as unknown as ChatMessage);
+	}
+
+	/** Public for tests; also invoked from the realtime subscription. Applies
+	 * an inbound message to the channel cache, bumps unread for inactive
+	 * channels, advances the realtime cursor, and notifies mention listeners. */
+	handleIncoming(msg: ChatMessage): void {
 		this.#applyMessageUpsert(msg);
+		if (msg.thread_parent_id) this.#applyThreadUpsert(msg.thread_parent_id, msg);
 		realtime.setCursor(`channel:${msg.channel_id}`, msg.created_at);
 		if (msg.channel_id !== this.activeChannelId) {
 			this.unreadByChannel = {
@@ -172,18 +354,22 @@ class ChatStore {
 				[msg.channel_id]: (this.unreadByChannel[msg.channel_id] ?? 0) + 1
 			};
 		}
+		this.#mentionListener?.(msg);
 	}
 
 	#onMessageEdited(envelope: RealtimeEnvelope): void {
 		const msg = envelope.payload as unknown as ChatMessage;
 		this.#applyMessageUpsert(msg);
+		if (msg.thread_parent_id) this.#applyThreadUpsert(msg.thread_parent_id, msg);
 	}
 
 	#onMessageDeleted(envelope: RealtimeEnvelope): void {
 		const id = envelope.payload.id as string | undefined;
 		const channelId = envelope.payload.channel_id as string | undefined;
+		const parentId = envelope.payload.thread_parent_id as string | undefined;
 		if (!id || !channelId) return;
 		this.#applyMessageDelete(channelId, id);
+		if (parentId) this.#removeFromThread(parentId, id);
 	}
 
 	#onUserTyping(envelope: RealtimeEnvelope): void {
@@ -212,7 +398,7 @@ class ChatStore {
 		if (mutated) this.typingByChannel = next;
 	}
 
-	#applyMessageUpsert(msg: ChatMessage): void {
+	#applyMessageUpsert(msg: AnyMessage): void {
 		const cur = this.messagesByChannel[msg.channel_id] ?? {
 			messages: [],
 			nextBefore: null,
@@ -224,7 +410,7 @@ class ChatStore {
 			: [...cur.messages, msg];
 		this.messagesByChannel = {
 			...this.messagesByChannel,
-			[msg.channel_id]: { ...cur, messages: merged }
+			[msg.channel_id]: { ...cur, messages: dedupAndSort(merged) }
 		};
 	}
 
@@ -236,14 +422,99 @@ class ChatStore {
 			[channelId]: { ...cur, messages: cur.messages.filter((m) => m.id !== messageId) }
 		};
 	}
+
+	#replacePending(channelId: string, clientId: string, confirmed: ChatMessage): void {
+		const cur = this.messagesByChannel[channelId];
+		if (!cur) return;
+		const next = cur.messages.map((m) => (isPending(m) && m.clientId === clientId ? confirmed : m));
+		this.messagesByChannel = {
+			...this.messagesByChannel,
+			[channelId]: { ...cur, messages: dedupAndSort(next) }
+		};
+	}
+
+	#markPendingFailed(channelId: string, clientId: string): void {
+		this.#updatePending(channelId, clientId, (p) => ({ ...p, failed: true }));
+	}
+
+	#updatePending(
+		channelId: string,
+		clientId: string,
+		mut: (p: PendingMessage) => PendingMessage
+	): void {
+		const cur = this.messagesByChannel[channelId];
+		if (!cur) return;
+		this.messagesByChannel = {
+			...this.messagesByChannel,
+			[channelId]: {
+				...cur,
+				messages: cur.messages.map((m) => (isPending(m) && m.clientId === clientId ? mut(m) : m))
+			}
+		};
+	}
+
+	#applyThreadUpsert(parentId: string, msg: AnyMessage): void {
+		const cur = this.threadByParent[parentId];
+		if (!cur) return;
+		const exists = cur.replies.some((m) => m.id === msg.id);
+		const replies = exists
+			? cur.replies.map((m) => (m.id === msg.id ? msg : m))
+			: [...cur.replies, msg];
+		this.threadByParent = {
+			...this.threadByParent,
+			[parentId]: { ...cur, replies: dedupAndSort(replies) }
+		};
+	}
+
+	#replaceThreadPending(parentId: string, clientId: string, confirmed: ChatMessage): void {
+		const cur = this.threadByParent[parentId];
+		if (!cur) return;
+		this.threadByParent = {
+			...this.threadByParent,
+			[parentId]: {
+				...cur,
+				replies: dedupAndSort(
+					cur.replies.map((m) => (isPending(m) && m.clientId === clientId ? confirmed : m))
+				)
+			}
+		};
+	}
+
+	#markThreadPendingFailed(parentId: string, clientId: string): void {
+		const cur = this.threadByParent[parentId];
+		if (!cur) return;
+		this.threadByParent = {
+			...this.threadByParent,
+			[parentId]: {
+				...cur,
+				replies: cur.replies.map((m) =>
+					isPending(m) && m.clientId === clientId ? { ...m, failed: true } : m
+				)
+			}
+		};
+	}
+
+	#removeFromThread(parentId: string, messageId: string): void {
+		const cur = this.threadByParent[parentId];
+		if (!cur) return;
+		this.threadByParent = {
+			...this.threadByParent,
+			[parentId]: { ...cur, replies: cur.replies.filter((m) => m.id !== messageId) }
+		};
+	}
 }
 
-function dedupById(list: ChatMessage[]): ChatMessage[] {
-	const seen: Record<string, true> = {};
-	const out: ChatMessage[] = [];
+export function isPending(m: AnyMessage): m is PendingMessage {
+	return (m as PendingMessage).pending === true;
+}
+
+function dedupAndSort(list: AnyMessage[]): AnyMessage[] {
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local, non-reactive
+	const seen = new Set<string>();
+	const out: AnyMessage[] = [];
 	for (const m of list) {
-		if (seen[m.id]) continue;
-		seen[m.id] = true;
+		if (seen.has(m.id)) continue;
+		seen.add(m.id);
 		out.push(m);
 	}
 	return out.sort((a, b) => a.created_at.localeCompare(b.created_at));

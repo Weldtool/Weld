@@ -11,6 +11,11 @@
 	let editing = $state(false);
 	let title = $state('');
 	let submitting = $state(false);
+	let inputEl: HTMLInputElement | null = $state(null);
+
+	$effect(() => {
+		if (editing) inputEl?.focus();
+	});
 
 	function open() {
 		editing = true;
@@ -42,9 +47,9 @@
 {#if editing}
 	<form onsubmit={submit} class="flex flex-col gap-2 rounded-md border border-[var(--border)] p-2">
 		<input
+			bind:this={inputEl}
 			type="text"
 			bind:value={title}
-			autofocus
 			placeholder="Task title"
 			class="rounded border border-[var(--input)] bg-[var(--background)] px-2 py-1 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
 		/>

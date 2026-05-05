@@ -6,6 +6,11 @@
 	let creatingColumn = $state(false);
 	let columnName = $state('');
 	let creatingError = $state<string | null>(null);
+	let columnInputEl: HTMLInputElement | null = $state(null);
+
+	$effect(() => {
+		if (creatingColumn) columnInputEl?.focus();
+	});
 
 	const priorities: Priority[] = ['critical', 'high', 'medium', 'low', 'none'];
 
@@ -71,9 +76,9 @@
 		{#if creatingColumn}
 			<form onsubmit={addColumn} class="flex items-center gap-2">
 				<input
+					bind:this={columnInputEl}
 					type="text"
 					bind:value={columnName}
-					autofocus
 					placeholder="Column name"
 					class="rounded-md border border-[var(--input)] bg-[var(--background)] px-3 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
 				/>

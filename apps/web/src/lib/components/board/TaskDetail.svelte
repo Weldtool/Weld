@@ -28,7 +28,7 @@
 	const role = $derived(projects.team?.role ?? 'viewer');
 	const editable = $derived(task ? canEditTask(task, role, auth.user?.id ?? '') : false);
 
-	const saver = new TaskSaver(taskId);
+	const saver = new TaskSaver(() => taskId);
 
 	// Title is a plain input → mirror the store value while not focused so
 	// incoming WS updates don't clobber typed-but-not-saved text. The Tiptap

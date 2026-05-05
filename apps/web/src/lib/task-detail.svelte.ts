@@ -35,7 +35,7 @@ export class TaskSaver {
 	error = $state<string | null>(null);
 
 	constructor(
-		private taskId: string,
+		private getTaskId: () => string,
 		private debounceMs = 500
 	) {}
 
@@ -62,7 +62,7 @@ export class TaskSaver {
 		this.#pending = {};
 		this.#inflight = true;
 		try {
-			const updated = await tasksApi.update(this.taskId, payload);
+			const updated = await tasksApi.update(this.getTaskId(), payload);
 			boardStore.applyTaskUpdate(updated);
 			this.error = null;
 		} catch (err) {

@@ -14,7 +14,7 @@
 
 	const { column, tasks, labelMap }: Props = $props();
 
-	let items = $state<Task[]>(tasks);
+	let items = $state<Task[]>([]);
 
 	$effect(() => {
 		items = tasks;

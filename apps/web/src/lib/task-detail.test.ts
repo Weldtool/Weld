@@ -75,7 +75,7 @@ describe('TaskSaver debounce', () => {
 		});
 		vi.stubGlobal('fetch', fetchMock);
 
-		const saver = new TaskSaver('t1', 200);
+		const saver = new TaskSaver(() => 't1', 200);
 		saver.queue({ title: 'A' });
 		saver.queue({ title: 'AB' });
 		saver.queue({ title: 'Final' });
@@ -110,7 +110,7 @@ describe('TaskSaver debounce', () => {
 		});
 		vi.stubGlobal('fetch', fetchMock);
 
-		const saver = new TaskSaver('t1', 100);
+		const saver = new TaskSaver(() => 't1', 100);
 		saver.queue({ title: 'first' });
 		await vi.advanceTimersByTimeAsync(100);
 		// First request is in-flight; queue another edit.
@@ -130,7 +130,7 @@ describe('TaskSaver debounce', () => {
 			'fetch',
 			vi.fn(async () => jsonResponse({ status: 500, body: { error: 'nope' } }))
 		);
-		const saver = new TaskSaver('t1', 50);
+		const saver = new TaskSaver(() => 't1', 50);
 		saver.queue({ title: 'x' });
 		await vi.advanceTimersByTimeAsync(50);
 		await Promise.resolve();
