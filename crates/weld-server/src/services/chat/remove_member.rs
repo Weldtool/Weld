@@ -1,4 +1,4 @@
-use super::helpers::fetch_active_channel;
+use super::helpers::{fetch_active_channel, is_channel_member};
 use crate::errors::ApiError;
 use crate::services::team::helpers::require_team_role;
 use sqlx::PgPool;
@@ -15,6 +15,14 @@ pub async fn remove_channel_member(
     // self-removal is allowed; otherwise Admin+ on the team is required
     if caller_id != target_user_id {
         require_team_role(pool, channel.team_id, caller_id, TeamRole::Admin).await?;
+        // For private channels, the caller must additionally be a member
+        // of the channel — team Admins should not be able to manipulate
+        // private channel rosters they were never part of.
+        if channel.is_private && !is_channel_member(pool, channel.id, caller_id).await? {
+            return Err(ApiError::Forbidden(
+                "Only existing members can remove others from a private channel".into(),
+            ));
+        }
     } else {
         require_team_role(pool, channel.team_id, caller_id, TeamRole::Viewer).await?;
     }
