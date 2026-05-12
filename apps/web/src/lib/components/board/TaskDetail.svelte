@@ -279,9 +279,7 @@
 									fill="currentColor"
 									aria-hidden="true"
 								>
-									<path
-										d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"
-									/>
+									<path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
 									<path
 										d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z"
 									/>
@@ -333,7 +331,7 @@
 									type="text"
 									placeholder="owner/repo"
 									bind:value={linkRepo}
-									class="w-full rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--ring)]"
+									class="w-full rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-sm focus:ring-1 focus:ring-[var(--ring)] focus:outline-none"
 								/>
 							</div>
 							<div class="grid grid-cols-2 gap-2">
@@ -347,20 +345,18 @@
 										min="1"
 										placeholder="123"
 										bind:value={linkIssue}
-										class="w-full rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--ring)]"
+										class="w-full rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-sm focus:ring-1 focus:ring-[var(--ring)] focus:outline-none"
 									/>
 								</div>
 								<div class="space-y-1">
-									<label class="text-xs text-[var(--muted-foreground)]" for="gh-pr">
-										PR #
-									</label>
+									<label class="text-xs text-[var(--muted-foreground)]" for="gh-pr"> PR # </label>
 									<input
 										id="gh-pr"
 										type="number"
 										min="1"
 										placeholder="456"
 										bind:value={linkPR}
-										class="w-full rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--ring)]"
+										class="w-full rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-sm focus:ring-1 focus:ring-[var(--ring)] focus:outline-none"
 									/>
 								</div>
 							</div>
