@@ -1,9 +1,12 @@
+use std::sync::Arc;
+
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 use sqlx::PgPool;
 use tracing::Instrument;
 
 use crate::errors::ApiError;
+use crate::realtime::Hub;
 
 use super::{webhook_installation, webhook_issues, webhook_pull_request, webhook_push};
 
@@ -32,9 +35,10 @@ pub fn verify_signature(secret: &str, body: &[u8], signature_header: &str) -> Re
 /// function returns immediately without re-running the handler.  On handler
 /// failure the error text is persisted to `github_webhook_deliveries` before
 /// the error is propagated so that GitHub will retry (5xx response).
-#[tracing::instrument(skip(db, body), fields(delivery_id, event))]
+#[tracing::instrument(skip(db, hub, body), fields(delivery_id, event))]
 pub async fn handle_webhook(
     db: &PgPool,
+    hub: &Arc<Hub>,
     event: &str,
     delivery_id: &str,
     body: &[u8],
@@ -52,7 +56,6 @@ pub async fn handle_webhook(
             tracing::info!("Duplicate delivery — skipping");
             return Ok(());
         }
-        // Previously failed: fall through to retry
     } else {
         sqlx::query!(
             "INSERT INTO github_webhook_deliveries (delivery_id, event) VALUES ($1, $2)",
@@ -80,7 +83,7 @@ pub async fn handle_webhook(
         %repo,
     );
 
-    let result = dispatch(db, event, &payload).instrument(span).await;
+    let result = dispatch(db, hub, event, &payload).instrument(span).await;
 
     match result {
         Ok(()) => {
@@ -106,14 +109,19 @@ pub async fn handle_webhook(
     }
 }
 
-async fn dispatch(db: &PgPool, event: &str, payload: &serde_json::Value) -> Result<(), ApiError> {
+async fn dispatch(
+    db: &PgPool,
+    hub: &Arc<Hub>,
+    event: &str,
+    payload: &serde_json::Value,
+) -> Result<(), ApiError> {
     match event {
         "installation" | "installation_repositories" => {
             webhook_installation::handle(db, event, payload).await
         }
-        "issues" | "issue_comment" => webhook_issues::handle(db, event, payload).await,
+        "issues" | "issue_comment" => webhook_issues::handle(db, hub, event, payload).await,
         "pull_request" | "pull_request_review" => {
-            webhook_pull_request::handle(db, event, payload).await
+            webhook_pull_request::handle(db, hub, event, payload).await
         }
         "push" => webhook_push::handle(db, payload).await,
         _ => {

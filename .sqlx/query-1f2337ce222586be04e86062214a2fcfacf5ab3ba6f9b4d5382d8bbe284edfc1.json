@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        INSERT INTO tasks\n          (project_id, column_id, title, description, assignee_id, reporter_id,\n           priority, position, due_date, estimate_hours)\n        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)\n        RETURNING id, project_id, column_id, title, description,\n                  assignee_id, reporter_id,\n                  priority as \"priority: Priority\",\n                  position, due_date, estimate_hours,\n                  github_issue_id, github_pr_id,\n                  deleted_at, created_at, updated_at\n        ",
+  "query": "\n        INSERT INTO tasks\n          (project_id, column_id, title, description, assignee_id, reporter_id,\n           priority, position, due_date, estimate_hours)\n        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)\n        RETURNING id, project_id, column_id, title, description,\n                  assignee_id, reporter_id,\n                  priority as \"priority: Priority\",\n                  position, due_date, estimate_hours,\n                  short_id, github_issue_id, github_pr_id, github_repo,\n                  deleted_at, created_at, updated_at\n        ",
   "describe": {
     "columns": [
       {
@@ -73,26 +73,36 @@
       },
       {
         "ordinal": 11,
-        "name": "github_issue_id",
+        "name": "short_id",
         "type_info": "Int8"
       },
       {
         "ordinal": 12,
-        "name": "github_pr_id",
+        "name": "github_issue_id",
         "type_info": "Int8"
       },
       {
         "ordinal": 13,
+        "name": "github_pr_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 14,
+        "name": "github_repo",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 15,
         "name": "deleted_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 14,
+        "ordinal": 16,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 15,
+        "ordinal": 17,
         "name": "updated_at",
         "type_info": "Timestamptz"
       }
@@ -136,6 +146,8 @@
       false,
       true,
       true,
+      false,
+      true,
       true,
       true,
       true,
@@ -143,5 +155,5 @@
       false
     ]
   },
-  "hash": "36ac41e0bcf371febe4d5916d797b5d546d83a92fc0b3f3b962acb38e0ff18d9"
+  "hash": "1f2337ce222586be04e86062214a2fcfacf5ab3ba6f9b4d5382d8bbe284edfc1"
 }

@@ -10,6 +10,8 @@ pub struct UpdateProjectInput {
     pub name: Option<String>,
     pub description: Option<Option<String>>,
     pub github_repo: Option<Option<String>>,
+    pub done_column_id: Option<Option<Uuid>>,
+    pub auto_close_on_issue_closed: Option<bool>,
 }
 
 /// Update a project. Caller must be Admin or Owner of the owning team.
@@ -33,7 +35,6 @@ pub async fn update_project(
         .as_ref()
         .map(|n| n.trim().to_string())
         .unwrap_or_else(|| project.name.clone());
-
     let new_description = match &input.description {
         Some(v) => v.clone(),
         None => project.description.clone(),
@@ -42,6 +43,13 @@ pub async fn update_project(
         Some(v) => v.clone(),
         None => project.github_repo.clone(),
     };
+    let new_done_column_id = match input.done_column_id {
+        Some(v) => v,
+        None => project.done_column_id,
+    };
+    let new_auto_close = input
+        .auto_close_on_issue_closed
+        .unwrap_or(project.auto_close_on_issue_closed);
 
     let updated = sqlx::query_as!(
         Project,
@@ -50,14 +58,18 @@ pub async fn update_project(
         SET name = $1,
             description = $2,
             github_repo = $3,
+            done_column_id = $4,
+            auto_close_on_issue_closed = $5,
             updated_at = NOW()
-        WHERE id = $4 AND deleted_at IS NULL
-        RETURNING id, team_id, name, slug, description, github_repo,
-                  created_at, updated_at, deleted_at
+        WHERE id = $6 AND deleted_at IS NULL
+        RETURNING id, team_id, name, slug, description, github_repo, done_column_id,
+                  auto_close_on_issue_closed, created_at, updated_at, deleted_at
         "#,
         new_name,
         new_description,
         new_github_repo,
+        new_done_column_id,
+        new_auto_close,
         project_id
     )
     .fetch_one(pool)

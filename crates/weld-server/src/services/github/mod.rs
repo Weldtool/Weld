@@ -3,6 +3,7 @@ mod disconnect;
 mod get_connection;
 pub mod helpers;
 mod oauth_callback;
+pub mod sync;
 mod update_repos;
 pub mod webhook;
 mod webhook_installation;

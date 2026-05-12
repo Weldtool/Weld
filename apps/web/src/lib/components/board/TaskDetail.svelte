@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { tasks as tasksApi } from '$lib/api';
 	import type { Priority } from '$lib/api/types';
 	import { auth } from '$lib/auth.svelte';
 	import { boardStore } from '$lib/board.svelte';
@@ -109,6 +110,56 @@
 	const reporter = $derived(
 		task ? boardStore.members.find((m) => m.user_id === task.reporter_id) : undefined
 	);
+
+	// GitHub link
+	let linkRepo = $state('');
+	let linkIssue = $state('');
+	let linkPR = $state('');
+	let linkError = $state('');
+	let linkBusy = $state(false);
+	let showLinkForm = $state(false);
+
+	async function submitLink() {
+		if (!task) return;
+		const issueNum = linkIssue ? parseInt(linkIssue, 10) : null;
+		const prNum = linkPR ? parseInt(linkPR, 10) : null;
+		if (!linkRepo.trim()) {
+			linkError = 'Repository is required (e.g. owner/repo).';
+			return;
+		}
+		linkError = '';
+		linkBusy = true;
+		try {
+			const updated = await tasksApi.link(task.id, {
+				repo: linkRepo.trim(),
+				issue_number: issueNum,
+				pr_number: prNum
+			});
+			boardStore.applyTaskUpdate(updated);
+			showLinkForm = false;
+			linkRepo = '';
+			linkIssue = '';
+			linkPR = '';
+		} catch (err) {
+			linkError = err instanceof Error ? err.message : 'Link failed.';
+		} finally {
+			linkBusy = false;
+		}
+	}
+
+	async function removeLink() {
+		if (!task) return;
+		linkBusy = true;
+		linkError = '';
+		try {
+			const updated = await tasksApi.unlink(task.id);
+			boardStore.applyTaskUpdate(updated);
+		} catch (err) {
+			linkError = err instanceof Error ? err.message : 'Unlink failed.';
+		} finally {
+			linkBusy = false;
+		}
+	}
 </script>
 
 <svelte:window onkeydown={onKey} />
@@ -208,6 +259,150 @@
 			<div class="space-y-1">
 				<p class="text-xs text-[var(--muted-foreground)]">Labels</p>
 				<LabelPicker value={task.labels} disabled={!editable} onChange={onLabelsChange} />
+			</div>
+
+			<!-- GitHub link -->
+			<div class="space-y-2">
+				<p class="text-xs text-[var(--muted-foreground)]">GitHub</p>
+				{#if task.github_repo}
+					<div class="flex flex-wrap items-center gap-2 text-sm">
+						{#if task.github_issue_id}
+							<a
+								href="https://github.com/{task.github_repo}/issues/{task.github_issue_id}"
+								target="_blank"
+								rel="noopener noreferrer"
+								class="inline-flex items-center gap-1 rounded border border-[var(--border)] px-2 py-0.5 text-xs hover:underline"
+							>
+								<svg
+									class="h-3.5 w-3.5 shrink-0"
+									viewBox="0 0 16 16"
+									fill="currentColor"
+									aria-hidden="true"
+								>
+									<path
+										d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"
+									/>
+									<path
+										d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z"
+									/>
+								</svg>
+								Issue #{task.github_issue_id}
+							</a>
+						{/if}
+						{#if task.github_pr_id}
+							<a
+								href="https://github.com/{task.github_repo}/pull/{task.github_pr_id}"
+								target="_blank"
+								rel="noopener noreferrer"
+								class="inline-flex items-center gap-1 rounded border border-[var(--border)] px-2 py-0.5 text-xs hover:underline"
+							>
+								<svg
+									class="h-3.5 w-3.5 shrink-0"
+									viewBox="0 0 16 16"
+									fill="currentColor"
+									aria-hidden="true"
+								>
+									<path
+										d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354Z"
+									/>
+								</svg>
+								PR #{task.github_pr_id}
+							</a>
+						{/if}
+						<span class="text-xs text-[var(--muted-foreground)]">{task.github_repo}</span>
+						{#if editable}
+							<button
+								type="button"
+								class="text-xs text-red-600 hover:underline disabled:opacity-50 dark:text-red-400"
+								disabled={linkBusy}
+								onclick={removeLink}
+							>
+								Unlink
+							</button>
+						{/if}
+					</div>
+				{:else if editable}
+					{#if showLinkForm}
+						<div class="space-y-2 rounded-md border border-[var(--border)] p-3">
+							<div class="space-y-1">
+								<label class="text-xs text-[var(--muted-foreground)]" for="gh-repo">
+									Repository <span class="text-red-500">*</span>
+								</label>
+								<input
+									id="gh-repo"
+									type="text"
+									placeholder="owner/repo"
+									bind:value={linkRepo}
+									class="w-full rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--ring)]"
+								/>
+							</div>
+							<div class="grid grid-cols-2 gap-2">
+								<div class="space-y-1">
+									<label class="text-xs text-[var(--muted-foreground)]" for="gh-issue">
+										Issue #
+									</label>
+									<input
+										id="gh-issue"
+										type="number"
+										min="1"
+										placeholder="123"
+										bind:value={linkIssue}
+										class="w-full rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--ring)]"
+									/>
+								</div>
+								<div class="space-y-1">
+									<label class="text-xs text-[var(--muted-foreground)]" for="gh-pr">
+										PR #
+									</label>
+									<input
+										id="gh-pr"
+										type="number"
+										min="1"
+										placeholder="456"
+										bind:value={linkPR}
+										class="w-full rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--ring)]"
+									/>
+								</div>
+							</div>
+							{#if linkError}
+								<p class="text-xs text-red-600 dark:text-red-400">{linkError}</p>
+							{/if}
+							<div class="flex gap-2">
+								<button
+									type="button"
+									class="rounded bg-[var(--primary)] px-3 py-1 text-xs text-[var(--primary-foreground)] disabled:opacity-60"
+									disabled={linkBusy}
+									onclick={submitLink}
+								>
+									{linkBusy ? 'Linking…' : 'Link'}
+								</button>
+								<button
+									type="button"
+									class="text-xs text-[var(--muted-foreground)]"
+									onclick={() => {
+										showLinkForm = false;
+										linkError = '';
+									}}
+								>
+									Cancel
+								</button>
+							</div>
+						</div>
+					{:else}
+						<button
+							type="button"
+							class="text-xs text-[var(--muted-foreground)] hover:underline"
+							onclick={() => (showLinkForm = true)}
+						>
+							+ Link GitHub issue or PR
+						</button>
+					{/if}
+				{:else}
+					<p class="text-xs text-[var(--muted-foreground)]">Not linked</p>
+				{/if}
+				{#if linkError && task.github_repo}
+					<p class="text-xs text-red-600 dark:text-red-400">{linkError}</p>
+				{/if}
 			</div>
 
 			<dl class="grid grid-cols-2 gap-2 text-xs text-[var(--muted-foreground)]">

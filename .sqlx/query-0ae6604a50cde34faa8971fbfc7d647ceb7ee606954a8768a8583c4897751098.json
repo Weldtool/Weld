@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, project_id, column_id, title, description,\n               assignee_id, reporter_id,\n               priority as \"priority: weld_core::models::enums::Priority\",\n               position, due_date, estimate_hours,\n               github_issue_id, github_pr_id,\n               deleted_at, created_at, updated_at\n        FROM tasks\n        WHERE id = $1 AND deleted_at IS NULL\n        ",
+  "query": "\n        UPDATE tasks\n        SET column_id = $1, position = $2, updated_at = NOW()\n        WHERE id = $3 AND deleted_at IS NULL\n        RETURNING id, project_id, column_id, title, description,\n                  assignee_id, reporter_id,\n                  priority as \"priority: Priority\",\n                  position, due_date, estimate_hours,\n                  short_id, github_issue_id, github_pr_id, github_repo,\n                  deleted_at, created_at, updated_at\n        ",
   "describe": {
     "columns": [
       {
@@ -40,7 +40,7 @@
       },
       {
         "ordinal": 7,
-        "name": "priority: weld_core::models::enums::Priority",
+        "name": "priority: Priority",
         "type_info": {
           "Custom": {
             "name": "priority",
@@ -73,32 +73,44 @@
       },
       {
         "ordinal": 11,
-        "name": "github_issue_id",
+        "name": "short_id",
         "type_info": "Int8"
       },
       {
         "ordinal": 12,
-        "name": "github_pr_id",
+        "name": "github_issue_id",
         "type_info": "Int8"
       },
       {
         "ordinal": 13,
+        "name": "github_pr_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 14,
+        "name": "github_repo",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 15,
         "name": "deleted_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 14,
+        "ordinal": 16,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 15,
+        "ordinal": 17,
         "name": "updated_at",
         "type_info": "Timestamptz"
       }
     ],
     "parameters": {
       "Left": [
+        "Uuid",
+        "Float8",
         "Uuid"
       ]
     },
@@ -114,6 +126,8 @@
       false,
       true,
       true,
+      false,
+      true,
       true,
       true,
       true,
@@ -121,5 +135,5 @@
       false
     ]
   },
-  "hash": "3a7ab6652813365831830ff34ee1c919b5f060cb47969758bc8dff21eb1fdcb2"
+  "hash": "0ae6604a50cde34faa8971fbfc7d647ceb7ee606954a8768a8583c4897751098"
 }

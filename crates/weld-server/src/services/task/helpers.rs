@@ -16,7 +16,7 @@ pub async fn fetch_active_task(pool: &PgPool, task_id: Uuid) -> Result<Task, Api
                assignee_id, reporter_id,
                priority as "priority: weld_core::models::enums::Priority",
                position, due_date, estimate_hours,
-               github_issue_id, github_pr_id,
+               short_id, github_issue_id, github_pr_id, github_repo,
                deleted_at, created_at, updated_at
         FROM tasks
         WHERE id = $1 AND deleted_at IS NULL

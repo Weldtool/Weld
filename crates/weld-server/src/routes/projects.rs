@@ -25,9 +25,11 @@ pub struct UpdateProjectRequest {
     pub description: Option<Option<String>>,
     #[serde(default, deserialize_with = "deserialize_optional_field")]
     pub github_repo: Option<Option<String>>,
+    #[serde(default, deserialize_with = "deserialize_optional_field")]
+    pub done_column_id: Option<Option<Uuid>>,
+    pub auto_close_on_issue_closed: Option<bool>,
 }
 
-/// Distinguish "field absent" from "field present with null" so callers can clear values.
 fn deserialize_optional_field<'de, T, D>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
 where
     T: serde::Deserialize<'de>,
@@ -44,6 +46,8 @@ pub struct ProjectResponse {
     pub slug: String,
     pub description: Option<String>,
     pub github_repo: Option<String>,
+    pub done_column_id: Option<Uuid>,
+    pub auto_close_on_issue_closed: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -57,6 +61,8 @@ impl From<Project> for ProjectResponse {
             slug: p.slug,
             description: p.description,
             github_repo: p.github_repo,
+            done_column_id: p.done_column_id,
+            auto_close_on_issue_closed: p.auto_close_on_issue_closed,
             created_at: p.created_at,
             updated_at: p.updated_at,
         }
@@ -117,6 +123,8 @@ pub async fn update(
             name: input.name,
             description: input.description,
             github_repo: input.github_repo,
+            done_column_id: input.done_column_id,
+            auto_close_on_issue_closed: input.auto_close_on_issue_closed,
         },
     )
     .await?;

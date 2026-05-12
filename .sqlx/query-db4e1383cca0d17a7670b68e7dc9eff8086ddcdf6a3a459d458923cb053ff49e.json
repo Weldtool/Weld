@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        INSERT INTO projects (team_id, name, slug, description)\n        VALUES ($1, $2, $3, $4)\n        RETURNING id, team_id, name, slug, description, github_repo,\n                  created_at, updated_at, deleted_at\n        ",
+  "query": "\n        INSERT INTO projects (team_id, name, slug, description)\n        VALUES ($1, $2, $3, $4)\n        RETURNING id, team_id, name, slug, description, github_repo, done_column_id, auto_close_on_issue_closed,\n                  created_at, updated_at, deleted_at\n        ",
   "describe": {
     "columns": [
       {
@@ -35,16 +35,26 @@
       },
       {
         "ordinal": 6,
+        "name": "done_column_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 7,
+        "name": "auto_close_on_issue_closed",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 8,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 7,
+        "ordinal": 9,
         "name": "updated_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 8,
+        "ordinal": 10,
         "name": "deleted_at",
         "type_info": "Timestamptz"
       }
@@ -64,10 +74,12 @@
       false,
       true,
       true,
+      true,
+      false,
       false,
       false,
       true
     ]
   },
-  "hash": "2fbabe080bc97d1c08a3419af86f70ac4ce295d82c06583c153c9f896a3f2b13"
+  "hash": "db4e1383cca0d17a7670b68e7dc9eff8086ddcdf6a3a459d458923cb053ff49e"
 }

@@ -71,8 +71,39 @@
 
 	<div class="mt-2 flex items-center justify-between text-[11px] text-[var(--muted-foreground)]">
 		<span class="rounded px-1.5 py-0.5 {priorityClass[task.priority]}">{task.priority}</span>
-		{#if dueLabel}
-			<span>Due {dueLabel}</span>
-		{/if}
+		<div class="flex items-center gap-1.5">
+			{#if task.github_issue_id}
+				<span
+					title="Linked to GitHub issue #{task.github_issue_id}"
+					class="inline-flex items-center gap-0.5"
+					aria-label="GitHub issue"
+				>
+					<svg class="h-3 w-3" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+						<path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
+						<path
+							d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z"
+						/>
+					</svg>
+					#{task.github_issue_id}
+				</span>
+			{/if}
+			{#if task.github_pr_id}
+				<span
+					title="Linked to GitHub PR #{task.github_pr_id}"
+					class="inline-flex items-center gap-0.5"
+					aria-label="GitHub pull request"
+				>
+					<svg class="h-3 w-3" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+						<path
+							d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354Z"
+						/>
+					</svg>
+					#{task.github_pr_id}
+				</span>
+			{/if}
+			{#if dueLabel}
+				<span>Due {dueLabel}</span>
+			{/if}
+		</div>
 	</div>
 </div>

@@ -1,6 +1,7 @@
 use crate::errors::ApiError;
 use crate::middleware::auth::AuthUser;
 use crate::realtime::broadcast::publish_project_event;
+use crate::services::github::sync;
 use crate::services::task::{self, CreateTaskInput, TaskWithLabels, UpdateTaskInput};
 use crate::state::AppState;
 use axum::Json;
@@ -44,6 +45,13 @@ pub struct MoveTaskRequest {
     pub position: f64,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct LinkTaskRequest {
+    pub repo: String,
+    pub issue_number: Option<i64>,
+    pub pr_number: Option<i64>,
+}
+
 fn deserialize_optional_field<'de, T, D>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
 where
     T: serde::Deserialize<'de>,
@@ -55,6 +63,7 @@ where
 #[derive(Debug, Serialize)]
 pub struct TaskResponse {
     pub id: Uuid,
+    pub short_id: i64,
     pub project_id: Uuid,
     pub column_id: Uuid,
     pub title: String,
@@ -67,6 +76,7 @@ pub struct TaskResponse {
     pub estimate_hours: Option<f32>,
     pub github_issue_id: Option<i64>,
     pub github_pr_id: Option<i64>,
+    pub github_repo: Option<String>,
     pub labels: Vec<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -77,6 +87,7 @@ impl From<TaskWithLabels> for TaskResponse {
         let TaskWithLabels { task, labels } = t;
         Self {
             id: task.id,
+            short_id: task.short_id,
             project_id: task.project_id,
             column_id: task.column_id,
             title: task.title,
@@ -89,6 +100,7 @@ impl From<TaskWithLabels> for TaskResponse {
             estimate_hours: task.estimate_hours,
             github_issue_id: task.github_issue_id,
             github_pr_id: task.github_pr_id,
+            github_repo: task.github_repo,
             labels,
             created_at: task.created_at,
             updated_at: task.updated_at,
@@ -185,5 +197,55 @@ pub async fn move_task(
         task::move_task(&state.db, id, auth.user_id, input.column_id, input.position).await?;
     let resp: TaskResponse = task.into();
     publish_project_event(&state.hub, resp.project_id, "task.moved", &resp);
+
+    // Fire-and-forget: if task moved to the project's Done column and has a
+    // linked issue, post a comment on GitHub asynchronously.
+    if let Some(ref gh) = state.github {
+        let db = state.db.clone();
+        let hub = state.hub.clone();
+        let gh = gh.clone();
+        let task_id = resp.id;
+        let column_id = input.column_id;
+        tokio::spawn(async move {
+            sync::maybe_post_done_comment(&db, &hub, &gh, task_id, column_id).await;
+        });
+    }
+
+    Ok(Json(resp))
+}
+
+pub async fn link_task(
+    auth: AuthUser,
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    Json(input): Json<LinkTaskRequest>,
+) -> Result<Json<TaskResponse>, ApiError> {
+    if input.issue_number.is_none() && input.pr_number.is_none() {
+        return Err(ApiError::Validation(
+            "Provide issue_number or pr_number".into(),
+        ));
+    }
+    let task = sync::link_task(
+        &state.db,
+        id,
+        auth.user_id,
+        &input.repo,
+        input.issue_number,
+        input.pr_number,
+    )
+    .await?;
+    let resp: TaskResponse = task.into();
+    publish_project_event(&state.hub, resp.project_id, "task.updated", &resp);
+    Ok(Json(resp))
+}
+
+pub async fn unlink_task(
+    auth: AuthUser,
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<TaskResponse>, ApiError> {
+    let task = sync::unlink_task(&state.db, id, auth.user_id).await?;
+    let resp: TaskResponse = task.into();
+    publish_project_event(&state.hub, resp.project_id, "task.updated", &resp);
     Ok(Json(resp))
 }

@@ -63,7 +63,7 @@ pub async fn create_task(
                   assignee_id, reporter_id,
                   priority as "priority: Priority",
                   position, due_date, estimate_hours,
-                  github_issue_id, github_pr_id,
+                  short_id, github_issue_id, github_pr_id, github_repo,
                   deleted_at, created_at, updated_at
         "#,
         project_id,

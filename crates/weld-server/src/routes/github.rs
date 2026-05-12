@@ -263,6 +263,31 @@ pub async fn webhook(
 
     github::verify_signature(&gh_cfg.webhook_secret, &body, signature)?;
 
-    github::handle_webhook(&state.db, &event, &delivery_id, &body).await?;
+    github::handle_webhook(&state.db, &state.hub, &event, &delivery_id, &body).await?;
     Ok(StatusCode::OK)
+}
+
+// ── GET /api/v1/projects/:id/github/issues ────────────────────────────────
+
+pub async fn list_project_issues(
+    auth: AuthUser,
+    State(state): State<AppState>,
+    Path(project_id): Path<Uuid>,
+) -> Result<Json<Vec<serde_json::Value>>, ApiError> {
+    let gh_cfg = require_github_config(&state.github)?;
+    let issues =
+        github::sync::list_project_issues(&state.db, gh_cfg, project_id, auth.user_id).await?;
+    Ok(Json(issues))
+}
+
+// ── GET /api/v1/projects/:id/github/prs ───────────────────────────────────
+
+pub async fn list_project_prs(
+    auth: AuthUser,
+    State(state): State<AppState>,
+    Path(project_id): Path<Uuid>,
+) -> Result<Json<Vec<serde_json::Value>>, ApiError> {
+    let gh_cfg = require_github_config(&state.github)?;
+    let prs = github::sync::list_project_prs(&state.db, gh_cfg, project_id, auth.user_id).await?;
+    Ok(Json(prs))
 }

@@ -16,7 +16,7 @@ pub async fn list_team_projects(
     let projects = sqlx::query_as!(
         Project,
         r#"
-        SELECT id, team_id, name, slug, description, github_repo,
+        SELECT id, team_id, name, slug, description, github_repo, done_column_id, auto_close_on_issue_closed,
                created_at, updated_at, deleted_at
         FROM projects
         WHERE team_id = $1 AND deleted_at IS NULL

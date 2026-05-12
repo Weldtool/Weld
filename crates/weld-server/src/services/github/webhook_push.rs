@@ -2,11 +2,14 @@ use sqlx::PgPool;
 
 use crate::errors::ApiError;
 
+use super::sync;
+
 /// Handles `push` webhook events.
 ///
-/// Scans commit messages for `[WD-<id>]` task references and logs them.
-/// Automatic task-to-commit linking is wired up in issue #29.
-pub async fn handle(_db: &PgPool, payload: &serde_json::Value) -> Result<(), ApiError> {
+/// Scans commit messages for `[WD-<id>]` task references.  For any matched
+/// short IDs, sets `github_repo` on the task (auto-link to repo) if not
+/// already set.  Full PR/issue linking happens via the pull_request handler.
+pub async fn handle(db: &PgPool, payload: &serde_json::Value) -> Result<(), ApiError> {
     let repo = payload["repository"]["full_name"].as_str().unwrap_or("");
     let commits = payload["commits"].as_array();
 
@@ -14,18 +17,25 @@ pub async fn handle(_db: &PgPool, payload: &serde_json::Value) -> Result<(), Api
         return Ok(());
     };
 
+    let mut short_ids: Vec<i64> = Vec::new();
+
     for commit in commits {
         let sha = commit["id"].as_str().unwrap_or("");
         let message = commit["message"].as_str().unwrap_or("");
         let refs = extract_task_refs(message);
         if !refs.is_empty() {
-            tracing::info!(
-                repo,
-                sha,
-                refs = ?refs,
-                "Commit references Weld tasks (auto-link pending #29)"
+            tracing::info!(repo, sha, refs = ?refs, "Commit references Weld tasks");
+            short_ids.extend(
+                refs.iter()
+                    .filter_map(|r| r.strip_prefix("WD-").and_then(|n| n.parse::<i64>().ok())),
             );
         }
+    }
+
+    short_ids.dedup();
+
+    if !short_ids.is_empty() {
+        sync::autolink_from_push(db, repo, &short_ids).await?;
     }
 
     Ok(())

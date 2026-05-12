@@ -169,7 +169,24 @@ export const tasks = {
 			...opts,
 			method: 'POST',
 			body
-		})
+		}),
+
+	link: (
+		id: string,
+		body: { repo: string; issue_number?: number | null; pr_number?: number | null },
+		opts?: RequestOptions
+	) => authStore.fetch<Task>(`/api/v1/tasks/${id}/link`, { ...opts, method: 'POST', body }),
+
+	unlink: (id: string, opts?: RequestOptions) =>
+		authStore.fetch<Task>(`/api/v1/tasks/${id}/link`, { ...opts, method: 'DELETE' })
+};
+
+export const github = {
+	listIssues: (projectId: string, opts?: RequestOptions) =>
+		authStore.fetch<unknown[]>(`/api/v1/projects/${projectId}/github/issues`, opts),
+
+	listPRs: (projectId: string, opts?: RequestOptions) =>
+		authStore.fetch<unknown[]>(`/api/v1/projects/${projectId}/github/prs`, opts)
 };
 
 export const channels = {

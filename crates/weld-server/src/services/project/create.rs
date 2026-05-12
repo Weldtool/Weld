@@ -35,7 +35,7 @@ pub async fn create_project(
         r#"
         INSERT INTO projects (team_id, name, slug, description)
         VALUES ($1, $2, $3, $4)
-        RETURNING id, team_id, name, slug, description, github_repo,
+        RETURNING id, team_id, name, slug, description, github_repo, done_column_id, auto_close_on_issue_closed,
                   created_at, updated_at, deleted_at
         "#,
         team_id,

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        UPDATE projects\n        SET name = $1,\n            description = $2,\n            github_repo = $3,\n            updated_at = NOW()\n        WHERE id = $4 AND deleted_at IS NULL\n        RETURNING id, team_id, name, slug, description, github_repo,\n                  created_at, updated_at, deleted_at\n        ",
+  "query": "\n        UPDATE projects\n        SET name = $1,\n            description = $2,\n            github_repo = $3,\n            done_column_id = $4,\n            auto_close_on_issue_closed = $5,\n            updated_at = NOW()\n        WHERE id = $6 AND deleted_at IS NULL\n        RETURNING id, team_id, name, slug, description, github_repo, done_column_id,\n                  auto_close_on_issue_closed, created_at, updated_at, deleted_at\n        ",
   "describe": {
     "columns": [
       {
@@ -35,16 +35,26 @@
       },
       {
         "ordinal": 6,
+        "name": "done_column_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 7,
+        "name": "auto_close_on_issue_closed",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 8,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 7,
+        "ordinal": 9,
         "name": "updated_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 8,
+        "ordinal": 10,
         "name": "deleted_at",
         "type_info": "Timestamptz"
       }
@@ -54,6 +64,8 @@
         "Text",
         "Text",
         "Text",
+        "Uuid",
+        "Bool",
         "Uuid"
       ]
     },
@@ -64,10 +76,12 @@
       false,
       true,
       true,
+      true,
+      false,
       false,
       false,
       true
     ]
   },
-  "hash": "394a82ae1e87b44df65ed7ee7290297d875d1f3857e28c8e67cdadd902a9d60b"
+  "hash": "451438964d9e3091b37a7c40d984934c0cc56309ca50dc1741118341b48096d0"
 }

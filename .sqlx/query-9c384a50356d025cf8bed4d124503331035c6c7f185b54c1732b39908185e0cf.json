@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        UPDATE tasks\n        SET column_id = $1, position = $2, updated_at = NOW()\n        WHERE id = $3 AND deleted_at IS NULL\n        RETURNING id, project_id, column_id, title, description,\n                  assignee_id, reporter_id,\n                  priority as \"priority: Priority\",\n                  position, due_date, estimate_hours,\n                  github_issue_id, github_pr_id,\n                  deleted_at, created_at, updated_at\n        ",
+  "query": "\n        SELECT id, project_id, column_id, title, description,\n               assignee_id, reporter_id,\n               priority as \"priority: Priority\",\n               position, due_date, estimate_hours,\n               short_id, github_issue_id, github_pr_id, github_repo,\n               deleted_at, created_at, updated_at\n        FROM tasks\n        WHERE project_id = $1 AND deleted_at IS NULL\n        ORDER BY column_id, position ASC\n        ",
   "describe": {
     "columns": [
       {
@@ -73,34 +73,42 @@
       },
       {
         "ordinal": 11,
-        "name": "github_issue_id",
+        "name": "short_id",
         "type_info": "Int8"
       },
       {
         "ordinal": 12,
-        "name": "github_pr_id",
+        "name": "github_issue_id",
         "type_info": "Int8"
       },
       {
         "ordinal": 13,
+        "name": "github_pr_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 14,
+        "name": "github_repo",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 15,
         "name": "deleted_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 14,
+        "ordinal": 16,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 15,
+        "ordinal": 17,
         "name": "updated_at",
         "type_info": "Timestamptz"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Float8",
         "Uuid"
       ]
     },
@@ -116,6 +124,8 @@
       false,
       true,
       true,
+      false,
+      true,
       true,
       true,
       true,
@@ -123,5 +133,5 @@
       false
     ]
   },
-  "hash": "597b8a8fe9565e2143212ddc38522f7c64afbe3bd370fca68b37055fa60389a1"
+  "hash": "9c384a50356d025cf8bed4d124503331035c6c7f185b54c1732b39908185e0cf"
 }

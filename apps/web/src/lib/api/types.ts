@@ -42,6 +42,8 @@ export interface Project {
 	slug: string;
 	description: string | null;
 	github_repo: string | null;
+	done_column_id: string | null;
+	auto_close_on_issue_closed: boolean;
 	created_at: string;
 	updated_at: string;
 }
@@ -75,6 +77,7 @@ export interface Task {
 	id: string;
 	project_id: string;
 	column_id: string;
+	short_id: number;
 	title: string;
 	description: string | null;
 	assignee_id: string | null;
@@ -85,6 +88,7 @@ export interface Task {
 	estimate_hours: number | null;
 	github_issue_id: number | null;
 	github_pr_id: number | null;
+	github_repo: string | null;
 	labels: string[];
 	created_at: string;
 	updated_at: string;

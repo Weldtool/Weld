@@ -1,7 +1,7 @@
 mod create;
 mod delete;
 mod get;
-mod helpers;
+pub mod helpers;
 mod move_task;
 mod update;
 

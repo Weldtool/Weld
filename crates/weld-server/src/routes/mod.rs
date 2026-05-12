@@ -58,6 +58,18 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/tasks/{id}", delete(tasks::delete))
         .route("/api/v1/tasks/{id}/move", post(tasks::move_task))
         .route(
+            "/api/v1/tasks/{id}/link",
+            post(tasks::link_task).delete(tasks::unlink_task),
+        )
+        .route(
+            "/api/v1/projects/{id}/github/issues",
+            get(github::list_project_issues),
+        )
+        .route(
+            "/api/v1/projects/{id}/github/prs",
+            get(github::list_project_prs),
+        )
+        .route(
             "/api/v1/teams/{team_id}/channels",
             get(chat::list_channels).post(chat::create_channel),
         )
