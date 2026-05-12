@@ -16,6 +16,9 @@ async fn setup_app() -> Router {
         jwt_secret: config.jwt_secret,
         secure_cookies: false,
         hub: std::sync::Arc::new(weld_server::realtime::Hub::new()),
+        github: None,
+        master_encryption_key: None,
+        frontend_url: String::from("http://localhost:5173"),
     };
     weld_server::routes::router().with_state(state)
 }
