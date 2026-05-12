@@ -25,7 +25,7 @@ argon2 = "0.5"
 validator = { version = "0.19", features = ["derive"] }
 uuid = { version = "1.0", features = ["serde", "v4"] }
 chrono = { version = "0.4", features = ["serde"] }
-jsonwebtoken = "9"
+jsonwebtoken = { version = "10", features = ["rust_crypto"] }
 sha2 = "0.10"
 slug = "0.1"
 aes-gcm = "0.10"
@@ -36,7 +36,7 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
 dotenvy = "0.15"
-jsonwebtoken = "9"
+jsonwebtoken = { version = "10", features = ["rust_crypto"] }
 chrono = "0.4"
 tokio-tungstenite = "0.28"
 futures-util = "0.3"

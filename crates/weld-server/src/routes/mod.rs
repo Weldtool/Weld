@@ -95,8 +95,8 @@ pub fn router() -> Router<AppState> {
                 .delete(github::disconnect),
         );
 
-    let frontend_origin = std::env::var("FRONTEND_URL")
-        .unwrap_or_else(|_| "http://localhost:5173".to_string());
+    let frontend_origin =
+        std::env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
 
     let cors = CorsLayer::new()
         .allow_origin(

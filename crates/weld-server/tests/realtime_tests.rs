@@ -28,8 +28,8 @@ async fn build_app() -> Router {
         secure_cookies: false,
         hub: Arc::new(Hub::new()),
         github: None,
-        master_encryption_key: None,
-        frontend_url: String::from("http://localhost:5173"),
+        master_encryption_key: config.master_encryption_key,
+        frontend_url: config.frontend_url,
     };
     weld_server::routes::router().with_state(state)
 }
