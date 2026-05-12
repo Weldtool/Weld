@@ -83,6 +83,10 @@ pub async fn setup_callback(
     State(state): State<AppState>,
     Query(params): Query<SetupCallbackQuery>,
 ) -> Result<Response, ApiError> {
+    // Validate the CSRF state token before checking GitHub config so invalid
+    // tokens always return 400, even when the integration is not configured.
+    let team_id = verify_state_token(&state.jwt_secret, &params.state, "install")?;
+
     let gh_cfg = require_github_config(&state.github)?;
 
     // Reject unsupported setup actions (e.g. "delete")
@@ -93,8 +97,6 @@ pub async fn setup_callback(
         let redirect_url = format!("{}?github_error=unsupported_action", state.frontend_url);
         return Ok(Redirect::to(&redirect_url).into_response());
     }
-
-    let team_id = verify_state_token(&state.jwt_secret, &params.state, "install")?;
 
     // caller_id is derived from the team's created_by — use a sentinel for the
     // post-install flow since the request has no auth header. We look up the
@@ -163,9 +165,11 @@ pub async fn oauth_callback(
     State(state): State<AppState>,
     Query(params): Query<OAuthCallbackQuery>,
 ) -> Result<Response, ApiError> {
-    let gh_cfg = require_github_config(&state.github)?;
-
+    // Validate CSRF state before checking GitHub config so invalid tokens
+    // always return 400, even when the integration is not configured.
     let weld_user_id = verify_state_token(&state.jwt_secret, &params.state, "oauth")?;
+
+    let gh_cfg = require_github_config(&state.github)?;
 
     let master_key = state
         .master_encryption_key
