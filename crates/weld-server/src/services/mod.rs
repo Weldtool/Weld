@@ -2,6 +2,7 @@ pub mod auth;
 pub mod board;
 pub mod chat;
 pub mod column;
+pub mod github;
 pub mod label;
 pub mod project;
 pub mod task;

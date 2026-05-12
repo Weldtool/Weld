@@ -9,6 +9,7 @@ mod auth;
 mod board;
 pub mod chat;
 pub mod columns;
+mod github;
 pub mod labels;
 mod projects;
 pub mod tasks;
@@ -22,7 +23,11 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/auth/login", post(auth::login))
         .route("/api/v1/auth/logout", post(auth::logout))
         .route("/api/v1/auth/refresh", post(auth::refresh_token))
-        .route("/api/v1/ws", get(ws::ws_upgrade));
+        .route("/api/v1/ws", get(ws::ws_upgrade))
+        // GitHub callbacks — public because GitHub redirects the browser here
+        .route("/api/v1/github/setup", get(github::setup_callback))
+        .route("/api/v1/github/oauth/callback", get(github::oauth_callback))
+        .route("/api/v1/github/webhook", post(github::webhook_stub));
 
     let protected = Router::new()
         .route("/api/v1/users/me", get(users::me))
@@ -74,6 +79,18 @@ pub fn router() -> Router<AppState> {
         .route(
             "/api/v1/messages/{id}",
             patch(chat::edit_message).delete(chat::delete_message),
+        )
+        // GitHub — protected
+        .route(
+            "/api/v1/teams/{team_id}/github/install-url",
+            get(github::get_install_url),
+        )
+        .route("/api/v1/github/oauth/url", get(github::get_oauth_url))
+        .route(
+            "/api/v1/teams/{team_id}/github",
+            get(github::get_connection)
+                .patch(github::update_repos)
+                .delete(github::disconnect),
         );
 
     public.merge(protected)

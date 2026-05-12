@@ -50,6 +50,12 @@ impl From<sqlx::Error> for ApiError {
     }
 }
 
+impl From<reqwest::Error> for ApiError {
+    fn from(err: reqwest::Error) -> Self {
+        ApiError::Internal(format!("GitHub API request failed: {err}"))
+    }
+}
+
 impl From<weld_core::errors::CoreError> for ApiError {
     fn from(err: weld_core::errors::CoreError) -> Self {
         match err {
