@@ -29,7 +29,7 @@ pub fn router() -> Router<AppState> {
         // GitHub callbacks — public because GitHub redirects the browser here
         .route("/api/v1/github/setup", get(github::setup_callback))
         .route("/api/v1/github/oauth/callback", get(github::oauth_callback))
-        .route("/api/v1/github/webhook", post(github::webhook_stub));
+        .route("/api/v1/github/webhook", post(github::webhook));
 
     let protected = Router::new()
         .route("/api/v1/users/me", get(users::me))

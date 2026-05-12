@@ -23,6 +23,44 @@ async fn setup_app() -> Router {
     weld_server::routes::router().with_state(state)
 }
 
+const TEST_WEBHOOK_SECRET: &str = "test_webhook_secret_do_not_use_in_prod";
+
+async fn setup_app_with_github() -> Router {
+    dotenvy::dotenv().ok();
+    let config = weld_server::config::Config::from_env();
+    let pool = sqlx::PgPool::connect(&config.database_url)
+        .await
+        .expect("Failed to connect to the database");
+    let gh_cfg = weld_server::state::GithubConfig {
+        app_id: 1,
+        app_private_key_pem: vec![],
+        webhook_secret: TEST_WEBHOOK_SECRET.to_string(),
+        oauth_client_id: String::new(),
+        oauth_client_secret: String::new(),
+        app_slug: String::new(),
+    };
+    let state = weld_server::state::AppState {
+        db: pool,
+        jwt_secret: config.jwt_secret,
+        secure_cookies: false,
+        hub: std::sync::Arc::new(weld_server::realtime::Hub::new()),
+        github: Some(std::sync::Arc::new(gh_cfg)),
+        master_encryption_key: config.master_encryption_key,
+        frontend_url: config.frontend_url,
+    };
+    weld_server::routes::router().with_state(state)
+}
+
+/// Computes the `X-Hub-Signature-256` header value for a given body.
+fn webhook_signature(secret: &str, body: &[u8]) -> String {
+    use hmac::{Hmac, Mac};
+    use sha2::Sha256;
+    type HmacSha256 = Hmac<Sha256>;
+    let mut mac = HmacSha256::new_from_slice(secret.as_bytes()).unwrap();
+    mac.update(body);
+    format!("sha256={}", hex::encode(mac.finalize().into_bytes()))
+}
+
 /// Registers a user, logs in, and returns (access_token, user_id).
 async fn register_and_login(app: &Router) -> (String, Uuid) {
     let email = format!("github-test-{}@example.com", Uuid::new_v4());
@@ -448,11 +486,12 @@ async fn test_update_repos_requires_admin() {
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }
 
-// ── webhook stub ──────────────────────────────────────────────────────────────
+// ── webhook ───────────────────────────────────────────────────────────────────
 
 #[tokio::test]
-async fn test_webhook_stub_accepts_post() {
-    let app = setup_app().await;
+async fn test_webhook_github_not_configured_returns_500() {
+    let app = setup_app().await; // github: None
+    let body = json!({"action": "opened"}).to_string();
 
     let resp = app
         .oneshot(
@@ -460,12 +499,272 @@ async fn test_webhook_stub_accepts_post() {
                 .method("POST")
                 .uri("/api/v1/github/webhook")
                 .header("Content-Type", "application/json")
-                .body(Body::from(json!({"action": "opened"}).to_string()))
+                .header("X-GitHub-Event", "issues")
+                .header("X-GitHub-Delivery", Uuid::new_v4().to_string())
+                .header("X-Hub-Signature-256", "sha256=abc123")
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
+}
+
+#[tokio::test]
+async fn test_webhook_missing_signature_returns_401() {
+    let app = setup_app_with_github().await;
+    let body = json!({"action": "opened"}).to_string();
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/github/webhook")
+                .header("Content-Type", "application/json")
+                .header("X-GitHub-Event", "issues")
+                .header("X-GitHub-Delivery", Uuid::new_v4().to_string())
+                // intentionally omit X-Hub-Signature-256
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn test_webhook_bad_signature_returns_401() {
+    let app = setup_app_with_github().await;
+    let body = json!({"action": "opened"}).to_string();
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/github/webhook")
+                .header("Content-Type", "application/json")
+                .header("X-GitHub-Event", "issues")
+                .header("X-GitHub-Delivery", Uuid::new_v4().to_string())
+                .header(
+                    "X-Hub-Signature-256",
+                    "sha256=deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+                )
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn test_webhook_valid_ping_event() {
+    let app = setup_app_with_github().await;
+    let body = json!({"zen": "Non-blocking is better than blocking."}).to_string();
+    let sig = webhook_signature(TEST_WEBHOOK_SECRET, body.as_bytes());
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/github/webhook")
+                .header("Content-Type", "application/json")
+                .header("X-GitHub-Event", "ping")
+                .header("X-GitHub-Delivery", Uuid::new_v4().to_string())
+                .header("X-Hub-Signature-256", sig)
+                .body(Body::from(body))
                 .unwrap(),
         )
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn test_webhook_replay_protection() {
+    let app = setup_app_with_github().await;
+    let body = json!({"action": "opened"}).to_string();
+    let delivery_id = Uuid::new_v4().to_string();
+    let sig = webhook_signature(TEST_WEBHOOK_SECRET, body.as_bytes());
+
+    // First delivery — processed
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/github/webhook")
+                .header("Content-Type", "application/json")
+                .header("X-GitHub-Event", "ping")
+                .header("X-GitHub-Delivery", &delivery_id)
+                .header("X-Hub-Signature-256", &sig)
+                .body(Body::from(body.clone()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Second delivery — same id, returns 200 without reprocessing
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/github/webhook")
+                .header("Content-Type", "application/json")
+                .header("X-GitHub-Event", "ping")
+                .header("X-GitHub-Delivery", &delivery_id)
+                .header("X-Hub-Signature-256", &sig)
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn test_webhook_issues_opened_event() {
+    let app = setup_app_with_github().await;
+    let body = json!({
+        "action": "opened",
+        "issue": { "number": 42, "title": "Bug report" },
+        "repository": { "full_name": "org/repo" }
+    })
+    .to_string();
+    let sig = webhook_signature(TEST_WEBHOOK_SECRET, body.as_bytes());
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/github/webhook")
+                .header("Content-Type", "application/json")
+                .header("X-GitHub-Event", "issues")
+                .header("X-GitHub-Delivery", Uuid::new_v4().to_string())
+                .header("X-Hub-Signature-256", sig)
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn test_webhook_pull_request_opened_event() {
+    let app = setup_app_with_github().await;
+    let body = json!({
+        "action": "opened",
+        "pull_request": { "number": 7, "title": "feat: new thing" },
+        "repository": { "full_name": "org/repo" }
+    })
+    .to_string();
+    let sig = webhook_signature(TEST_WEBHOOK_SECRET, body.as_bytes());
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/github/webhook")
+                .header("Content-Type", "application/json")
+                .header("X-GitHub-Event", "pull_request")
+                .header("X-GitHub-Delivery", Uuid::new_v4().to_string())
+                .header("X-Hub-Signature-256", sig)
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn test_webhook_push_with_task_ref_event() {
+    let app = setup_app_with_github().await;
+    let body = json!({
+        "commits": [
+            {
+                "id": "abc123",
+                "message": "fix: resolve issue [WD-42]",
+                "added": [], "removed": [], "modified": []
+            }
+        ],
+        "repository": { "full_name": "org/repo" }
+    })
+    .to_string();
+    let sig = webhook_signature(TEST_WEBHOOK_SECRET, body.as_bytes());
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/github/webhook")
+                .header("Content-Type", "application/json")
+                .header("X-GitHub-Event", "push")
+                .header("X-GitHub-Delivery", Uuid::new_v4().to_string())
+                .header("X-Hub-Signature-256", sig)
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn test_webhook_installation_deleted_event() {
+    let app = setup_app_with_github().await;
+    let body = json!({
+        "action": "deleted",
+        "installation": { "id": 999999999_i64 },
+        "repository": { "full_name": "org/repo" }
+    })
+    .to_string();
+    let sig = webhook_signature(TEST_WEBHOOK_SECRET, body.as_bytes());
+
+    // No matching github_connections row — handler should log and return 200
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/github/webhook")
+                .header("Content-Type", "application/json")
+                .header("X-GitHub-Event", "installation")
+                .header("X-GitHub-Delivery", Uuid::new_v4().to_string())
+                .header("X-Hub-Signature-256", sig)
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn test_webhook_failure_recorded_in_deliveries() {
+    let app = setup_app_with_github().await;
+    // Malformed JSON — body is valid bytes but not valid JSON, so handler returns 400
+    let body = b"not valid json at all";
+    let sig = webhook_signature(TEST_WEBHOOK_SECRET, body);
+    let delivery_id = format!("fail-test-{}", Uuid::new_v4());
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/github/webhook")
+                .header("Content-Type", "application/json")
+                .header("X-GitHub-Event", "issues")
+                .header("X-GitHub-Delivery", &delivery_id)
+                .header("X-Hub-Signature-256", sig)
+                .body(Body::from(body.as_slice()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    // Bad JSON → Validation error → 400
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
 }
 
 // ── state token helpers ───────────────────────────────────────────────────────

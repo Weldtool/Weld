@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE github_webhook_deliveries SET processed_at = NOW() WHERE delivery_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8c430096c54a346d4ef5dced2cfd37ce2d86919893e2be4b8a0243044a825f90"
+}

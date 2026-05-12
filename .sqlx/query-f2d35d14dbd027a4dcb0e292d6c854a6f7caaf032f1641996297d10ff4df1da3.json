@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE github_webhook_deliveries SET error = $2 WHERE delivery_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f2d35d14dbd027a4dcb0e292d6c854a6f7caaf032f1641996297d10ff4df1da3"
+}

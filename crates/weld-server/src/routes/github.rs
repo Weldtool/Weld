@@ -10,8 +10,9 @@ use crate::services::github::{
 use crate::services::team::helpers::require_team_role;
 use crate::state::AppState;
 use axum::Json;
+use axum::body::Bytes;
 use axum::extract::{Path, Query, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Redirect, Response};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -229,9 +230,39 @@ pub async fn update_repos(
     Ok(Json(conn.into()))
 }
 
-// ── POST /api/v1/github/webhook (stub) ────────────────────────────────────
+// ── POST /api/v1/github/webhook ───────────────────────────────────────────
 
-pub async fn webhook_stub(State(_state): State<AppState>) -> impl IntoResponse {
-    // Signature verification and event processing are implemented in issue #28.
-    StatusCode::OK
+/// Receives GitHub webhook deliveries.
+///
+/// The raw body is kept intact for HMAC-SHA256 signature verification before
+/// any deserialization occurs.  Idempotency is enforced via the
+/// `X-GitHub-Delivery` header tracked in `github_webhook_deliveries`.
+pub async fn webhook(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Result<StatusCode, ApiError> {
+    let gh_cfg = require_github_config(&state.github)?;
+
+    let signature = headers
+        .get("x-hub-signature-256")
+        .and_then(|v| v.to_str().ok())
+        .ok_or_else(|| ApiError::Unauthorized("Missing X-Hub-Signature-256".into()))?;
+
+    let event = headers
+        .get("x-github-event")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("unknown")
+        .to_string();
+
+    let delivery_id = headers
+        .get("x-github-delivery")
+        .and_then(|v| v.to_str().ok())
+        .ok_or_else(|| ApiError::Validation("Missing X-GitHub-Delivery".into()))?
+        .to_string();
+
+    github::verify_signature(&gh_cfg.webhook_secret, &body, signature)?;
+
+    github::handle_webhook(&state.db, &event, &delivery_id, &body).await?;
+    Ok(StatusCode::OK)
 }
