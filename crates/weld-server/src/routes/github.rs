@@ -156,7 +156,6 @@ pub struct OAuthCallbackQuery {
     pub state: String,
 }
 
-
 /// GitHub redirects here after the user authorises the Weld OAuth App.
 /// Validates the CSRF state token, exchanges the code, stores the encrypted
 /// token, and redirects back to the frontend.
