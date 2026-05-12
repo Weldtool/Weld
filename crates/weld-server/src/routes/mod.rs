@@ -1,10 +1,12 @@
 use crate::state::AppState;
 use axum::Json;
 use axum::extract::State;
+use axum::http::HeaderValue;
 use axum::response::IntoResponse;
 use axum::routing::{delete, get, patch, post};
 use axum::{Router, routing};
 use serde_json::json;
+use tower_http::cors::{AllowHeaders, AllowMethods, CorsLayer};
 mod auth;
 mod board;
 pub mod chat;
@@ -93,7 +95,20 @@ pub fn router() -> Router<AppState> {
                 .delete(github::disconnect),
         );
 
-    public.merge(protected)
+    let frontend_origin = std::env::var("FRONTEND_URL")
+        .unwrap_or_else(|_| "http://localhost:5173".to_string());
+
+    let cors = CorsLayer::new()
+        .allow_origin(
+            frontend_origin
+                .parse::<HeaderValue>()
+                .expect("FRONTEND_URL must be a valid HTTP origin"),
+        )
+        .allow_methods(AllowMethods::mirror_request())
+        .allow_headers(AllowHeaders::mirror_request())
+        .allow_credentials(true);
+
+    public.merge(protected).layer(cors)
 }
 
 async fn health_check(State(_state): State<AppState>) -> impl IntoResponse {
