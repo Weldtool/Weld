@@ -3,7 +3,6 @@
 	import { github as githubApi } from '$lib/api';
 	import type { GithubConnection } from '$lib/api/types';
 	import { projects } from '$lib/projects.svelte';
-	import { onMount } from 'svelte';
 	import { GitBranch, Link, Unlink } from 'lucide-svelte';
 
 	const teamId = $derived(projects.team?.id ?? null);
@@ -68,8 +67,12 @@
 		}
 	}
 
-	onMount(() => {
-		void loadConnection();
+	let loadedForTeam = $state<string | null>(null);
+	$effect(() => {
+		if (teamId && teamId !== loadedForTeam) {
+			loadedForTeam = teamId;
+			void loadConnection();
+		}
 	});
 </script>
 
