@@ -67,7 +67,13 @@ class ProjectsStore {
 
 	async update(
 		id: string,
-		patch: { name?: string; description?: string | null; github_repo?: string | null }
+		patch: {
+			name?: string;
+			description?: string | null;
+			github_repo?: string | null;
+			done_column_id?: string | null;
+			auto_close_on_issue_closed?: boolean;
+		}
 	): Promise<Project> {
 		const updated = await projectsApi.update(id, patch);
 		this.projects = this.projects.map((p) => (p.id === id ? updated : p));

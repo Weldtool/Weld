@@ -48,6 +48,35 @@ export interface Project {
 	updated_at: string;
 }
 
+export interface GithubConnection {
+	id: string;
+	team_id: string;
+	installation_id: number;
+	account_login: string;
+	repos: string[];
+	created_by: string;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface GitHubIssue {
+	number: number;
+	title: string;
+	html_url: string;
+	state: string;
+	user: { login: string; avatar_url: string };
+	labels: { name: string; color: string }[];
+}
+
+export interface GitHubPR {
+	number: number;
+	title: string;
+	html_url: string;
+	state: string;
+	draft: boolean;
+	user: { login: string; avatar_url: string };
+}
+
 export interface LoginResponse {
 	access_token: string;
 	token_type: 'Bearer';

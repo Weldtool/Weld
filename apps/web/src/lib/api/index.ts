@@ -8,6 +8,9 @@ import type {
 	Channel,
 	ChatMessage,
 	Column,
+	GithubConnection,
+	GitHubIssue,
+	GitHubPR,
 	Label,
 	LoginResponse,
 	MessagePage,
@@ -74,7 +77,13 @@ export const projects = {
 
 	update: (
 		id: string,
-		body: { name?: string; description?: string | null; github_repo?: string | null },
+		body: {
+			name?: string;
+			description?: string | null;
+			github_repo?: string | null;
+			done_column_id?: string | null;
+			auto_close_on_issue_closed?: boolean;
+		},
 		opts?: RequestOptions
 	) => authStore.fetch<Project>(`/api/v1/projects/${id}`, { ...opts, method: 'PATCH', body }),
 
@@ -182,11 +191,23 @@ export const tasks = {
 };
 
 export const github = {
+	getInstallUrl: (teamId: string, opts?: RequestOptions) =>
+		authStore.fetch<{ url: string }>(`/api/v1/teams/${teamId}/github/install-url`, opts),
+
+	getConnection: (teamId: string, opts?: RequestOptions) =>
+		authStore.fetch<GithubConnection>(`/api/v1/teams/${teamId}/github`, opts),
+
+	disconnect: (teamId: string, opts?: RequestOptions) =>
+		authStore.fetch<void>(`/api/v1/teams/${teamId}/github`, { ...opts, method: 'DELETE' }),
+
+	getOAuthUrl: (opts?: RequestOptions) =>
+		authStore.fetch<{ url: string }>('/api/v1/github/oauth/url', opts),
+
 	listIssues: (projectId: string, opts?: RequestOptions) =>
-		authStore.fetch<unknown[]>(`/api/v1/projects/${projectId}/github/issues`, opts),
+		authStore.fetch<GitHubIssue[]>(`/api/v1/projects/${projectId}/github/issues`, opts),
 
 	listPRs: (projectId: string, opts?: RequestOptions) =>
-		authStore.fetch<unknown[]>(`/api/v1/projects/${projectId}/github/prs`, opts)
+		authStore.fetch<GitHubPR[]>(`/api/v1/projects/${projectId}/github/prs`, opts)
 };
 
 export const channels = {

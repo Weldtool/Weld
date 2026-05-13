@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import Board from '$lib/components/board/Board.svelte';
 	import TaskDetail from '$lib/components/board/TaskDetail.svelte';
+	import GitHubPanel from '$lib/components/board/GitHubPanel.svelte';
 	import { boardStore } from '$lib/board.svelte';
 	import { projects } from '$lib/projects.svelte';
 
@@ -16,6 +17,7 @@
 	});
 
 	const taskId = $derived(page.url.searchParams.get('task'));
+	const hasGitHub = $derived(!!projects.current?.github_repo);
 </script>
 
 <header class="mb-6 flex items-end justify-between gap-3">
@@ -39,8 +41,17 @@
 		<a class="ml-1 underline" href={resolve('/projects')}>Pick one</a> to load its board.
 	</div>
 {:else}
-	<div class="flex flex-1 flex-col">
-		<Board />
+	<div class="flex flex-1 gap-4 overflow-hidden">
+		<div class="flex flex-1 flex-col overflow-hidden">
+			<Board />
+		</div>
+		{#if hasGitHub && projects.current}
+			<aside
+				class="w-56 shrink-0 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--card)] p-3"
+			>
+				<GitHubPanel projectId={projects.current.id} />
+			</aside>
+		{/if}
 	</div>
 {/if}
 

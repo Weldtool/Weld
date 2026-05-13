@@ -3,8 +3,11 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { ApiError } from '$lib/api/client';
+	import { board as boardApi } from '$lib/api';
+	import type { Column } from '$lib/api/types';
 	import { projects } from '$lib/projects.svelte';
 	import { ArrowLeft } from 'lucide-svelte';
+	import { onMount } from 'svelte';
 
 	const projectId = $derived(page.params.id);
 	const project = $derived(projects.projects.find((p) => p.id === projectId) ?? null);
@@ -12,9 +15,13 @@
 	let name = $state('');
 	let description = $state('');
 	let githubRepo = $state('');
+	let doneColumnId = $state<string>('');
+	let autoClose = $state(false);
 	let saving = $state(false);
 	let saveError = $state<string | null>(null);
 	let saveSuccess = $state(false);
+
+	let columns = $state<Column[]>([]);
 
 	let confirming = $state(false);
 	let confirmSlug = $state('');
@@ -28,9 +35,21 @@
 		name = project.name;
 		description = project.description ?? '';
 		githubRepo = project.github_repo ?? '';
+		doneColumnId = project.done_column_id ?? '';
+		autoClose = project.auto_close_on_issue_closed;
 		lastSyncedId = project.id;
 		saveSuccess = false;
 		saveError = null;
+	});
+
+	onMount(async () => {
+		if (!projectId) return;
+		try {
+			const state = await boardApi.get(projectId);
+			columns = state.columns.slice().sort((a, b) => a.position - b.position);
+		} catch {
+			// columns stays empty — dropdown just won't show options
+		}
 	});
 
 	async function onSave(event: SubmitEvent) {
@@ -47,7 +66,9 @@
 			await projects.update(project.id, {
 				name: name.trim(),
 				description: description.trim() ? description.trim() : null,
-				github_repo: githubRepo.trim() ? githubRepo.trim() : null
+				github_repo: githubRepo.trim() ? githubRepo.trim() : null,
+				done_column_id: doneColumnId || null,
+				auto_close_on_issue_closed: autoClose
 			});
 			saveSuccess = true;
 		} catch (err) {
@@ -134,6 +155,27 @@
 					bind:value={githubRepo}
 					class="rounded-md border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
 				/>
+			</label>
+
+			<label class="flex flex-col gap-1.5 text-sm">
+				<span class="font-medium">"Done" column</span>
+				<select
+					bind:value={doneColumnId}
+					class="rounded-md border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+				>
+					<option value="">None</option>
+					{#each columns as col (col.id)}
+						<option value={col.id}>{col.name}</option>
+					{/each}
+				</select>
+				<p class="text-[10px] text-[var(--muted-foreground)]">
+					When a linked GitHub issue is closed, tasks can be auto-moved to this column.
+				</p>
+			</label>
+
+			<label class="flex cursor-pointer items-center gap-2 text-sm">
+				<input type="checkbox" bind:checked={autoClose} class="rounded" />
+				<span>Auto-close tasks when linked GitHub issue is closed</span>
 			</label>
 
 			{#if saveError}
