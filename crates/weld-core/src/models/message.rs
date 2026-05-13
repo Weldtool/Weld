@@ -15,6 +15,8 @@ pub struct Channel {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,
+    pub github_repos: Vec<String>,
+    pub github_event_filter: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -33,6 +35,7 @@ pub struct ChatMessage {
     pub content: String,
     pub thread_parent_id: Option<Uuid>,
     pub mentions: Vec<Uuid>,
+    pub metadata: serde_json::Value,
     pub edited_at: Option<DateTime<Utc>>,
     pub deleted_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,

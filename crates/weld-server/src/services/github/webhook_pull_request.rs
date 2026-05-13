@@ -5,7 +5,7 @@ use sqlx::PgPool;
 use crate::errors::ApiError;
 use crate::realtime::Hub;
 
-use super::sync;
+use super::{activity_feed, sync};
 
 /// Handles `pull_request` and `pull_request_review` webhook events.
 pub async fn handle(
@@ -23,6 +23,9 @@ pub async fn handle(
 
     if event == "pull_request" {
         sync::on_pr_event(db, hub, repo, pr_number, action, merged).await?;
+        activity_feed::post_pr_event(db, hub, repo, payload, action, merged).await?;
+    } else if event == "pull_request_review" && action == "submitted" {
+        activity_feed::post_review_event(db, hub, repo, payload).await?;
     }
 
     Ok(())

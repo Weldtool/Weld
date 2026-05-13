@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        INSERT INTO messages (channel_id, sender_id, content, thread_parent_id, mentions)\n        VALUES ($1, $2, $3, $4, $5)\n        RETURNING id, channel_id, sender_id, content, thread_parent_id,\n                  mentions as \"mentions!: Vec<Uuid>\",\n                  edited_at, deleted_at, created_at\n        ",
+  "query": "\n        SELECT id, channel_id, sender_id, content, thread_parent_id,\n               mentions as \"mentions!: Vec<Uuid>\",\n               metadata, edited_at, deleted_at, created_at\n        FROM messages\n        WHERE id = $1 AND deleted_at IS NULL\n        ",
   "describe": {
     "columns": [
       {
@@ -35,27 +35,28 @@
       },
       {
         "ordinal": 6,
+        "name": "metadata",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 7,
         "name": "edited_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "deleted_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "created_at",
         "type_info": "Timestamptz"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Uuid",
-        "Text",
-        "Uuid",
-        "UuidArray"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -65,10 +66,11 @@
       false,
       true,
       false,
+      false,
       true,
       true,
       false
     ]
   },
-  "hash": "ffa4e34e68656baa99aaa10c176ccd50074b8d80edc116183c14b1bcf2beebde"
+  "hash": "4e5d5d4b0f57826e2eb20ed09c53b275b04b2a5d7bfc3937e12ddaff64d06f66"
 }

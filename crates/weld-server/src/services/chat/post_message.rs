@@ -52,7 +52,7 @@ pub async fn post_message(
         VALUES ($1, $2, $3, $4, $5)
         RETURNING id, channel_id, sender_id, content, thread_parent_id,
                   mentions as "mentions!: Vec<Uuid>",
-                  edited_at, deleted_at, created_at
+                  metadata, edited_at, deleted_at, created_at
         "#,
         channel_id,
         caller_id,

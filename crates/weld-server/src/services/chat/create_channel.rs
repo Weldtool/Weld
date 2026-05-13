@@ -63,7 +63,9 @@ pub async fn create_channel(
         INSERT INTO channels (team_id, project_id, name, topic, is_direct, is_private, created_by)
         VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING id, team_id, project_id, name, topic, is_direct, is_private,
-                  created_by, created_at, updated_at, deleted_at
+                  created_by, created_at, updated_at, deleted_at,
+                  github_repos as "github_repos!: Vec<String>",
+                  github_event_filter
         "#,
         input.team_id,
         input.project_id,

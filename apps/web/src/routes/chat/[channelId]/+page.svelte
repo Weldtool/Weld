@@ -4,11 +4,14 @@
 	import { page } from '$app/state';
 	import { auth } from '$lib/auth.svelte';
 	import { chat } from '$lib/chat.svelte';
+	import ChannelSettingsPanel from '$lib/components/chat/ChannelSettingsPanel.svelte';
 	import Composer from '$lib/components/chat/Composer.svelte';
 	import MessageList from '$lib/components/chat/MessageList.svelte';
 	import ThreadPanel from '$lib/components/chat/ThreadPanel.svelte';
 	import TypingIndicator from '$lib/components/chat/TypingIndicator.svelte';
-	import { Hash, Lock, MessageSquare } from 'lucide-svelte';
+	import { Hash, Lock, MessageSquare, Settings } from 'lucide-svelte';
+
+	let showSettings = $state(false);
 
 	const channelId = $derived(page.params.channelId as string);
 	const threadId = $derived(page.url.searchParams.get('thread'));
@@ -61,6 +64,15 @@
 				{#if channel.topic}
 					<span class="ml-3 truncate text-xs text-[var(--muted-foreground)]">{channel.topic}</span>
 				{/if}
+				<button
+					type="button"
+					class="ml-auto rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+					title="Channel settings"
+					aria-label="Channel settings"
+					onclick={() => (showSettings = !showSettings)}
+				>
+					<Settings class="h-4 w-4" />
+				</button>
 			</header>
 
 			<MessageList {channelId} members={chat.members} {selfId} onReply={openThread} />
@@ -82,7 +94,9 @@
 		{/if}
 	</div>
 
-	{#if threadId && channel}
+	{#if showSettings && channel}
+		<ChannelSettingsPanel {channel} onClose={() => (showSettings = false)} />
+	{:else if threadId && channel}
 		<ThreadPanel
 			channelId={channel.id}
 			parentId={threadId}

@@ -19,7 +19,9 @@ pub async fn list_channels(
         Channel,
         r#"
         SELECT id, team_id, project_id, name, topic, is_direct, is_private,
-               created_by, created_at, updated_at, deleted_at
+               created_by, created_at, updated_at, deleted_at,
+               github_repos as "github_repos!: Vec<String>",
+               github_event_filter
         FROM channels
         WHERE team_id = $1
           AND deleted_at IS NULL

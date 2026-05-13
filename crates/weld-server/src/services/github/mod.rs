@@ -1,3 +1,4 @@
+pub mod activity_feed;
 mod connect;
 mod disconnect;
 mod get_connection;

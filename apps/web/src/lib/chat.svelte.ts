@@ -80,6 +80,10 @@ class ChatStore {
 		}
 	}
 
+	updateChannel(updated: Channel): void {
+		this.channels = this.channels.map((c) => (c.id === updated.id ? updated : c));
+	}
+
 	async openChannel(channelId: string): Promise<void> {
 		this.activeChannelId = channelId;
 		this.unreadByChannel = { ...this.unreadByChannel, [channelId]: 0 };
@@ -119,6 +123,7 @@ class ChatStore {
 			content: trimmed,
 			thread_parent_id: threadParentId ?? null,
 			mentions: [],
+			metadata: {},
 			edited_at: null,
 			created_at: new Date().toISOString(),
 			pending: true

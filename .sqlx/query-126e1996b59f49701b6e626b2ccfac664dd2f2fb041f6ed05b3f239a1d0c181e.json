@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        UPDATE channels\n        SET name = $1, topic = $2, updated_at = NOW()\n        WHERE id = $3 AND deleted_at IS NULL\n        RETURNING id, team_id, project_id, name, topic, is_direct, is_private,\n                  created_by, created_at, updated_at, deleted_at\n        ",
+  "query": "\n        INSERT INTO channels (team_id, project_id, name, topic, is_direct, is_private, created_by)\n        VALUES ($1, $2, $3, $4, $5, $6, $7)\n        RETURNING id, team_id, project_id, name, topic, is_direct, is_private,\n                  created_by, created_at, updated_at, deleted_at,\n                  github_repos as \"github_repos!: Vec<String>\",\n                  github_event_filter\n        ",
   "describe": {
     "columns": [
       {
@@ -57,12 +57,26 @@
         "ordinal": 10,
         "name": "deleted_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 11,
+        "name": "github_repos!: Vec<String>",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 12,
+        "name": "github_event_filter",
+        "type_info": "Jsonb"
       }
     ],
     "parameters": {
       "Left": [
+        "Uuid",
+        "Uuid",
         "Text",
         "Text",
+        "Bool",
+        "Bool",
         "Uuid"
       ]
     },
@@ -77,8 +91,10 @@
       false,
       false,
       false,
-      true
+      true,
+      false,
+      false
     ]
   },
-  "hash": "b7ec2ca5037180d97ae15a84762b18418af7df629c239fea6813260131668032"
+  "hash": "126e1996b59f49701b6e626b2ccfac664dd2f2fb041f6ed05b3f239a1d0c181e"
 }

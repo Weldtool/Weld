@@ -33,6 +33,8 @@ pub struct UpdateChannelRequest {
     pub name: Option<String>,
     #[serde(default, deserialize_with = "deserialize_optional_field")]
     pub topic: Option<Option<String>>,
+    pub github_repos: Option<Vec<String>>,
+    pub github_event_filter: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -80,6 +82,8 @@ pub struct ChannelResponse {
     pub created_by: Uuid,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub github_repos: Vec<String>,
+    pub github_event_filter: serde_json::Value,
 }
 
 impl From<Channel> for ChannelResponse {
@@ -95,6 +99,8 @@ impl From<Channel> for ChannelResponse {
             created_by: c.created_by,
             created_at: c.created_at,
             updated_at: c.updated_at,
+            github_repos: c.github_repos,
+            github_event_filter: c.github_event_filter,
         }
     }
 }
@@ -107,6 +113,7 @@ pub struct MessageResponse {
     pub content: String,
     pub thread_parent_id: Option<Uuid>,
     pub mentions: Vec<Uuid>,
+    pub metadata: serde_json::Value,
     pub edited_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
 }
@@ -120,6 +127,7 @@ impl From<ChatMessage> for MessageResponse {
             content: m.content,
             thread_parent_id: m.thread_parent_id,
             mentions: m.mentions,
+            metadata: m.metadata,
             edited_at: m.edited_at,
             created_at: m.created_at,
         }
@@ -210,6 +218,8 @@ pub async fn update_channel(
         UpdateChannelInput {
             name: input.name,
             topic: input.topic,
+            github_repos: input.github_repos,
+            github_event_filter: input.github_event_filter,
         },
     )
     .await?;

@@ -11,7 +11,9 @@ pub async fn fetch_active_channel(pool: &PgPool, id: Uuid) -> Result<Channel, Ap
         Channel,
         r#"
         SELECT id, team_id, project_id, name, topic, is_direct, is_private,
-               created_by, created_at, updated_at, deleted_at
+               created_by, created_at, updated_at, deleted_at,
+               github_repos as "github_repos!: Vec<String>",
+               github_event_filter
         FROM channels
         WHERE id = $1 AND deleted_at IS NULL
         "#,
@@ -28,7 +30,7 @@ pub async fn fetch_active_message(pool: &PgPool, id: Uuid) -> Result<ChatMessage
         r#"
         SELECT id, channel_id, sender_id, content, thread_parent_id,
                mentions as "mentions!: Vec<Uuid>",
-               edited_at, deleted_at, created_at
+               metadata, edited_at, deleted_at, created_at
         FROM messages
         WHERE id = $1 AND deleted_at IS NULL
         "#,

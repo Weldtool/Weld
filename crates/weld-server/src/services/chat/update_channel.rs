@@ -10,6 +10,8 @@ use weld_core::models::message::Channel;
 pub struct UpdateChannelInput {
     pub name: Option<String>,
     pub topic: Option<Option<String>>,
+    pub github_repos: Option<Vec<String>>,
+    pub github_event_filter: Option<serde_json::Value>,
 }
 
 pub async fn update_channel(
@@ -44,18 +46,26 @@ pub async fn update_channel(
         Some(v) => v.clone(),
         None => channel.topic.clone(),
     };
+    let new_repos = input.github_repos.unwrap_or(channel.github_repos);
+    let new_filter = input
+        .github_event_filter
+        .unwrap_or(channel.github_event_filter);
 
     let updated = sqlx::query_as!(
         Channel,
         r#"
         UPDATE channels
-        SET name = $1, topic = $2, updated_at = NOW()
-        WHERE id = $3 AND deleted_at IS NULL
+        SET name = $1, topic = $2, github_repos = $3, github_event_filter = $4, updated_at = NOW()
+        WHERE id = $5 AND deleted_at IS NULL
         RETURNING id, team_id, project_id, name, topic, is_direct, is_private,
-                  created_by, created_at, updated_at, deleted_at
+                  created_by, created_at, updated_at, deleted_at,
+                  github_repos as "github_repos!: Vec<String>",
+                  github_event_filter
         "#,
         new_name,
         new_topic.as_deref(),
+        &new_repos,
+        new_filter,
         channel_id,
     )
     .fetch_one(pool)

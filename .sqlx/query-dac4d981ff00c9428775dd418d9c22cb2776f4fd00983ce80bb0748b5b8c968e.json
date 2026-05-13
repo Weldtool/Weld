@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, channel_id, sender_id, content, thread_parent_id,\n               mentions as \"mentions!: Vec<Uuid>\",\n               edited_at, deleted_at, created_at\n        FROM messages\n        WHERE id = $1 AND deleted_at IS NULL\n        ",
+  "query": "\n        SELECT id, channel_id, sender_id, content, thread_parent_id,\n               mentions as \"mentions!: Vec<Uuid>\",\n               metadata, edited_at, deleted_at, created_at\n        FROM messages\n        WHERE thread_parent_id = $1 AND deleted_at IS NULL\n        ORDER BY created_at ASC\n        ",
   "describe": {
     "columns": [
       {
@@ -35,16 +35,21 @@
       },
       {
         "ordinal": 6,
+        "name": "metadata",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 7,
         "name": "edited_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "deleted_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "created_at",
         "type_info": "Timestamptz"
       }
@@ -61,10 +66,11 @@
       false,
       true,
       false,
+      false,
       true,
       true,
       false
     ]
   },
-  "hash": "6206ac9c7b5845ea401dae8f4c90d6d242163e66471732236d019f6bdcd57753"
+  "hash": "dac4d981ff00c9428775dd418d9c22cb2776f4fd00983ce80bb0748b5b8c968e"
 }

@@ -1,11 +1,14 @@
 <script lang="ts">
-	import type { TeamMember } from '$lib/api/types';
+	import type { TeamMember, GitHubMessageMetadata } from '$lib/api/types';
 	import { renderMessageMarkdown } from '$lib/chat-helpers';
 	import type { PendingMessage } from '$lib/chat.svelte';
 	import { isPending, chat } from '$lib/chat.svelte';
 	import { cn } from '$lib/utils';
 	import type { ChatMessage } from '$lib/api/types';
 	import { MessageSquare, Pencil, Trash2, RotateCw, X } from 'lucide-svelte';
+	import GitHubCard from './GitHubCard.svelte';
+
+	const GITHUB_BOT_ID = '00000000-0000-0000-0000-000000000002';
 
 	interface Props {
 		message: ChatMessage | PendingMessage;
@@ -62,141 +65,177 @@
 
 	const pending = $derived(isPending(message));
 	const failed = $derived(pending && (message as PendingMessage).failed === true);
+
+	const isGitHubBot = $derived(!isPending(message) && message.sender_id === GITHUB_BOT_ID);
+	const githubMeta = $derived(
+		isGitHubBot && !isPending(message) && message.metadata?.kind
+			? (message.metadata as unknown as GitHubMessageMetadata)
+			: null
+	);
+	const isMuted = $derived(
+		typeof localStorage !== 'undefined' &&
+			(() => {
+				try {
+					const muted: string[] = JSON.parse(localStorage.getItem('weld_muted_senders') ?? '[]');
+					return muted.includes(GITHUB_BOT_ID);
+				} catch {
+					return false;
+				}
+			})()
+	);
 </script>
 
-<div
-	class={cn(
-		'group relative flex gap-3 rounded-md px-3 py-1.5 hover:bg-[var(--accent)]/40',
-		pending && 'opacity-60'
-	)}
->
-	<div class="w-8 shrink-0">
-		{#if showAvatar}
-			<div
-				class="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--muted)] text-xs font-medium text-[var(--muted-foreground)]"
-				aria-hidden="true"
-			>
-				{initials(senderName)}
-			</div>
-		{/if}
-	</div>
+{#if isMuted}<!-- message from muted sender, render nothing -->
+{:else}
+	<div
+		class={cn(
+			'group relative flex gap-3 rounded-md px-3 py-1.5 hover:bg-[var(--accent)]/40',
+			pending && 'opacity-60'
+		)}
+	>
+		<div class="w-8 shrink-0">
+			{#if showAvatar}
+				{#if isGitHubBot}
+					<div
+						class="flex h-8 w-8 items-center justify-center rounded-full bg-[#24292e] text-white"
+						aria-hidden="true"
+					>
+						<svg viewBox="0 0 16 16" class="h-5 w-5 fill-current" aria-hidden="true">
+							<path
+								d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
+							/>
+						</svg>
+					</div>
+				{:else}
+					<div
+						class="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--muted)] text-xs font-medium text-[var(--muted-foreground)]"
+						aria-hidden="true"
+					>
+						{initials(senderName)}
+					</div>
+				{/if}
+			{/if}
+		</div>
 
-	<div class="min-w-0 flex-1">
-		{#if showAvatar}
-			<div class="flex items-baseline gap-2">
-				<span class="text-sm font-semibold">{senderName}</span>
-				<span class="text-[10px] text-[var(--muted-foreground)]">{time}</span>
-				{#if message.edited_at}
-					<span class="text-[10px] text-[var(--muted-foreground)] italic">(edited)</span>
+		<div class="min-w-0 flex-1">
+			{#if showAvatar}
+				<div class="flex items-baseline gap-2">
+					<span class="text-sm font-semibold">{senderName}</span>
+					<span class="text-[10px] text-[var(--muted-foreground)]">{time}</span>
+					{#if !isPending(message) && message.edited_at}
+						<span class="text-[10px] text-[var(--muted-foreground)] italic">(edited)</span>
+					{/if}
+				</div>
+			{/if}
+
+			{#if githubMeta}
+				<GitHubCard meta={githubMeta} />
+			{:else if editing}
+				<div class="mt-1 space-y-1">
+					<textarea
+						bind:value={draft}
+						rows={3}
+						class="w-full resize-y rounded-md border border-[var(--input)] bg-[var(--background)] p-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+					></textarea>
+					<div class="flex gap-2 text-xs">
+						<button
+							type="button"
+							class="rounded-md bg-[var(--primary)] px-2 py-1 text-[var(--primary-foreground)] hover:opacity-90"
+							onclick={saveEdit}
+						>
+							Save
+						</button>
+						<button
+							type="button"
+							class="rounded-md border border-[var(--border)] px-2 py-1 hover:bg-[var(--accent)]"
+							onclick={cancelEdit}
+						>
+							Cancel
+						</button>
+					</div>
+				</div>
+			{:else}
+				<div class="chat-message-body text-sm leading-snug">
+					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+					{@html html}
+				</div>
+			{/if}
+
+			{#if !editing && replyCount > 0}
+				<button
+					type="button"
+					class="mt-1 inline-flex items-center gap-1 text-xs text-[var(--primary)] hover:underline"
+					onclick={() => onReply?.(message.id)}
+				>
+					<MessageSquare class="h-3 w-3" />
+					{replyCount}
+					{replyCount === 1 ? 'reply' : 'replies'}
+				</button>
+			{/if}
+
+			{#if failed}
+				<div class="mt-1 flex items-center gap-2 text-xs text-red-500">
+					<span>Failed to send.</span>
+					<button
+						type="button"
+						class="inline-flex items-center gap-1 hover:underline"
+						onclick={() =>
+							chat.retryPending(message.channel_id, (message as PendingMessage).clientId)}
+					>
+						<RotateCw class="h-3 w-3" /> Retry
+					</button>
+					<button
+						type="button"
+						class="inline-flex items-center gap-1 hover:underline"
+						onclick={() =>
+							chat.discardPending(message.channel_id, (message as PendingMessage).clientId)}
+					>
+						<X class="h-3 w-3" /> Discard
+					</button>
+				</div>
+			{:else if pending}
+				<div class="mt-1 text-[10px] text-[var(--muted-foreground)] italic">Sending…</div>
+			{/if}
+		</div>
+
+		{#if !pending && !editing && !githubMeta}
+			<div
+				class="absolute -top-3 right-3 hidden gap-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-1 py-0.5 shadow-sm group-hover:flex"
+			>
+				{#if onReply && !message.thread_parent_id}
+					<button
+						type="button"
+						class="rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+						title="Reply in thread"
+						onclick={() => onReply?.(message.id)}
+					>
+						<MessageSquare class="h-3.5 w-3.5" />
+					</button>
+				{/if}
+				{#if message.sender_id === selfId}
+					<button
+						type="button"
+						class="rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+						title="Edit"
+						onclick={startEdit}
+					>
+						<Pencil class="h-3.5 w-3.5" />
+					</button>
+				{/if}
+				{#if canDelete}
+					<button
+						type="button"
+						class="rounded p-1 text-[var(--muted-foreground)] hover:bg-red-500/20 hover:text-red-500"
+						title="Delete"
+						onclick={() => chat.deleteMessage(message.id, message.channel_id)}
+					>
+						<Trash2 class="h-3.5 w-3.5" />
+					</button>
 				{/if}
 			</div>
 		{/if}
-
-		{#if editing}
-			<div class="mt-1 space-y-1">
-				<textarea
-					bind:value={draft}
-					rows={3}
-					class="w-full resize-y rounded-md border border-[var(--input)] bg-[var(--background)] p-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-				></textarea>
-				<div class="flex gap-2 text-xs">
-					<button
-						type="button"
-						class="rounded-md bg-[var(--primary)] px-2 py-1 text-[var(--primary-foreground)] hover:opacity-90"
-						onclick={saveEdit}
-					>
-						Save
-					</button>
-					<button
-						type="button"
-						class="rounded-md border border-[var(--border)] px-2 py-1 hover:bg-[var(--accent)]"
-						onclick={cancelEdit}
-					>
-						Cancel
-					</button>
-				</div>
-			</div>
-		{:else}
-			<div class="chat-message-body text-sm leading-snug">
-				<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-				{@html html}
-			</div>
-		{/if}
-
-		{#if !editing && replyCount > 0}
-			<button
-				type="button"
-				class="mt-1 inline-flex items-center gap-1 text-xs text-[var(--primary)] hover:underline"
-				onclick={() => onReply?.(message.id)}
-			>
-				<MessageSquare class="h-3 w-3" />
-				{replyCount}
-				{replyCount === 1 ? 'reply' : 'replies'}
-			</button>
-		{/if}
-
-		{#if failed}
-			<div class="mt-1 flex items-center gap-2 text-xs text-red-500">
-				<span>Failed to send.</span>
-				<button
-					type="button"
-					class="inline-flex items-center gap-1 hover:underline"
-					onclick={() =>
-						chat.retryPending(message.channel_id, (message as PendingMessage).clientId)}
-				>
-					<RotateCw class="h-3 w-3" /> Retry
-				</button>
-				<button
-					type="button"
-					class="inline-flex items-center gap-1 hover:underline"
-					onclick={() =>
-						chat.discardPending(message.channel_id, (message as PendingMessage).clientId)}
-				>
-					<X class="h-3 w-3" /> Discard
-				</button>
-			</div>
-		{:else if pending}
-			<div class="mt-1 text-[10px] text-[var(--muted-foreground)] italic">Sending…</div>
-		{/if}
 	</div>
-
-	{#if !pending && !editing}
-		<div
-			class="absolute -top-3 right-3 hidden gap-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-1 py-0.5 shadow-sm group-hover:flex"
-		>
-			{#if onReply && !message.thread_parent_id}
-				<button
-					type="button"
-					class="rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-					title="Reply in thread"
-					onclick={() => onReply?.(message.id)}
-				>
-					<MessageSquare class="h-3.5 w-3.5" />
-				</button>
-			{/if}
-			{#if message.sender_id === selfId}
-				<button
-					type="button"
-					class="rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-					title="Edit"
-					onclick={startEdit}
-				>
-					<Pencil class="h-3.5 w-3.5" />
-				</button>
-			{/if}
-			{#if canDelete}
-				<button
-					type="button"
-					class="rounded p-1 text-[var(--muted-foreground)] hover:bg-red-500/20 hover:text-red-500"
-					title="Delete"
-					onclick={() => chat.deleteMessage(message.id, message.channel_id)}
-				>
-					<Trash2 class="h-3.5 w-3.5" />
-				</button>
-			{/if}
-		</div>
-	{/if}
-</div>
+{/if}
 
 <style>
 	:global(.chat-message-body p) {

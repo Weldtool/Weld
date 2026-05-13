@@ -5,7 +5,7 @@ use sqlx::PgPool;
 use crate::errors::ApiError;
 use crate::realtime::Hub;
 
-use super::sync;
+use super::{activity_feed, sync};
 
 /// Handles `issues` and `issue_comment` webhook events.
 pub async fn handle(
@@ -22,6 +22,7 @@ pub async fn handle(
 
     if event == "issues" {
         sync::on_issue_event(db, hub, repo, issue_number, action).await?;
+        activity_feed::post_issue_event(db, hub, repo, payload, action).await?;
     }
 
     Ok(())

@@ -100,6 +100,13 @@ export interface BoardState {
 	labels: Label[];
 }
 
+export interface GitHubEventFilter {
+	pr: boolean;
+	issue: boolean;
+	review: boolean;
+	push: boolean;
+}
+
 export interface Channel {
 	id: string;
 	team_id: string;
@@ -111,6 +118,32 @@ export interface Channel {
 	created_by: string;
 	created_at: string;
 	updated_at: string;
+	github_repos: string[];
+	github_event_filter: GitHubEventFilter;
+}
+
+export type GitHubMessageKind =
+	| 'pr.opened'
+	| 'pr.merged'
+	| 'pr.closed'
+	| 'pr.reopened'
+	| 'issue.opened'
+	| 'issue.closed'
+	| 'issue.reopened'
+	| 'review.submitted';
+
+export interface GitHubMessageMetadata {
+	kind: GitHubMessageKind;
+	repo: string;
+	number: number;
+	title?: string;
+	url: string;
+	author: string;
+	author_avatar: string;
+	additions?: number;
+	deletions?: number;
+	labels?: string[];
+	verdict?: 'approved' | 'changes_requested' | 'commented';
 }
 
 export interface ChatMessage {
@@ -120,6 +153,7 @@ export interface ChatMessage {
 	content: string;
 	thread_parent_id: string | null;
 	mentions: string[];
+	metadata: Record<string, unknown>;
 	edited_at: string | null;
 	created_at: string;
 }

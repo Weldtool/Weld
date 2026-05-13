@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, team_id, project_id, name, topic, is_direct, is_private,\n               created_by, created_at, updated_at, deleted_at\n        FROM channels\n        WHERE team_id = $1\n          AND deleted_at IS NULL\n          AND (\n            (is_private = FALSE AND is_direct = FALSE)\n            OR EXISTS (\n                SELECT 1 FROM channel_memberships cm\n                WHERE cm.channel_id = channels.id AND cm.user_id = $2\n            )\n          )\n        ORDER BY is_direct ASC, name ASC\n        ",
+  "query": "\n        SELECT id, team_id, project_id, name, topic, is_direct, is_private,\n               created_by, created_at, updated_at, deleted_at,\n               github_repos as \"github_repos!: Vec<String>\",\n               github_event_filter\n        FROM channels\n        WHERE team_id = $1\n          AND deleted_at IS NULL\n          AND (\n            (is_private = FALSE AND is_direct = FALSE)\n            OR EXISTS (\n                SELECT 1 FROM channel_memberships cm\n                WHERE cm.channel_id = channels.id AND cm.user_id = $2\n            )\n          )\n        ORDER BY is_direct ASC, name ASC\n        ",
   "describe": {
     "columns": [
       {
@@ -57,6 +57,16 @@
         "ordinal": 10,
         "name": "deleted_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 11,
+        "name": "github_repos!: Vec<String>",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 12,
+        "name": "github_event_filter",
+        "type_info": "Jsonb"
       }
     ],
     "parameters": {
@@ -76,8 +86,10 @@
       false,
       false,
       false,
-      true
+      true,
+      false,
+      false
     ]
   },
-  "hash": "2174450d76f8590e099023b6ff2a36be44deeaaffc491183a5ec3324984432e1"
+  "hash": "8b90c50b4038fb90280693614e6ab085d37d53c3c7f1402ce46eb3f874543d53"
 }

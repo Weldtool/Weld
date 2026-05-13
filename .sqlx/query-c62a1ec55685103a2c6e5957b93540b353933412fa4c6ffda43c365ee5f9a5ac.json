@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, team_id, project_id, name, topic, is_direct, is_private,\n               created_by, created_at, updated_at, deleted_at\n        FROM channels\n        WHERE id = $1 AND deleted_at IS NULL\n        ",
+  "query": "\n        UPDATE channels\n        SET name = $1, topic = $2, github_repos = $3, github_event_filter = $4, updated_at = NOW()\n        WHERE id = $5 AND deleted_at IS NULL\n        RETURNING id, team_id, project_id, name, topic, is_direct, is_private,\n                  created_by, created_at, updated_at, deleted_at,\n                  github_repos as \"github_repos!: Vec<String>\",\n                  github_event_filter\n        ",
   "describe": {
     "columns": [
       {
@@ -57,10 +57,24 @@
         "ordinal": 10,
         "name": "deleted_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 11,
+        "name": "github_repos!: Vec<String>",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 12,
+        "name": "github_event_filter",
+        "type_info": "Jsonb"
       }
     ],
     "parameters": {
       "Left": [
+        "Text",
+        "Text",
+        "TextArray",
+        "Jsonb",
         "Uuid"
       ]
     },
@@ -75,8 +89,10 @@
       false,
       false,
       false,
-      true
+      true,
+      false,
+      false
     ]
   },
-  "hash": "e2e4550d1918da34e4c2b251f382613fe8eb8f043534e9404b3535c90931e85b"
+  "hash": "c62a1ec55685103a2c6e5957b93540b353933412fa4c6ffda43c365ee5f9a5ac"
 }
