@@ -64,11 +64,18 @@ pub fn extract_refresh_token(headers: &HeaderMap) -> Result<String, ApiError> {
 }
 
 /// Build the Set-Cookie string for a refresh token.
-/// Pass 'secure: true' in production to include the Secure flag.
+/// When `secure` is true we use SameSite=None so the cookie is sent on
+/// cross-site requests (frontend and backend on different Railway subdomains).
+/// SameSite=None requires Secure, so browsers reject it otherwise — in dev
+/// (HTTP, secure=false) we fall back to Lax which works for same-origin.
 pub fn build_refresh_token_cookie(token: &str, secure: bool) -> String {
-    let secure_flag = if secure { "; Secure" } else { "" };
+    let (same_site, secure_flag) = if secure {
+        ("None", "; Secure")
+    } else {
+        ("Lax", "")
+    };
     format!(
-        "refresh_token={}; HttpOnly; SameSite=Strict; Path=/api/v1/auth; Max-Age=604800{}",
-        token, secure_flag
+        "refresh_token={}; HttpOnly; SameSite={}; Path=/api/v1/auth; Max-Age=604800{}",
+        token, same_site, secure_flag
     )
 }
