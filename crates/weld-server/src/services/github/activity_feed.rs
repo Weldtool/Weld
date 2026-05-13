@@ -46,9 +46,8 @@ pub async fn post_pr_event(
         "pr.closed" => "closed",
         _ => "reopened",
     };
-    let content = format!(
-        "**[#{number} {title}]({url})** {verb} by @{author} (+{additions} -{deletions})"
-    );
+    let content =
+        format!("**[#{number} {title}]({url})** {verb} by @{author} (+{additions} -{deletions})");
     let metadata = json!({
         "kind": kind,
         "repo": repo,
@@ -85,7 +84,10 @@ pub async fn post_issue_event(
     let title = issue["title"].as_str().unwrap_or("").to_string();
     let url = issue["html_url"].as_str().unwrap_or("").to_string();
     let author = issue["user"]["login"].as_str().unwrap_or("").to_string();
-    let author_avatar = issue["user"]["avatar_url"].as_str().unwrap_or("").to_string();
+    let author_avatar = issue["user"]["avatar_url"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
     let labels: Vec<String> = issue["labels"]
         .as_array()
         .map(|arr| {
