@@ -91,9 +91,11 @@ class ChatStore {
 			await channelsApi.archive(channelId);
 			this.channels = this.channels.filter((c) => c.id !== channelId);
 			if (this.activeChannelId === channelId) this.activeChannelId = null;
-			const { [channelId]: _m, ...restMsgs } = this.messagesByChannel;
+			const restMsgs = { ...this.messagesByChannel };
+			delete restMsgs[channelId];
 			this.messagesByChannel = restMsgs;
-			const { [channelId]: _u, ...restUnread } = this.unreadByChannel;
+			const restUnread = { ...this.unreadByChannel };
+			delete restUnread[channelId];
 			this.unreadByChannel = restUnread;
 			return true;
 		} catch (err) {

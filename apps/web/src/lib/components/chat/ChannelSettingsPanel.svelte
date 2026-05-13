@@ -165,13 +165,15 @@
 		{/if}
 
 		<section class="border-t border-[var(--border)] pt-4">
-			<h3 class="mb-2 flex items-center gap-2 text-xs font-semibold tracking-wide text-red-500 uppercase">
+			<h3
+				class="mb-2 flex items-center gap-2 text-xs font-semibold tracking-wide text-red-500 uppercase"
+			>
 				<Trash2 class="h-3.5 w-3.5" />
 				Danger zone
 			</h3>
 			<p class="mb-2 text-[11px] text-[var(--muted-foreground)]">
-				Archiving removes <code>#{channel.name}</code> from the sidebar. Message history is kept but
-				not visible. Type the channel name to confirm.
+				Archiving removes <code>#{channel.name}</code> from the sidebar. Message history is kept but not
+				visible. Type the channel name to confirm.
 			</p>
 			<input
 				type="text"
