@@ -20,6 +20,7 @@ type ChannelMessages = {
 	messages: AnyMessage[];
 	nextBefore: string | null;
 	loadedAll: boolean;
+	loadError: string | null;
 };
 
 type ThreadState = {
@@ -84,11 +85,15 @@ class ChatStore {
 		this.channels = this.channels.map((c) => (c.id === updated.id ? updated : c));
 	}
 
+	loadingChannel = $state<string | null>(null);
+
 	async openChannel(channelId: string): Promise<void> {
 		this.activeChannelId = channelId;
 		this.unreadByChannel = { ...this.unreadByChannel, [channelId]: 0 };
 		if (!this.messagesByChannel[channelId]) {
+			this.loadingChannel = channelId;
 			await this.#fetchPage(channelId, undefined);
+			this.loadingChannel = null;
 		}
 		this.#joinChannelRoom(channelId);
 		this.#ensureRealtimeWired();
@@ -303,7 +308,8 @@ class ChatStore {
 			const cur = this.messagesByChannel[channelId] ?? {
 				messages: [],
 				nextBefore: null,
-				loadedAll: false
+				loadedAll: false,
+				loadError: null
 			};
 			const incoming = [...page.messages].reverse(); // newest-first → ascending
 			const merged = before ? [...incoming, ...cur.messages] : [...cur.messages, ...incoming];
@@ -313,14 +319,26 @@ class ChatStore {
 				[channelId]: {
 					messages: dedup,
 					nextBefore: page.next_before,
-					loadedAll: page.next_before === null
+					loadedAll: page.next_before === null,
+					loadError: null
 				}
 			};
 			const newest = dedup[dedup.length - 1];
 			if (newest && !isPending(newest))
 				realtime.setCursor(`channel:${channelId}`, newest.created_at);
 		} catch (err) {
-			this.error = err instanceof Error ? err.message : 'Failed to load messages.';
+			const msg = err instanceof Error ? err.message : 'Failed to load messages.';
+			this.error = msg;
+			const cur = this.messagesByChannel[channelId];
+			this.messagesByChannel = {
+				...this.messagesByChannel,
+				[channelId]: {
+					messages: cur?.messages ?? [],
+					nextBefore: cur?.nextBefore ?? null,
+					loadedAll: cur?.loadedAll ?? false,
+					loadError: msg
+				}
+			};
 		}
 	}
 

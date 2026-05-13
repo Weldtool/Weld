@@ -235,8 +235,16 @@ export const channels = {
 	get: (id: string, opts?: RequestOptions) =>
 		authStore.fetch<Channel>(`/api/v1/channels/${id}`, opts),
 
-	update: (id: string, body: { name?: string; topic?: string | null }, opts?: RequestOptions) =>
-		authStore.fetch<Channel>(`/api/v1/channels/${id}`, { ...opts, method: 'PATCH', body }),
+	update: (
+		id: string,
+		body: {
+			name?: string;
+			topic?: string | null;
+			github_repos?: string[];
+			github_event_filter?: { pr?: boolean; issue?: boolean; review?: boolean; push?: boolean };
+		},
+		opts?: RequestOptions
+	) => authStore.fetch<Channel>(`/api/v1/channels/${id}`, { ...opts, method: 'PATCH', body }),
 
 	archive: (id: string, opts?: RequestOptions) =>
 		authStore.fetch<void>(`/api/v1/channels/${id}`, { ...opts, method: 'DELETE' }),

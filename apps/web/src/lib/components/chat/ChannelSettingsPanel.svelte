@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Channel, GitHubEventFilter } from '$lib/api/types';
-	import { apiRequest } from '$lib/api/client';
+	import { channels as channelsApi } from '$lib/api';
 	import { chat } from '$lib/chat.svelte';
 	import { X, GitBranch } from 'lucide-svelte';
 
@@ -60,9 +60,9 @@
 			push: pushEnabled
 		};
 		try {
-			const updated = await apiRequest<Channel>(`/channels/${channel.id}`, {
-				method: 'PATCH',
-				body: JSON.stringify({ github_repos: repos, github_event_filter: filter })
+			const updated = await channelsApi.update(channel.id, {
+				github_repos: repos,
+				github_event_filter: filter
 			});
 			chat.updateChannel(updated);
 			onClose();
