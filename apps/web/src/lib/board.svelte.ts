@@ -1,6 +1,7 @@
 import {
 	board as boardApi,
 	columns as columnsApi,
+	github as githubApi,
 	labels as labelsApi,
 	tasks as tasksApi,
 	teams as teamsApi
@@ -313,6 +314,14 @@ class BoardStore {
 		this.tasks = this.tasks.map((t) =>
 			t.labels.includes(id) ? { ...t, labels: t.labels.filter((l) => l !== id) } : t
 		);
+	}
+
+	async syncLabelsFromGithub(): Promise<number | null> {
+		if (!this.projectId) return null;
+		const before = this.labels.length;
+		const next = await githubApi.syncLabels(this.projectId);
+		this.labels = next;
+		return next.length - before;
 	}
 }
 

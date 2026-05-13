@@ -62,12 +62,24 @@ pub fn router() -> Router<AppState> {
             post(tasks::link_task).delete(tasks::unlink_task),
         )
         .route(
+            "/api/v1/tasks/{id}/push-to-github",
+            post(tasks::push_task_to_github),
+        )
+        .route(
             "/api/v1/projects/{id}/github/issues",
             get(github::list_project_issues),
         )
         .route(
+            "/api/v1/projects/{id}/github/issues/{number}",
+            get(github::get_project_issue),
+        )
+        .route(
             "/api/v1/projects/{id}/github/prs",
             get(github::list_project_prs),
+        )
+        .route(
+            "/api/v1/projects/{id}/github/labels/sync",
+            post(github::sync_project_labels),
         )
         .route(
             "/api/v1/teams/{team_id}/channels",

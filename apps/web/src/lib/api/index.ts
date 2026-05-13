@@ -10,6 +10,7 @@ import type {
 	Column,
 	GithubConnection,
 	GitHubIssue,
+	GitHubIssueDetail,
 	GitHubPR,
 	Label,
 	LoginResponse,
@@ -187,7 +188,10 @@ export const tasks = {
 	) => authStore.fetch<Task>(`/api/v1/tasks/${id}/link`, { ...opts, method: 'POST', body }),
 
 	unlink: (id: string, opts?: RequestOptions) =>
-		authStore.fetch<Task>(`/api/v1/tasks/${id}/link`, { ...opts, method: 'DELETE' })
+		authStore.fetch<Task>(`/api/v1/tasks/${id}/link`, { ...opts, method: 'DELETE' }),
+
+	pushToGithub: (id: string, opts?: RequestOptions) =>
+		authStore.fetch<Task>(`/api/v1/tasks/${id}/push-to-github`, { ...opts, method: 'POST' })
 };
 
 export const github = {
@@ -206,8 +210,20 @@ export const github = {
 	listIssues: (projectId: string, opts?: RequestOptions) =>
 		authStore.fetch<GitHubIssue[]>(`/api/v1/projects/${projectId}/github/issues`, opts),
 
+	getIssue: (projectId: string, number: number, opts?: RequestOptions) =>
+		authStore.fetch<GitHubIssueDetail>(
+			`/api/v1/projects/${projectId}/github/issues/${number}`,
+			opts
+		),
+
 	listPRs: (projectId: string, opts?: RequestOptions) =>
-		authStore.fetch<GitHubPR[]>(`/api/v1/projects/${projectId}/github/prs`, opts)
+		authStore.fetch<GitHubPR[]>(`/api/v1/projects/${projectId}/github/prs`, opts),
+
+	syncLabels: (projectId: string, opts?: RequestOptions) =>
+		authStore.fetch<Label[]>(`/api/v1/projects/${projectId}/github/labels/sync`, {
+			...opts,
+			method: 'POST'
+		})
 };
 
 export const channels = {

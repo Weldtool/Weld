@@ -2,8 +2,10 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { tasks as tasksApi } from '$lib/api';
 	import type { Priority } from '$lib/api/types';
 	import { boardStore } from '$lib/board.svelte';
+	import { projects } from '$lib/projects.svelte';
 	import AssigneePicker from './AssigneePicker.svelte';
 	import DescriptionEditor from './DescriptionEditor.svelte';
 	import DueDatePicker from './DueDatePicker.svelte';
@@ -28,6 +30,12 @@
 	let titleInput: HTMLInputElement | null = $state(null);
 	let creating = $state(false);
 	let error = $state<string | null>(null);
+
+	// "Also create GitHub issue" — only shown when the project has a linked
+	// repo, default on so users opt out rather than in (matches the goal of
+	// keeping GitHub in sync without extra clicks).
+	const hasRepo = $derived(!!projects.current?.github_repo);
+	let pushToGithub = $state(true);
 
 	$effect(() => {
 		titleInput?.focus();
@@ -62,6 +70,15 @@
 				labels: labels.length ? labels : undefined
 			});
 			if (created) {
+				if (hasRepo && pushToGithub) {
+					try {
+						const pushed = await tasksApi.pushToGithub(created.id);
+						boardStore.applyTaskUpdate(pushed);
+					} catch (err) {
+						// Soft-fail: the task exists; the push is the optional bit.
+						error = err instanceof Error ? err.message : 'Created locally, GitHub push failed.';
+					}
+				}
 				const url = new URL(page.url);
 				url.searchParams.set('task', created.id);
 				url.searchParams.delete('column');
@@ -153,22 +170,32 @@
 			<LabelPicker value={labels} onChange={(next) => (labels = next)} />
 		</div>
 
-		<div class="mt-auto flex items-center justify-end gap-2 border-t border-[var(--border)] pt-4">
-			<button
-				type="button"
-				onclick={close}
-				class="rounded-md px-3 py-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-			>
-				Cancel
-			</button>
-			<button
-				type="button"
-				onclick={submit}
-				disabled={creating || !title.trim()}
-				class="rounded-md bg-[var(--primary)] px-3 py-1.5 text-sm font-medium text-[var(--primary-foreground)] disabled:opacity-50"
-			>
-				{creating ? 'Creating…' : 'Create task'}
-			</button>
+		<div class="mt-auto space-y-3 border-t border-[var(--border)] pt-4">
+			{#if hasRepo}
+				<label
+					class="flex cursor-pointer items-center gap-2 text-xs text-[var(--muted-foreground)]"
+				>
+					<input type="checkbox" bind:checked={pushToGithub} class="rounded" />
+					Also create issue on <code>{projects.current?.github_repo}</code>
+				</label>
+			{/if}
+			<div class="flex items-center justify-end gap-2">
+				<button
+					type="button"
+					onclick={close}
+					class="rounded-md px-3 py-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+				>
+					Cancel
+				</button>
+				<button
+					type="button"
+					onclick={submit}
+					disabled={creating || !title.trim()}
+					class="rounded-md bg-[var(--primary)] px-3 py-1.5 text-sm font-medium text-[var(--primary-foreground)] disabled:opacity-50"
+				>
+					{creating ? 'Creating…' : 'Create task'}
+				</button>
+			</div>
 		</div>
 	</div>
 </div>

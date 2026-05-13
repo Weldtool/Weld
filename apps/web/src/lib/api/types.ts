@@ -68,6 +68,10 @@ export interface GitHubIssue {
 	labels: { name: string; color: string }[];
 }
 
+export interface GitHubIssueDetail extends GitHubIssue {
+	body: string | null;
+}
+
 export interface GitHubPR {
 	number: number;
 	title: string;

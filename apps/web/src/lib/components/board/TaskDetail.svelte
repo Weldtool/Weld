@@ -144,12 +144,20 @@
 		linkError = '';
 		linkBusy = true;
 		try {
-			const updated = await tasksApi.link(task.id, {
+			const linked = await tasksApi.link(task.id, {
 				repo: linkRepo.trim(),
 				issue_number: issueNum,
 				pr_number: prNum
 			});
-			boardStore.applyTaskUpdate(updated);
+			boardStore.applyTaskUpdate(linked);
+
+			// Autofill: when linking to an issue, pull title/description/labels
+			// from GitHub for any fields the user hasn't filled in yet.
+			const projectId = projects.current?.id;
+			if (issueNum !== null && projectId) {
+				await autofillFromIssue(linked.id, projectId, issueNum);
+			}
+
 			showLinkForm = false;
 			linkRepo = '';
 			linkIssue = '';
@@ -158,6 +166,57 @@
 			linkError = err instanceof Error ? err.message : 'Link failed.';
 		} finally {
 			linkBusy = false;
+		}
+	}
+
+	async function autofillFromIssue(taskIdToPatch: string, projectId: string, issueNumber: number) {
+		let detail;
+		try {
+			detail = await githubApi.getIssue(projectId, issueNumber);
+		} catch {
+			// Fetch is best-effort — failure shouldn't break the link.
+			return;
+		}
+
+		const current = boardStore.taskById(taskIdToPatch);
+		if (!current) return;
+
+		const patch: Parameters<typeof tasksApi.update>[1] = {};
+		if (!current.title || current.title.trim() === '') {
+			patch.title = detail.title;
+		}
+		if ((!current.description || current.description.trim() === '') && detail.body) {
+			patch.description = detail.body;
+		}
+
+		// Map GitHub labels (by name, case-insensitive) onto Weld labels,
+		// creating any that don't exist yet. Merge into the task's existing
+		// labels rather than replacing.
+		const ghLabels = detail.labels ?? [];
+		if (ghLabels.length > 0) {
+			const merged = [...current.labels];
+			for (const gh of ghLabels) {
+				const existing = boardStore.labels.find(
+					(l) => l.name.toLowerCase() === gh.name.toLowerCase()
+				);
+				const id = existing
+					? existing.id
+					: ((await boardStore.createLabel(gh.name, `#${gh.color}`))?.id ?? null);
+				if (id && !merged.includes(id)) merged.push(id);
+			}
+			if (merged.length !== current.labels.length) {
+				patch.labels = merged;
+			}
+		}
+
+		if (Object.keys(patch).length === 0) return;
+		try {
+			const patched = await tasksApi.update(taskIdToPatch, patch);
+			boardStore.applyTaskUpdate(patched);
+			if (!titleFocused) titleLocal = patched.title;
+		} catch {
+			// Surface nothing — the link itself succeeded, autofill is just
+			// a nice-to-have.
 		}
 	}
 

@@ -249,3 +249,17 @@ pub async fn unlink_task(
     publish_project_event(&state.hub, resp.project_id, "task.updated", &resp);
     Ok(Json(resp))
 }
+
+pub async fn push_task_to_github(
+    auth: AuthUser,
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<TaskResponse>, ApiError> {
+    let gh_cfg = state.github.as_ref().ok_or_else(|| {
+        ApiError::Validation("GitHub integration is not configured on the server".into())
+    })?;
+    let task = sync::push_task_to_github(&state.db, gh_cfg, id, auth.user_id).await?;
+    let resp: TaskResponse = task.into();
+    publish_project_event(&state.hub, resp.project_id, "task.updated", &resp);
+    Ok(Json(resp))
+}
