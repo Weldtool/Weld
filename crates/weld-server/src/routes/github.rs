@@ -125,10 +125,7 @@ pub async fn setup_callback(
         "GitHub App installed"
     );
 
-    let redirect_url = format!(
-        "{}/teams/{team_id}?github_connected=true",
-        state.frontend_url
-    );
+    let redirect_url = format!("{}/settings?github_connected=true", state.frontend_url);
     Ok(Redirect::to(&redirect_url).into_response())
 }
 
