@@ -250,7 +250,10 @@ class BoardStore {
 	async createTask(columnId: string, title: string): Promise<Task | null> {
 		if (!this.projectId) return null;
 		const created = await tasksApi.create(this.projectId, { title, column_id: columnId });
-		this.tasks = [...this.tasks, { ...created, labels: created.labels ?? [] }];
+		// Guard against the WS task.created event arriving first and already inserting.
+		if (!this.tasks.some((t) => t.id === created.id)) {
+			this.tasks = [...this.tasks, { ...created, labels: created.labels ?? [] }];
+		}
 		return created;
 	}
 

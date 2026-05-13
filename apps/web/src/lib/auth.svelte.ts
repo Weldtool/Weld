@@ -1,9 +1,11 @@
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
+import { browser } from '$app/environment';
 import { ApiError, apiRequest, type RequestOptions } from '$lib/api/client';
 import type { LoginResponse, User } from '$lib/api/types';
 
 const REFRESH_PATH = '/api/v1/auth/refresh';
+const SESSION_KEY = 'weld_access_token';
 
 class AuthStore {
 	user = $state<User | null>(null);
@@ -22,6 +24,21 @@ class AuthStore {
 	 * times — concurrent calls share the same in-flight request.
 	 */
 	async bootstrap(): Promise<void> {
+		// Fast path: try the token cached in sessionStorage from this tab.
+		if (browser) {
+			const stored = sessionStorage.getItem(SESSION_KEY);
+			if (stored) {
+				this.accessToken = stored;
+				await this.#loadUser();
+				if (this.user) {
+					this.ready = true;
+					return;
+				}
+				// Stored token was invalid/expired — clear it and fall through to cookie refresh.
+				sessionStorage.removeItem(SESSION_KEY);
+				this.accessToken = null;
+			}
+		}
 		await this.#refresh();
 		if (this.accessToken && !this.user) {
 			await this.#loadUser();
@@ -35,6 +52,7 @@ class AuthStore {
 			body: { email, password }
 		});
 		this.accessToken = result.access_token;
+		if (browser) sessionStorage.setItem(SESSION_KEY, result.access_token);
 		await this.#loadUser();
 	}
 
@@ -54,6 +72,7 @@ class AuthStore {
 		}
 		this.user = null;
 		this.accessToken = null;
+		if (browser) sessionStorage.removeItem(SESSION_KEY);
 		await goto(resolve('/login'));
 	}
 
@@ -86,9 +105,11 @@ class AuthStore {
 			try {
 				const result = await apiRequest<LoginResponse>(REFRESH_PATH, { method: 'POST' });
 				this.accessToken = result.access_token;
+				if (browser) sessionStorage.setItem(SESSION_KEY, result.access_token);
 				return true;
 			} catch {
 				this.accessToken = null;
+				if (browser) sessionStorage.removeItem(SESSION_KEY);
 				return false;
 			} finally {
 				this.#refreshing = null;

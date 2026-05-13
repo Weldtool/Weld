@@ -2,8 +2,8 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { tasks as tasksApi } from '$lib/api';
-	import type { Priority } from '$lib/api/types';
+	import { tasks as tasksApi, github as githubApi } from '$lib/api';
+	import type { GitHubIssue, Priority } from '$lib/api/types';
 	import { auth } from '$lib/auth.svelte';
 	import { boardStore } from '$lib/board.svelte';
 	import { projects } from '$lib/projects.svelte';
@@ -118,6 +118,20 @@
 	let linkError = $state('');
 	let linkBusy = $state(false);
 	let showLinkForm = $state(false);
+	let openIssues = $state<GitHubIssue[]>([]);
+
+	$effect(() => {
+		if (!showLinkForm) return;
+		const projectId = projects.current?.id;
+		const githubRepo = projects.current?.github_repo;
+		if (githubRepo) linkRepo = githubRepo;
+		if (projectId && githubRepo) {
+			githubApi
+				.listIssues(projectId)
+				.then((issues) => (openIssues = issues))
+				.catch(() => {});
+		}
+	});
 
 	async function submitLink() {
 		if (!task) return;
@@ -341,12 +355,18 @@
 									</label>
 									<input
 										id="gh-issue"
-										type="number"
-										min="1"
+										type="text"
+										inputmode="numeric"
+										list="gh-issues-list"
 										placeholder="123"
 										bind:value={linkIssue}
 										class="w-full rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-sm focus:ring-1 focus:ring-[var(--ring)] focus:outline-none"
 									/>
+									<datalist id="gh-issues-list">
+										{#each openIssues as issue (issue.number)}
+											<option value={issue.number}>{issue.number} — {issue.title}</option>
+										{/each}
+									</datalist>
 								</div>
 								<div class="space-y-1">
 									<label class="text-xs text-[var(--muted-foreground)]" for="gh-pr"> PR # </label>
