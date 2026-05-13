@@ -285,14 +285,9 @@ pub async fn get_project_issue(
     Path((project_id, issue_number)): Path<(Uuid, i64)>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     let gh_cfg = require_github_config(&state.github)?;
-    let issue = github::sync::get_project_issue(
-        &state.db,
-        gh_cfg,
-        project_id,
-        issue_number,
-        auth.user_id,
-    )
-    .await?;
+    let issue =
+        github::sync::get_project_issue(&state.db, gh_cfg, project_id, issue_number, auth.user_id)
+            .await?;
     Ok(Json(issue))
 }
 
