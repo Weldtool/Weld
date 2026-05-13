@@ -12,11 +12,11 @@
 
 	const GITHUB_BOT_ID = '00000000-0000-0000-0000-000000000002';
 
-	let reposInput = $state(channel.github_repos.join(', '));
-	let prEnabled = $state(channel.github_event_filter.pr);
-	let issueEnabled = $state(channel.github_event_filter.issue);
-	let reviewEnabled = $state(channel.github_event_filter.review);
-	let pushEnabled = $state(channel.github_event_filter.push);
+	let reposInput = $state((channel.github_repos ?? []).join(', '));
+	let prEnabled = $state(channel.github_event_filter?.pr ?? false);
+	let issueEnabled = $state(channel.github_event_filter?.issue ?? false);
+	let reviewEnabled = $state(channel.github_event_filter?.review ?? false);
+	let pushEnabled = $state(channel.github_event_filter?.push ?? false);
 	let saving = $state(false);
 	let error = $state<string | null>(null);
 

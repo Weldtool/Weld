@@ -17,7 +17,6 @@
 	});
 
 	const taskId = $derived(page.url.searchParams.get('task'));
-	const hasGitHub = $derived(!!projects.current?.github_repo);
 </script>
 
 <header class="mb-6 flex items-end justify-between gap-3">
@@ -45,11 +44,11 @@
 		<div class="flex flex-1 flex-col overflow-hidden">
 			<Board />
 		</div>
-		{#if hasGitHub && projects.current}
+		{#if projects.current}
 			<aside
 				class="w-56 shrink-0 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--card)] p-3"
 			>
-				<GitHubPanel projectId={projects.current.id} />
+				<GitHubPanel project={projects.current} />
 			</aside>
 		{/if}
 	</div>

@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { github as githubApi } from '$lib/api';
-	import type { GitHubIssue, GitHubPR } from '$lib/api/types';
+	import type { GitHubIssue, GitHubPR, Project } from '$lib/api/types';
 	import { GitPullRequest, CircleDot, RefreshCw, ChevronDown, ChevronRight } from 'lucide-svelte';
 
 	interface Props {
-		projectId: string;
+		project: Project;
 	}
-	const { projectId }: Props = $props();
+	const { project }: Props = $props();
 
 	let issues = $state<GitHubIssue[]>([]);
 	let prs = $state<GitHubPR[]>([]);
@@ -16,12 +16,13 @@
 	let showPRs = $state(true);
 
 	async function load() {
+		if (!project.github_repo) return;
 		loading = true;
 		error = null;
 		try {
 			[issues, prs] = await Promise.all([
-				githubApi.listIssues(projectId),
-				githubApi.listPRs(projectId)
+				githubApi.listIssues(project.id),
+				githubApi.listPRs(project.id)
 			]);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load GitHub data';
@@ -31,7 +32,10 @@
 	}
 
 	$effect(() => {
-		if (projectId) void load();
+		issues = [];
+		prs = [];
+		error = null;
+		if (project.github_repo) void load();
 	});
 </script>
 
@@ -41,20 +45,31 @@
 		<span class="text-xs font-semibold tracking-wide text-[var(--muted-foreground)] uppercase">
 			GitHub
 		</span>
-		<button
-			type="button"
-			onclick={load}
-			disabled={loading}
-			aria-label="Refresh"
-			class="rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] disabled:opacity-50"
-		>
-			<RefreshCw class="h-3 w-3 {loading ? 'animate-spin' : ''}" />
-		</button>
+		{#if project.github_repo}
+			<button
+				type="button"
+				onclick={load}
+				disabled={loading}
+				aria-label="Refresh"
+				class="rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] disabled:opacity-50"
+			>
+				<RefreshCw class="h-3 w-3 {loading ? 'animate-spin' : ''}" />
+			</button>
+		{/if}
 	</div>
 
-	{#if error}
+	{#if !project.github_repo}
+		<p class="text-xs text-[var(--muted-foreground)]">
+			No repo linked.
+			<a href="/projects/{project.id}/settings" class="underline hover:text-[var(--foreground)]">
+				Project settings
+			</a>
+		</p>
+	{:else if error}
 		<p class="text-xs text-red-500">{error}</p>
 	{:else}
+		<p class="text-[10px] text-[var(--muted-foreground)]">{project.github_repo}</p>
+
 		<!-- Pull Requests -->
 		<div>
 			<button
