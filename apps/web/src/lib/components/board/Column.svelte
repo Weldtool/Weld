@@ -50,46 +50,12 @@
 			: 'text-[var(--muted-foreground)]'
 	);
 
-	// Inline title entry at top of column
-	let adding = $state(false);
-	let newTitle = $state('');
-	let creating = $state(false);
-	let titleInput: HTMLInputElement | null = $state(null);
-
-	$effect(() => {
-		if (adding) titleInput?.focus();
-	});
-
 	function openAdd() {
-		newTitle = '';
-		adding = true;
-	}
-
-	function cancelAdd() {
-		adding = false;
-		newTitle = '';
-	}
-
-	async function submitAdd(e: SubmitEvent) {
-		e.preventDefault();
-		const trimmed = newTitle.trim();
-		if (!trimmed || creating) return;
-		creating = true;
-		try {
-			const created = await boardStore.createTask(column.id, trimmed);
-			adding = false;
-			newTitle = '';
-			if (created) {
-				const url = new URL(page.url);
-				url.searchParams.set('task', created.id);
-				// eslint-disable-next-line svelte/no-navigation-without-resolve
-				void goto(resolve('/board') + url.search, { replaceState: false, noScroll: true });
-			}
-		} catch {
-			// createTask already sets boardStore.error
-		} finally {
-			creating = false;
-		}
+		const url = new URL(page.url);
+		url.searchParams.set('task', 'new');
+		url.searchParams.set('column', column.id);
+		// eslint-disable-next-line svelte/no-navigation-without-resolve
+		void goto(resolve('/board') + url.search, { replaceState: false, noScroll: true });
 	}
 </script>
 
@@ -113,34 +79,6 @@
 			</button>
 		</div>
 	</header>
-
-	{#if adding}
-		<form onsubmit={submitAdd} class="flex flex-col gap-1.5">
-			<input
-				bind:this={titleInput}
-				bind:value={newTitle}
-				type="text"
-				placeholder="Task title…"
-				class="rounded border border-[var(--input)] bg-[var(--background)] px-2 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-			/>
-			<div class="flex justify-end gap-2 text-xs">
-				<button
-					type="button"
-					onclick={cancelAdd}
-					class="text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-				>
-					Cancel
-				</button>
-				<button
-					type="submit"
-					disabled={creating || !newTitle.trim()}
-					class="rounded bg-[var(--primary)] px-2 py-1 font-medium text-[var(--primary-foreground)] disabled:opacity-50"
-				>
-					{creating ? 'Creating…' : 'Create'}
-				</button>
-			</div>
-		</form>
-	{/if}
 
 	<div
 		class="flex min-h-12 flex-1 flex-col gap-2 overflow-y-auto"

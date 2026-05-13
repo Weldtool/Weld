@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import Board from '$lib/components/board/Board.svelte';
 	import TaskDetail from '$lib/components/board/TaskDetail.svelte';
+	import TaskDraft from '$lib/components/board/TaskDraft.svelte';
 	import { boardStore } from '$lib/board.svelte';
 	import { projects } from '$lib/projects.svelte';
 
@@ -16,6 +17,7 @@
 	});
 
 	const taskId = $derived(page.url.searchParams.get('task'));
+	const draftColumnId = $derived(page.url.searchParams.get('column'));
 </script>
 
 <header class="mb-6 flex items-end justify-between gap-3">
@@ -44,7 +46,11 @@
 	</div>
 {/if}
 
-{#if taskId}
+{#if taskId === 'new' && draftColumnId}
+	{#key draftColumnId}
+		<TaskDraft columnId={draftColumnId} />
+	{/key}
+{:else if taskId}
 	{#key taskId}
 		<TaskDetail {taskId} />
 	{/key}
