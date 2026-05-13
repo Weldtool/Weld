@@ -90,7 +90,8 @@ class ChatStore {
 	async openChannel(channelId: string): Promise<void> {
 		this.activeChannelId = channelId;
 		this.unreadByChannel = { ...this.unreadByChannel, [channelId]: 0 };
-		if (!this.messagesByChannel[channelId]) {
+		const existing = this.messagesByChannel[channelId];
+		if (!existing || existing.loadError) {
 			this.loadingChannel = channelId;
 			try {
 				await this.#fetchPage(channelId, undefined);
@@ -436,7 +437,7 @@ class ChatStore {
 			: [...cur.messages, msg];
 		this.messagesByChannel = {
 			...this.messagesByChannel,
-			[msg.channel_id]: { ...cur, messages: dedupAndSort(merged) }
+			[msg.channel_id]: { ...cur, messages: dedupAndSort(merged), loadError: null }
 		};
 	}
 
