@@ -92,8 +92,11 @@ class ChatStore {
 		this.unreadByChannel = { ...this.unreadByChannel, [channelId]: 0 };
 		if (!this.messagesByChannel[channelId]) {
 			this.loadingChannel = channelId;
-			await this.#fetchPage(channelId, undefined);
-			this.loadingChannel = null;
+			try {
+				await this.#fetchPage(channelId, undefined);
+			} finally {
+				this.loadingChannel = null;
+			}
 		}
 		this.#joinChannelRoom(channelId);
 		this.#ensureRealtimeWired();

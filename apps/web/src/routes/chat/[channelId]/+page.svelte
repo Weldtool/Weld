@@ -13,9 +13,11 @@
 
 	let showSettings = $state(false);
 
-	const channelId = $derived(page.params.channelId as string);
+	const channelId = $derived(page.params.channelId ?? null);
 	const threadId = $derived(page.url.searchParams.get('thread'));
-	const channel = $derived(chat.channels.find((c) => c.id === channelId) ?? null);
+	const channel = $derived(
+		channelId ? (chat.channels.find((c) => c.id === channelId) ?? null) : null
+	);
 	const selfId = $derived(auth.user?.id ?? null);
 
 	$effect(() => {
@@ -23,9 +25,10 @@
 		void chat.openChannel(channelId);
 	});
 
-	const typingIds = $derived(chat.typingUsersFor(channelId));
+	const typingIds = $derived(channelId ? chat.typingUsersFor(channelId) : []);
 
 	function openThread(parentId: string) {
+		if (!channelId) return;
 		void goto(resolve(`/chat/${channelId}?thread=${encodeURIComponent(parentId)}` as '/chat'), {
 			replaceState: false,
 			keepFocus: true,
@@ -34,6 +37,7 @@
 	}
 
 	function closeThread() {
+		if (!channelId) return;
 		void goto(resolve(`/chat/${channelId}` as '/chat'), {
 			replaceState: false,
 			keepFocus: true,
@@ -75,11 +79,15 @@
 				</button>
 			</header>
 
-			<MessageList {channelId} members={chat.members} {selfId} onReply={openThread} />
+			<MessageList channelId={channel.id} members={chat.members} {selfId} onReply={openThread} />
 
 			<TypingIndicator userIds={typingIds} members={chat.members} {selfId} />
 
-			<Composer {channelId} members={chat.members} placeholder={'Message #' + channel.name} />
+			<Composer
+				channelId={channel.id}
+				members={chat.members}
+				placeholder={'Message #' + channel.name}
+			/>
 		{:else}
 			<div class="flex flex-1 items-center justify-center text-sm text-[var(--muted-foreground)]">
 				{#if chat.activeTeamId}
