@@ -86,6 +86,22 @@ class ChatStore {
 		this.channels = this.channels.map((c) => (c.id === updated.id ? updated : c));
 	}
 
+	async archiveChannel(channelId: string): Promise<boolean> {
+		try {
+			await channelsApi.archive(channelId);
+			this.channels = this.channels.filter((c) => c.id !== channelId);
+			if (this.activeChannelId === channelId) this.activeChannelId = null;
+			const { [channelId]: _m, ...restMsgs } = this.messagesByChannel;
+			this.messagesByChannel = restMsgs;
+			const { [channelId]: _u, ...restUnread } = this.unreadByChannel;
+			this.unreadByChannel = restUnread;
+			return true;
+		} catch (err) {
+			this.error = err instanceof Error ? err.message : 'Failed to archive channel.';
+			return false;
+		}
+	}
+
 	loadingChannel = $state<string | null>(null);
 
 	async openChannel(channelId: string): Promise<void> {
