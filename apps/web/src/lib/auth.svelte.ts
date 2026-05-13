@@ -14,6 +14,7 @@ class AuthStore {
 	ready = $state(false);
 
 	#refreshing: Promise<boolean> | null = null;
+	#refreshCooldownUntil = 0;
 
 	get isAuthenticated(): boolean {
 		return this.user !== null && this.accessToken !== null;
@@ -52,6 +53,7 @@ class AuthStore {
 			body: { email, password }
 		});
 		this.accessToken = result.access_token;
+		this.#refreshCooldownUntil = 0;
 		if (browser) sessionStorage.setItem(SESSION_KEY, result.access_token);
 		await this.#loadUser();
 	}
@@ -101,15 +103,21 @@ class AuthStore {
 	}
 
 	async #refresh(): Promise<boolean> {
+		// If refresh failed recently, fast-fail so a 401 cascade can't generate
+		// a storm of refresh attempts (the cookie itself might be unreachable
+		// cross-site, or the token is gone server-side — retrying won't help).
+		if (Date.now() < this.#refreshCooldownUntil) return false;
 		this.#refreshing ??= (async () => {
 			try {
 				const result = await apiRequest<LoginResponse>(REFRESH_PATH, { method: 'POST' });
 				this.accessToken = result.access_token;
 				if (browser) sessionStorage.setItem(SESSION_KEY, result.access_token);
+				this.#refreshCooldownUntil = 0;
 				return true;
 			} catch {
 				this.accessToken = null;
 				if (browser) sessionStorage.removeItem(SESSION_KEY);
+				this.#refreshCooldownUntil = Date.now() + 5000;
 				return false;
 			} finally {
 				this.#refreshing = null;
