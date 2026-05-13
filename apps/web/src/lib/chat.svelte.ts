@@ -2,6 +2,7 @@ import { channels as channelsApi, messages as messagesApi, teams as teamsApi } f
 import type { Channel, ChatMessage, TeamMember } from '$lib/api/types';
 import { auth } from '$lib/auth.svelte';
 import { realtime, type RealtimeEnvelope } from '$lib/realtime.svelte';
+import { untrack } from 'svelte';
 
 const TYPING_TTL_MS = 3_000;
 const TYPING_EMIT_INTERVAL_MS = 2_000;
@@ -89,8 +90,12 @@ class ChatStore {
 
 	async openChannel(channelId: string): Promise<void> {
 		this.activeChannelId = channelId;
-		this.unreadByChannel = { ...this.unreadByChannel, [channelId]: 0 };
-		const existing = this.messagesByChannel[channelId];
+		// `untrack` so callers inside an $effect don't register a dep on the spread
+		// read of `unreadByChannel` (which we also write to, causing an infinite loop).
+		untrack(() => {
+			this.unreadByChannel = { ...this.unreadByChannel, [channelId]: 0 };
+		});
+		const existing = untrack(() => this.messagesByChannel[channelId]);
 		if (!existing || existing.loadError) {
 			this.loadingChannel = channelId;
 			try {
