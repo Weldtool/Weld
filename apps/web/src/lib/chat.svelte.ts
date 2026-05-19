@@ -224,17 +224,21 @@ class ChatStore {
 	}
 
 	async openThread(parentId: string): Promise<void> {
-		const existing = this.threadByParent[parentId];
+		// `untrack` so callers inside an $effect (e.g. ThreadPanel) don't register
+		// a dep on threadByParent — we read and then write it, which would loop.
+		const existing = untrack(() => this.threadByParent[parentId]);
 		if (existing && existing.parent && !existing.loading) return;
-		this.threadByParent = {
-			...this.threadByParent,
-			[parentId]: {
-				parent: existing?.parent ?? null,
-				replies: existing?.replies ?? [],
-				loading: true,
-				error: null
-			}
-		};
+		untrack(() => {
+			this.threadByParent = {
+				...this.threadByParent,
+				[parentId]: {
+					parent: existing?.parent ?? null,
+					replies: existing?.replies ?? [],
+					loading: true,
+					error: null
+				}
+			};
+		});
 		try {
 			const view = await messagesApi.thread(parentId);
 			this.threadByParent = {
