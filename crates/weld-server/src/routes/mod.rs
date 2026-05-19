@@ -39,6 +39,10 @@ pub fn router() -> Router<AppState> {
             get(teams::list_members).post(teams::add_member),
         )
         .route(
+            "/api/v1/teams/{team_id}/members/{user_id}",
+            axum::routing::delete(teams::remove_member),
+        )
+        .route(
             "/api/v1/teams/{team_id}/projects",
             routing::get(projects::list_for_team).post(projects::create),
         )

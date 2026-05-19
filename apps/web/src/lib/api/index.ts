@@ -59,7 +59,24 @@ export const teams = {
 		authStore.fetch<Team>('/api/v1/teams', { ...opts, method: 'POST', body }),
 
 	listMembers: (teamId: string, opts?: RequestOptions) =>
-		authStore.fetch<TeamMember[]>(`/api/v1/teams/${teamId}/members`, opts)
+		authStore.fetch<TeamMember[]>(`/api/v1/teams/${teamId}/members`, opts),
+
+	addMember: (
+		teamId: string,
+		body: { email?: string; user_id?: string; role: 'owner' | 'admin' | 'member' | 'viewer' },
+		opts?: RequestOptions
+	) =>
+		authStore.fetch<TeamMember>(`/api/v1/teams/${teamId}/members`, {
+			...opts,
+			method: 'POST',
+			body
+		}),
+
+	removeMember: (teamId: string, userId: string, opts?: RequestOptions) =>
+		authStore.fetch<void>(`/api/v1/teams/${teamId}/members/${userId}`, {
+			...opts,
+			method: 'DELETE'
+		})
 };
 
 export const projects = {

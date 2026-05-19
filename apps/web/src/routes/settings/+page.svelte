@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { github as githubApi } from '$lib/api';
-	import type { GithubConnection } from '$lib/api/types';
+	import { github as githubApi, teams as teamsApi } from '$lib/api';
+	import type { GithubConnection, TeamMember, TeamRole } from '$lib/api/types';
+	import { auth } from '$lib/auth.svelte';
 	import { projects } from '$lib/projects.svelte';
-	import { GitBranch, Link, Unlink } from 'lucide-svelte';
+	import { GitBranch, Link, Unlink, Users, X } from 'lucide-svelte';
 
 	const teamId = $derived(projects.team?.id ?? null);
 
@@ -72,8 +73,67 @@
 		if (teamId && teamId !== loadedForTeam) {
 			loadedForTeam = teamId;
 			void loadConnection();
+			void loadMembers();
 		}
 	});
+
+	// ── Team members ────────────────────────────────────────────────────────
+
+	let members = $state<TeamMember[]>([]);
+	let membersLoading = $state(false);
+	let membersError = $state<string | null>(null);
+
+	let inviteEmail = $state('');
+	let inviteRole = $state<TeamRole>('member');
+	let inviting = $state(false);
+
+	const role = $derived(projects.team?.role ?? 'viewer');
+	const canManageMembers = $derived(role === 'owner' || role === 'admin');
+	const ownerId = $derived(projects.team?.owner_id ?? null);
+	const selfId = $derived(auth.user?.id ?? null);
+
+	async function loadMembers() {
+		if (!teamId) return;
+		membersLoading = true;
+		membersError = null;
+		try {
+			members = await teamsApi.listMembers(teamId);
+		} catch (e) {
+			membersError = e instanceof Error ? e.message : 'Failed to load team members.';
+		} finally {
+			membersLoading = false;
+		}
+	}
+
+	async function inviteMember() {
+		if (!teamId) return;
+		const email = inviteEmail.trim();
+		if (!email) return;
+		inviting = true;
+		membersError = null;
+		try {
+			const added = await teamsApi.addMember(teamId, { email, role: inviteRole });
+			// Insert sorted by display_name to match server ordering.
+			members = [...members, added].sort((a, b) => a.display_name.localeCompare(b.display_name));
+			inviteEmail = '';
+			inviteRole = 'member';
+		} catch (e) {
+			membersError = e instanceof Error ? e.message : 'Failed to add member.';
+		} finally {
+			inviting = false;
+		}
+	}
+
+	async function removeMember(userId: string) {
+		if (!teamId) return;
+		membersError = null;
+		try {
+			await teamsApi.removeMember(teamId, userId);
+			members = members.filter((m) => m.user_id !== userId);
+		} catch (e) {
+			membersError = e instanceof Error ? e.message : 'Failed to remove member.';
+		}
+	}
 </script>
 
 <header class="mb-6">
@@ -97,6 +157,119 @@
 {/if}
 
 <div class="flex flex-col gap-6">
+	<!-- Team members -->
+	<section
+		class="flex flex-col gap-4 rounded-lg border border-[var(--border)] bg-[var(--card)] p-6"
+	>
+		<div class="flex items-center gap-2">
+			<Users class="h-4 w-4 text-[var(--muted-foreground)]" />
+			<h2 class="text-base font-semibold">Team members</h2>
+			{#if projects.team}
+				<span class="ml-1 text-xs text-[var(--muted-foreground)]">· {projects.team.name}</span>
+			{/if}
+		</div>
+
+		{#if membersError}
+			<p
+				class="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400"
+			>
+				{membersError}
+			</p>
+		{/if}
+
+		{#if !teamId}
+			<p class="text-sm text-[var(--muted-foreground)]">
+				No active team. Create or pick one to manage members.
+			</p>
+		{:else if membersLoading}
+			<p class="text-sm text-[var(--muted-foreground)]">Loading…</p>
+		{:else}
+			<ul class="divide-y divide-[var(--border)]">
+				{#each members as m (m.user_id)}
+					<li class="flex items-center gap-3 py-2 text-sm">
+						{#if m.avatar_url}
+							<img src={m.avatar_url} alt="" class="h-7 w-7 rounded-full" />
+						{:else}
+							<span
+								class="grid h-7 w-7 place-items-center rounded-full bg-[var(--muted)] text-xs font-medium text-[var(--muted-foreground)]"
+							>
+								{m.display_name.charAt(0).toUpperCase()}
+							</span>
+						{/if}
+						<div class="min-w-0 flex-1">
+							<div class="truncate font-medium">{m.display_name}</div>
+							<div class="truncate text-xs text-[var(--muted-foreground)]">{m.email}</div>
+						</div>
+						<span
+							class="rounded-full border border-[var(--border)] bg-[var(--muted)] px-2 py-0.5 text-xs"
+						>
+							{m.role}{m.user_id === ownerId ? ' (owner)' : ''}
+						</span>
+						{#if canManageMembers && m.user_id !== ownerId && m.user_id !== selfId}
+							<button
+								type="button"
+								onclick={() => removeMember(m.user_id)}
+								aria-label="Remove {m.display_name}"
+								title="Remove member"
+								class="rounded p-1 text-[var(--muted-foreground)] hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
+							>
+								<X class="h-4 w-4" />
+							</button>
+						{/if}
+					</li>
+				{/each}
+			</ul>
+
+			{#if canManageMembers}
+				<form
+					class="flex flex-col gap-2 border-t border-[var(--border)] pt-4 sm:flex-row sm:items-end"
+					onsubmit={(e) => {
+						e.preventDefault();
+						void inviteMember();
+					}}
+				>
+					<div class="flex-1">
+						<label for="invite-email" class="mb-1 block text-xs text-[var(--muted-foreground)]">
+							Add by email
+						</label>
+						<input
+							id="invite-email"
+							type="email"
+							bind:value={inviteEmail}
+							placeholder="teammate@example.com"
+							required
+							class="w-full rounded-md border border-[var(--input)] bg-[var(--background)] px-2 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+						/>
+					</div>
+					<div>
+						<label for="invite-role" class="mb-1 block text-xs text-[var(--muted-foreground)]">
+							Role
+						</label>
+						<select
+							id="invite-role"
+							bind:value={inviteRole}
+							class="rounded-md border border-[var(--input)] bg-[var(--background)] px-2 py-1.5 text-sm"
+						>
+							<option value="viewer">viewer</option>
+							<option value="member">member</option>
+							<option value="admin">admin</option>
+						</select>
+					</div>
+					<button
+						type="submit"
+						disabled={inviting || !inviteEmail.trim()}
+						class="rounded-md bg-[var(--primary)] px-3 py-1.5 text-sm font-medium text-[var(--primary-foreground)] disabled:opacity-50"
+					>
+						{inviting ? 'Adding…' : 'Add member'}
+					</button>
+				</form>
+				<p class="text-[11px] text-[var(--muted-foreground)]">
+					The user must already have a Weld account; we look them up by email.
+				</p>
+			{/if}
+		{/if}
+	</section>
+
 	<!-- Team GitHub App connection -->
 	<section
 		class="flex flex-col gap-4 rounded-lg border border-[var(--border)] bg-[var(--card)] p-6"

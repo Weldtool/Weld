@@ -1,17 +1,29 @@
 use super::helpers::require_team_role;
+use super::list_members::TeamMember;
 use crate::errors::ApiError;
 use sqlx::PgPool;
 use uuid::Uuid;
 use weld_core::models::enums::TeamRole;
 
+/// Resolves an email to a user ID. Case-insensitive match. Returns 404 if
+/// no user with that email is registered.
+pub async fn find_user_id_by_email(pool: &PgPool, email: &str) -> Result<Uuid, ApiError> {
+    sqlx::query_scalar!("SELECT id FROM users WHERE LOWER(email) = LOWER($1)", email)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| ApiError::NotFound(format!("No user is registered with email {email}")))
+}
+
 /// Add a user to a team with the given role. Caller must be Admin or Owner.
+/// Returns the newly-joined member's full row so callers can append directly
+/// to UI lists without a follow-up fetch.
 pub async fn add_team_member(
     pool: &PgPool,
     team_id: Uuid,
     caller_id: Uuid,
     new_member_id: Uuid,
     role: TeamRole,
-) -> Result<(), ApiError> {
+) -> Result<TeamMember, ApiError> {
     require_team_role(pool, team_id, caller_id, TeamRole::Admin).await?;
 
     let role_str = match role {
@@ -44,5 +56,27 @@ pub async fn add_team_member(
         return Err(ApiError::Conflict("User is already a team member".into()));
     }
 
-    Ok(())
+    let row = sqlx::query!(
+        r#"
+        SELECT u.id, u.email, u.display_name, u.avatar_url,
+               tm.role as "role: TeamRole",
+               tm.joined_at
+        FROM team_memberships tm
+        JOIN users u ON u.id = tm.user_id
+        WHERE tm.team_id = $1 AND tm.user_id = $2
+        "#,
+        team_id,
+        new_member_id,
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok(TeamMember {
+        user_id: row.id,
+        email: row.email,
+        display_name: row.display_name,
+        avatar_url: row.avatar_url,
+        role: row.role,
+        joined_at: row.joined_at,
+    })
 }
