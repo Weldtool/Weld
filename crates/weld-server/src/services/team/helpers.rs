@@ -37,7 +37,7 @@ pub async fn generate_unique_team_slug(pool: &PgPool, name: &str) -> Result<Stri
 }
 
 /// Numeric privilege level: higher = more permissions.
-fn role_level(role: &TeamRole) -> u8 {
+pub fn role_level(role: &TeamRole) -> u8 {
     match role {
         TeamRole::Owner => 4,
         TeamRole::Admin => 3,

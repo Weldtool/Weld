@@ -47,14 +47,16 @@ pub async fn on_issue_event(
     .await?;
 
     for task in tasks {
-        move_to_done_if_configured(db, hub, task).await?;
+        move_to_role_column_if_configured(db, hub, task, PrCloseOutcome::Merged).await?;
     }
 
     Ok(())
 }
 
-/// Called by the `pull_request` webhook handler.  On merge, moves linked tasks
-/// to Done if the project is configured to auto-close.
+/// Called by the `pull_request` webhook handler. When a linked PR closes, moves
+/// the task: a merged PR sends it to the Done column, while a PR closed without
+/// merging sends it back to the In Progress column. Both are gated on the
+/// project's auto-move setting.
 #[tracing::instrument(skip(db, hub))]
 pub async fn on_pr_event(
     db: &PgPool,
@@ -64,9 +66,15 @@ pub async fn on_pr_event(
     action: &str,
     merged: bool,
 ) -> Result<(), ApiError> {
-    if action != "closed" || !merged {
+    if action != "closed" {
         return Ok(());
     }
+
+    let outcome = if merged {
+        PrCloseOutcome::Merged
+    } else {
+        PrCloseOutcome::ClosedUnmerged
+    };
 
     let tasks = sqlx::query_as!(
         Task,
@@ -89,10 +97,19 @@ pub async fn on_pr_event(
     .await?;
 
     for task in tasks {
-        move_to_done_if_configured(db, hub, task).await?;
+        move_to_role_column_if_configured(db, hub, task, outcome).await?;
     }
 
     Ok(())
+}
+
+/// Which destination column a PR/issue close maps to.
+#[derive(Clone, Copy)]
+enum PrCloseOutcome {
+    /// PR merged or issue closed → Done column.
+    Merged,
+    /// PR closed without merging → In Progress column.
+    ClosedUnmerged,
 }
 
 /// Sets `github_repo` on tasks whose `short_id` appears in commit messages.
@@ -122,13 +139,15 @@ pub async fn autolink_from_push(
     Ok(())
 }
 
-async fn move_to_done_if_configured(
+async fn move_to_role_column_if_configured(
     db: &PgPool,
     hub: &Arc<Hub>,
     task: Task,
+    outcome: PrCloseOutcome,
 ) -> Result<(), ApiError> {
     let project = sqlx::query!(
-        "SELECT done_column_id, auto_close_on_issue_closed FROM projects WHERE id = $1 AND deleted_at IS NULL",
+        "SELECT done_column_id, in_progress_column_id, auto_close_on_issue_closed
+         FROM projects WHERE id = $1 AND deleted_at IS NULL",
         task.project_id
     )
     .fetch_optional(db)
@@ -142,10 +161,16 @@ async fn move_to_done_if_configured(
         return Ok(());
     }
 
-    let Some(done_col) = project.done_column_id else {
+    let (target_col, role) = match outcome {
+        PrCloseOutcome::Merged => (project.done_column_id, "done"),
+        PrCloseOutcome::ClosedUnmerged => (project.in_progress_column_id, "in-progress"),
+    };
+
+    let Some(done_col) = target_col else {
         tracing::debug!(
             project_id = %task.project_id,
-            "auto_close_on_issue_closed is set but done_column_id is not configured"
+            role,
+            "auto-move is enabled but the target column is not configured"
         );
         return Ok(());
     };

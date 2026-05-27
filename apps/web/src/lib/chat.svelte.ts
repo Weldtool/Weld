@@ -1,5 +1,5 @@
 import { channels as channelsApi, messages as messagesApi, teams as teamsApi } from '$lib/api';
-import type { Channel, ChatMessage, TeamMember } from '$lib/api/types';
+import type { Channel, ChatMessage, TaskRef, TeamMember } from '$lib/api/types';
 import { auth } from '$lib/auth.svelte';
 import { realtime, type RealtimeEnvelope } from '$lib/realtime.svelte';
 import { untrack } from 'svelte';
@@ -34,6 +34,7 @@ type ThreadState = {
 class ChatStore {
 	channels = $state<Channel[]>([]);
 	members = $state<TeamMember[]>([]);
+	taskRefs = $state<TaskRef[]>([]);
 	messagesByChannel = $state<Record<string, ChannelMessages>>({});
 	/** channelId -> userId -> last seen typing timestamp (ms) */
 	typingByChannel = $state<Record<string, Record<string, number>>>({});
@@ -54,12 +55,14 @@ class ChatStore {
 		if (this.activeTeamId === teamId && this.channels.length > 0) return;
 		this.activeTeamId = teamId;
 		try {
-			const [chans, members] = await Promise.all([
+			const [chans, members, taskRefs] = await Promise.all([
 				channelsApi.listForTeam(teamId),
-				teamsApi.listMembers(teamId)
+				teamsApi.listMembers(teamId),
+				teamsApi.listTaskRefs(teamId).catch(() => [])
 			]);
 			this.channels = chans;
 			this.members = members;
+			this.taskRefs = taskRefs;
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : 'Failed to load chat data.';
 		}
@@ -155,6 +158,7 @@ class ChatStore {
 			content: trimmed,
 			thread_parent_id: threadParentId ?? null,
 			mentions: [],
+			task_refs: [],
 			metadata: {},
 			edited_at: null,
 			created_at: new Date().toISOString(),
@@ -298,6 +302,10 @@ class ChatStore {
 		return this.members.find((m) => m.user_id === id) ?? null;
 	}
 
+	taskByShortId(shortId: number): TaskRef | null {
+		return this.taskRefs.find((t) => t.short_id === shortId) ?? null;
+	}
+
 	/** Subscribe to mention notifications. Fires for every incoming message
 	 * whose `mentions` array includes `selfId`. The caller passes `selfId`. */
 	onMention(selfId: string, handler: (msg: ChatMessage) => void): () => void {
@@ -320,6 +328,7 @@ class ChatStore {
 		}
 		this.channels = [];
 		this.members = [];
+		this.taskRefs = [];
 		this.messagesByChannel = {};
 		this.typingByChannel = {};
 		this.unreadByChannel = {};

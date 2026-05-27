@@ -38,7 +38,8 @@ pub async fn fetch_active_project(pool: &PgPool, id: Uuid) -> Result<Project, Ap
     sqlx::query_as!(
         Project,
         r#"
-        SELECT id, team_id, name, slug, description, github_repo, done_column_id, auto_close_on_issue_closed,
+        SELECT id, team_id, name, slug, description, github_repo, done_column_id,
+               in_progress_column_id, review_column_id, auto_close_on_issue_closed,
                created_at, updated_at, deleted_at
         FROM projects
         WHERE id = $1 AND deleted_at IS NULL
@@ -50,14 +51,45 @@ pub async fn fetch_active_project(pool: &PgPool, id: Uuid) -> Result<Project, Ap
     .ok_or_else(|| ApiError::NotFound("Project not found".into()))
 }
 
-/// Verify the user has at least `min_role` on the team that owns the project.
+/// Verify the user may act on `project` with at least `min_role`.
+///
+/// Access has two layers:
+/// 1. The user must hold at least `min_role` on the project's team.
+/// 2. Team Owners/Admins implicitly access every project in the team. Members
+///    and Viewers must additionally be explicit project members
+///    (`project_memberships`) — being on the team is no longer enough to see a
+///    project.
 pub async fn require_project_team_role(
     pool: &PgPool,
     project: &Project,
     user_id: Uuid,
     min_role: TeamRole,
 ) -> Result<(), ApiError> {
-    crate::services::team::helpers::require_team_role(pool, project.team_id, user_id, min_role)
-        .await?;
-    Ok(())
+    let role =
+        crate::services::team::helpers::require_team_role(pool, project.team_id, user_id, min_role)
+            .await?;
+
+    // Owners/Admins manage the whole team and don't need per-project rows.
+    if crate::services::team::helpers::role_level(&role)
+        >= crate::services::team::helpers::role_level(&TeamRole::Admin)
+    {
+        return Ok(());
+    }
+
+    let is_member = sqlx::query_scalar!(
+        "SELECT EXISTS(SELECT 1 FROM project_memberships WHERE project_id = $1 AND user_id = $2)",
+        project.id,
+        user_id
+    )
+    .fetch_one(pool)
+    .await?
+    .unwrap_or(false);
+
+    if is_member {
+        Ok(())
+    } else {
+        Err(ApiError::Forbidden(
+            "You don't have access to this project".into(),
+        ))
+    }
 }

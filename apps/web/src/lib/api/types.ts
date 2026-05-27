@@ -24,6 +24,7 @@ export interface Team {
 
 export interface UserTeam extends Team {
 	role: TeamRole;
+	is_personal: boolean;
 }
 
 export interface TeamMember {
@@ -35,6 +36,15 @@ export interface TeamMember {
 	joined_at: string;
 }
 
+export interface ProjectMember {
+	user_id: string;
+	email: string;
+	display_name: string;
+	avatar_url: string | null;
+	team_role: TeamRole;
+	added_at: string;
+}
+
 export interface Project {
 	id: string;
 	team_id: string;
@@ -43,6 +53,8 @@ export interface Project {
 	description: string | null;
 	github_repo: string | null;
 	done_column_id: string | null;
+	in_progress_column_id: string | null;
+	review_column_id: string | null;
 	auto_close_on_issue_closed: boolean;
 	created_at: string;
 	updated_at: string;
@@ -79,6 +91,17 @@ export interface GitHubPR {
 	state: string;
 	draft: boolean;
 	user: { login: string; avatar_url: string };
+}
+
+export interface RepoBranches {
+	default_branch: string;
+	branches: string[];
+}
+
+export interface IssueTemplate {
+	name: string;
+	about: string | null;
+	body: string;
 }
 
 export interface LoginResponse {
@@ -186,9 +209,17 @@ export interface ChatMessage {
 	content: string;
 	thread_parent_id: string | null;
 	mentions: string[];
+	task_refs: string[];
 	metadata: Record<string, unknown>;
 	edited_at: string | null;
 	created_at: string;
+}
+
+export interface TaskRef {
+	id: string;
+	short_id: number;
+	title: string;
+	project_id: string;
 }
 
 export interface MessagePage {

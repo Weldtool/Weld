@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, channel_id, sender_id, content, thread_parent_id,\n               mentions as \"mentions!: Vec<Uuid>\",\n               metadata, edited_at, deleted_at, created_at\n        FROM messages\n        WHERE channel_id = $1\n          AND deleted_at IS NULL\n          AND thread_parent_id IS NULL\n          AND ($2::timestamptz IS NULL OR created_at < $2)\n        ORDER BY created_at DESC\n        LIMIT $3\n        ",
+  "query": "\n        SELECT id, channel_id, sender_id, content, thread_parent_id,\n               mentions as \"mentions!: Vec<Uuid>\",\n               task_refs as \"task_refs!: Vec<Uuid>\",\n               metadata, edited_at, deleted_at, created_at\n        FROM messages\n        WHERE id = $1 AND deleted_at IS NULL\n        ",
   "describe": {
     "columns": [
       {
@@ -35,30 +35,33 @@
       },
       {
         "ordinal": 6,
+        "name": "task_refs!: Vec<Uuid>",
+        "type_info": "UuidArray"
+      },
+      {
+        "ordinal": 7,
         "name": "metadata",
         "type_info": "Jsonb"
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "edited_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "deleted_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "created_at",
         "type_info": "Timestamptz"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Timestamptz",
-        "Int8"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -69,10 +72,11 @@
       true,
       false,
       false,
+      false,
       true,
       true,
       false
     ]
   },
-  "hash": "ba87f754d13c9d10ddf12484d9acbb6e054c3ca0d7c3b24ee391b3ede3c9b919"
+  "hash": "cef02a61c1ea7f3d192a1b50035cb0bf02473c038ada063bf84da0234d6b6b6e"
 }

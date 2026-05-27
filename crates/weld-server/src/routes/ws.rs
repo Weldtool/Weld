@@ -277,6 +277,7 @@ async fn backfill_channel(
         r#"
         SELECT id, channel_id, sender_id, content, thread_parent_id,
                mentions as "mentions!: Vec<Uuid>",
+               task_refs as "task_refs!: Vec<Uuid>",
                metadata, edited_at, deleted_at, created_at
         FROM messages
         WHERE channel_id = $1

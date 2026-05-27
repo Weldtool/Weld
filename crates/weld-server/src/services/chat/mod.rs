@@ -10,6 +10,7 @@ mod list_channels;
 mod list_messages;
 mod mark_read;
 pub mod parse_mentions;
+pub mod parse_task_refs;
 mod post_message;
 mod remove_member;
 mod update_channel;

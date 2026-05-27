@@ -24,7 +24,9 @@
 
 	const sender = $derived(members.find((m) => m.user_id === message.sender_id) ?? null);
 	const senderName = $derived(sender?.display_name ?? (isPending(message) ? 'You' : 'Unknown'));
-	const html = $derived(renderMessageMarkdown(message.content, { members, selfId }));
+	const html = $derived(
+		renderMessageMarkdown(message.content, { members, selfId, taskRefs: chat.taskRefs })
+	);
 	const replyCount = $derived(chat.threadReplyCount(message.id));
 	const time = $derived(formatTime(message.created_at));
 
@@ -277,5 +279,31 @@
 	:global(.chat-mention-self) {
 		background: color-mix(in srgb, var(--primary) 35%, transparent);
 		color: var(--primary-foreground, var(--foreground));
+	}
+	:global(.chat-taskref) {
+		display: inline-flex;
+		align-items: baseline;
+		gap: 0.25rem;
+		max-width: 22rem;
+		padding: 0 0.35rem;
+		border-radius: 0.25rem;
+		background: color-mix(in srgb, var(--foreground) 8%, transparent);
+		border: 1px solid var(--border);
+		color: var(--foreground);
+		font-weight: 500;
+		text-decoration: none;
+		vertical-align: baseline;
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+	:global(.chat-taskref:hover) {
+		background: color-mix(in srgb, var(--primary) 14%, transparent);
+		border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+	}
+	:global(.chat-taskref .chat-taskref-id) {
+		font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+		font-size: 0.85em;
+		color: var(--primary);
 	}
 </style>

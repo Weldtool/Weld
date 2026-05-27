@@ -56,7 +56,9 @@ pub async fn list_project_prs(
     .await
 }
 
-async fn resolve_repo_and_token(
+/// Resolves a project's connected repository (`owner/repo`) and a fresh
+/// installation access token, after checking the caller is at least `Viewer`.
+pub(crate) async fn resolve_repo_and_token(
     pool: &PgPool,
     github: &GithubConfig,
     project_id: Uuid,

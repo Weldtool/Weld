@@ -290,8 +290,17 @@ class BoardStore {
 		return updated;
 	}
 
-	async deleteColumn(id: string): Promise<void> {
-		await columnsApi.delete(id);
+	/**
+	 * Delete a column. Any tasks it holds are relocated to `moveTo` (or the
+	 * project's Backlog column server-side when omitted). The relocation is
+	 * applied optimistically; the server also broadcasts `task.moved` events
+	 * which reconcile the exact positions.
+	 */
+	async deleteColumn(id: string, moveTo?: string | null): Promise<void> {
+		await columnsApi.delete(id, moveTo);
+		if (moveTo) {
+			this.tasks = this.tasks.map((t) => (t.column_id === id ? { ...t, column_id: moveTo } : t));
+		}
 		this.columns = this.columns.filter((c) => c.id !== id);
 	}
 

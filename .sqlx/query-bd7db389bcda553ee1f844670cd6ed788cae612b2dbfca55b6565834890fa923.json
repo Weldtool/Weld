@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO messages (channel_id, sender_id, content, metadata, mentions)\n            VALUES ($1, $2, $3, $4, '{}')\n            RETURNING id, channel_id, sender_id, content, thread_parent_id,\n                      mentions as \"mentions!: Vec<Uuid>\",\n                      metadata, edited_at, created_at\n            ",
+  "query": "\n        SELECT id, channel_id, sender_id, content, thread_parent_id,\n               mentions as \"mentions!: Vec<Uuid>\",\n               task_refs as \"task_refs!: Vec<Uuid>\",\n               metadata, edited_at, deleted_at, created_at\n        FROM messages\n        WHERE channel_id = $1\n          AND deleted_at IS NULL\n          AND thread_parent_id IS NULL\n          AND ($2::timestamptz IS NULL OR created_at < $2)\n        ORDER BY created_at DESC\n        LIMIT $3\n        ",
   "describe": {
     "columns": [
       {
@@ -35,16 +35,26 @@
       },
       {
         "ordinal": 6,
+        "name": "task_refs!: Vec<Uuid>",
+        "type_info": "UuidArray"
+      },
+      {
+        "ordinal": 7,
         "name": "metadata",
         "type_info": "Jsonb"
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "edited_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
+        "name": "deleted_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 10,
         "name": "created_at",
         "type_info": "Timestamptz"
       }
@@ -52,9 +62,8 @@
     "parameters": {
       "Left": [
         "Uuid",
-        "Uuid",
-        "Text",
-        "Jsonb"
+        "Timestamptz",
+        "Int8"
       ]
     },
     "nullable": [
@@ -65,9 +74,11 @@
       true,
       false,
       false,
+      false,
+      true,
       true,
       false
     ]
   },
-  "hash": "3f8cf740f006ef3205de1ba78fae7cfaf6fd398c2f7412f1951b2e5abfbcdd50"
+  "hash": "bd7db389bcda553ee1f844670cd6ed788cae612b2dbfca55b6565834890fa923"
 }

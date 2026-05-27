@@ -37,6 +37,7 @@ const messageFixture = (over: Partial<ChatMessage> = {}): ChatMessage => ({
 	content: over.content ?? 'hello',
 	thread_parent_id: over.thread_parent_id ?? null,
 	mentions: over.mentions ?? [],
+	task_refs: over.task_refs ?? [],
 	metadata: over.metadata ?? {},
 	edited_at: null,
 	created_at: over.created_at ?? new Date().toISOString()

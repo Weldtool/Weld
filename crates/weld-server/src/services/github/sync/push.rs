@@ -19,6 +19,8 @@ pub async fn push_task_to_github(
     github: &GithubConfig,
     task_id: Uuid,
     caller_id: Uuid,
+    title_override: Option<String>,
+    body_override: Option<String>,
 ) -> Result<TaskWithLabels, ApiError> {
     let task = fetch_active_task(pool, task_id).await?;
     let project = fetch_active_project(pool, task.project_id).await?;
@@ -58,9 +60,19 @@ pub async fn push_task_to_github(
     .fetch_all(pool)
     .await?;
 
+    let title = title_override
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or(&task.title);
+    let body = body_override
+        .as_deref()
+        .or(task.description.as_deref())
+        .unwrap_or("");
+
     let payload = CreateIssuePayload {
-        title: &task.title,
-        body: task.description.as_deref().unwrap_or(""),
+        title,
+        body,
         labels: label_names.clone(),
     };
 

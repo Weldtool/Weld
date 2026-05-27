@@ -49,6 +49,18 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/projects/{id}", get(projects::get_by_id))
         .route("/api/v1/projects/{id}", patch(projects::update))
         .route("/api/v1/projects/{id}", delete(projects::delete))
+        .route(
+            "/api/v1/projects/{id}/members",
+            get(projects::list_members).post(projects::add_member),
+        )
+        .route(
+            "/api/v1/projects/{id}/members/{user_id}",
+            delete(projects::remove_member),
+        )
+        .route(
+            "/api/v1/teams/{team_id}/task-refs",
+            get(tasks::list_team_task_refs),
+        )
         .route("/api/v1/projects/{id}/board", get(board::get_board))
         .route("/api/v1/projects/{id}/columns", post(columns::create))
         .route("/api/v1/columns/{id}", patch(columns::update))
@@ -68,6 +80,19 @@ pub fn router() -> Router<AppState> {
         .route(
             "/api/v1/tasks/{id}/push-to-github",
             post(tasks::push_task_to_github),
+        )
+        .route("/api/v1/tasks/{id}/create-pr", post(tasks::create_pr))
+        .route(
+            "/api/v1/projects/{id}/github/branches",
+            get(github::list_project_branches),
+        )
+        .route(
+            "/api/v1/projects/{id}/github/pr-template",
+            get(github::get_pr_template),
+        )
+        .route(
+            "/api/v1/projects/{id}/github/issue-templates",
+            get(github::list_issue_templates),
         )
         .route(
             "/api/v1/projects/{id}/github/issues",

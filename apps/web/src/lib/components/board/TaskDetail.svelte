@@ -8,12 +8,14 @@
 	import { boardStore } from '$lib/board.svelte';
 	import { projects } from '$lib/projects.svelte';
 	import { canEditTask, TaskSaver } from '$lib/task-detail.svelte';
+	import { createPrDialog } from '$lib/create-pr-dialog.svelte';
 	import AssigneePicker from './AssigneePicker.svelte';
 	import DescriptionEditor from './DescriptionEditor.svelte';
 	import DueDatePicker from './DueDatePicker.svelte';
 	import EstimateInput from './EstimateInput.svelte';
 	import LabelPicker from './LabelPicker.svelte';
 	import PriorityPicker from './PriorityPicker.svelte';
+	import CreateIssueDialog from './CreateIssueDialog.svelte';
 
 	interface Props {
 		taskId: string;
@@ -118,6 +120,7 @@
 	let linkError = $state('');
 	let linkBusy = $state(false);
 	let showLinkForm = $state(false);
+	let showIssueDialog = $state(false);
 	let openIssues = $state<GitHubIssue[]>([]);
 
 	$effect(() => {
@@ -464,16 +467,50 @@
 							</div>
 						</div>
 					{:else}
-						<button
-							type="button"
-							class="text-xs text-[var(--muted-foreground)] hover:underline"
-							onclick={() => (showLinkForm = true)}
-						>
-							+ Link GitHub issue or PR
-						</button>
+						<div class="flex flex-wrap gap-3">
+							<button
+								type="button"
+								class="text-xs text-[var(--muted-foreground)] hover:underline"
+								onclick={() => (showLinkForm = true)}
+							>
+								+ Link GitHub issue or PR
+							</button>
+							{#if projects.current?.github_repo}
+								<button
+									type="button"
+									class="text-xs text-[var(--muted-foreground)] hover:underline"
+									onclick={() => (showIssueDialog = true)}
+								>
+									+ Create GitHub issue
+								</button>
+							{/if}
+						</div>
 					{/if}
 				{:else}
 					<p class="text-xs text-[var(--muted-foreground)]">Not linked</p>
+				{/if}
+
+				<!-- Create-PR affordance: available whenever the project has a repo
+				     and the task isn't already linked to a PR. Lets a task sitting
+				     in Review get a PR even if the on-drop dialog was dismissed. -->
+				{#if editable && projects.current?.github_repo && !task.github_pr_id}
+					<button
+						type="button"
+						class="inline-flex items-center gap-1 text-xs text-[var(--muted-foreground)] hover:underline"
+						onclick={() => task && createPrDialog.request(task)}
+					>
+						<svg
+							class="h-3.5 w-3.5 shrink-0"
+							viewBox="0 0 16 16"
+							fill="currentColor"
+							aria-hidden="true"
+						>
+							<path
+								d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354Z"
+							/>
+						</svg>
+						Create pull request
+					</button>
 				{/if}
 				{#if linkError && task.github_repo}
 					<p class="text-xs text-red-600 dark:text-red-400">{linkError}</p>
@@ -528,3 +565,13 @@
 		{/if}
 	</div>
 </div>
+
+{#if showIssueDialog && task && projects.current?.github_repo}
+	<CreateIssueDialog
+		{task}
+		projectId={projects.current.id}
+		repo={projects.current.github_repo}
+		onClose={() => (showIssueDialog = false)}
+		onCreated={(updated) => boardStore.applyTaskUpdate(updated)}
+	/>
+{/if}

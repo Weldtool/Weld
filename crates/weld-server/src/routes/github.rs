@@ -303,6 +303,49 @@ pub async fn list_project_prs(
     Ok(Json(prs))
 }
 
+// ── GET /api/v1/projects/:id/github/branches ──────────────────────────────
+
+pub async fn list_project_branches(
+    auth: AuthUser,
+    State(state): State<AppState>,
+    Path(project_id): Path<Uuid>,
+) -> Result<Json<github::sync::RepoBranches>, ApiError> {
+    let gh_cfg = require_github_config(&state.github)?;
+    let branches = github::sync::list_branches(&state.db, gh_cfg, project_id, auth.user_id).await?;
+    Ok(Json(branches))
+}
+
+// ── GET /api/v1/projects/:id/github/pr-template ───────────────────────────
+
+#[derive(Debug, Serialize)]
+pub struct PrTemplateResponse {
+    pub template: Option<String>,
+}
+
+pub async fn get_pr_template(
+    auth: AuthUser,
+    State(state): State<AppState>,
+    Path(project_id): Path<Uuid>,
+) -> Result<Json<PrTemplateResponse>, ApiError> {
+    let gh_cfg = require_github_config(&state.github)?;
+    let template =
+        github::sync::get_pr_template(&state.db, gh_cfg, project_id, auth.user_id).await?;
+    Ok(Json(PrTemplateResponse { template }))
+}
+
+// ── GET /api/v1/projects/:id/github/issue-templates ───────────────────────
+
+pub async fn list_issue_templates(
+    auth: AuthUser,
+    State(state): State<AppState>,
+    Path(project_id): Path<Uuid>,
+) -> Result<Json<Vec<github::sync::IssueTemplate>>, ApiError> {
+    let gh_cfg = require_github_config(&state.github)?;
+    let templates =
+        github::sync::list_issue_templates(&state.db, gh_cfg, project_id, auth.user_id).await?;
+    Ok(Json(templates))
+}
+
 // ── POST /api/v1/projects/:id/github/labels/sync ──────────────────────────
 
 pub async fn sync_project_labels(

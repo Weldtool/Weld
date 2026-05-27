@@ -1,5 +1,6 @@
 use super::helpers::{fetch_active_channel, fetch_active_message, require_channel_post_access};
 use super::parse_mentions::resolve_mentions;
+use super::parse_task_refs::resolve_task_refs;
 use crate::errors::ApiError;
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -44,14 +45,16 @@ pub async fn post_message(
     }
 
     let mentions = resolve_mentions(pool, channel.team_id, &content).await?;
+    let task_refs = resolve_task_refs(pool, channel.team_id, &content).await?;
 
     let message = sqlx::query_as!(
         ChatMessage,
         r#"
-        INSERT INTO messages (channel_id, sender_id, content, thread_parent_id, mentions)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO messages (channel_id, sender_id, content, thread_parent_id, mentions, task_refs)
+        VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING id, channel_id, sender_id, content, thread_parent_id,
                   mentions as "mentions!: Vec<Uuid>",
+                  task_refs as "task_refs!: Vec<Uuid>",
                   metadata, edited_at, deleted_at, created_at
         "#,
         channel_id,
@@ -59,6 +62,7 @@ pub async fn post_message(
         content,
         input.thread_parent_id,
         &mentions,
+        &task_refs,
     )
     .fetch_one(pool)
     .await?;

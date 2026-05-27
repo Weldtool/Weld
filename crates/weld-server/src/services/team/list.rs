@@ -10,19 +10,22 @@ pub struct UserTeam {
     pub slug: String,
     pub owner_id: Uuid,
     pub role: TeamRole,
+    pub is_personal: bool,
     pub created_at: DateTime<Utc>,
 }
 
-/// List all active teams the user is a member of, with the caller's role on each.
+/// List all active teams the user is a member of, with the caller's role on
+/// each. Personal teams sort first so a user's personal workspace is the
+/// natural default.
 pub async fn list_user_teams(pool: &PgPool, user_id: Uuid) -> Result<Vec<UserTeam>, ApiError> {
     let rows = sqlx::query!(
         r#"
-        SELECT t.id, t.name, t.slug, t.owner_id, t.created_at,
+        SELECT t.id, t.name, t.slug, t.owner_id, t.is_personal, t.created_at,
                tm.role as "role: TeamRole"
         FROM teams t
         JOIN team_memberships tm ON tm.team_id = t.id
         WHERE tm.user_id = $1 AND t.deleted_at IS NULL
-        ORDER BY t.created_at ASC
+        ORDER BY t.is_personal DESC, t.created_at ASC
         "#,
         user_id
     )
@@ -37,6 +40,7 @@ pub async fn list_user_teams(pool: &PgPool, user_id: Uuid) -> Result<Vec<UserTea
             slug: r.slug,
             owner_id: r.owner_id,
             role: r.role,
+            is_personal: r.is_personal,
             created_at: r.created_at,
         })
         .collect())

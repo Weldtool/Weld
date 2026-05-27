@@ -33,6 +33,7 @@ pub struct UserTeamResponse {
     pub slug: String,
     pub owner_id: Uuid,
     pub role: TeamRole,
+    pub is_personal: bool,
     pub created_at: DateTime<Utc>,
 }
 
@@ -81,6 +82,7 @@ pub async fn list(
                 slug: t.slug,
                 owner_id: t.owner_id,
                 role: t.role,
+                is_personal: t.is_personal,
                 created_at: t.created_at,
             })
             .collect(),
