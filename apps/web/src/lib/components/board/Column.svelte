@@ -9,15 +9,16 @@
 	import { createPrDialog } from '$lib/create-pr-dialog.svelte';
 	import type { Column, Label, Task } from '$lib/api/types';
 	import TaskCard from './TaskCard.svelte';
-	import { Plus, MoreVertical, Trash2 } from 'lucide-svelte';
+	import { Plus, Trash2, GripVertical } from 'lucide-svelte';
 
 	interface Props {
 		column: Column;
 		tasks: Task[];
 		labelMap: Map<string, Label>;
+		editMode: boolean;
 	}
 
-	const { column, tasks, labelMap }: Props = $props();
+	const { column, tasks, labelMap, editMode }: Props = $props();
 
 	let items = $state<Task[]>([]);
 
@@ -38,12 +39,11 @@
 		const before = idx > 0 ? next[idx - 1].position : undefined;
 		const after = idx < next.length - 1 ? next[idx + 1].position : undefined;
 		const dropped = next[idx];
-		const cameFromAnotherColumn = dropped.column_id !== column.id;
+		const originColumnId = dropped.column_id;
+		const cameFromAnotherColumn = originColumnId !== column.id;
 		const newPosition = computePosition(before, after);
 		const ok = await boardStore.moveTask(droppedId, column.id, newPosition);
 
-		// Moving a card into the project's Review column prompts a PR. Only when
-		// it's a genuine column change, the repo is linked, and there's no PR yet.
 		if (ok && cameFromAnotherColumn) {
 			const project = projects.current;
 			const moved = boardStore.tasks.find((t) => t.id === droppedId);
@@ -54,7 +54,7 @@
 				moved &&
 				moved.github_pr_id == null
 			) {
-				createPrDialog.request(moved);
+				createPrDialog.request(moved, originColumnId);
 			}
 		}
 	}
@@ -73,8 +73,51 @@
 		void goto(resolve('/board') + url.search, { replaceState: false, noScroll: true });
 	}
 
+	// ── Column rename ────────────────────────────────────────────────────────
+	let renaming = $state(false);
+	let renameValue = $state('');
+	let renameBusy = $state(false);
+	let renameInputEl: HTMLInputElement | null = $state(null);
+
+	$effect(() => {
+		if (renaming) renameInputEl?.focus();
+	});
+
+	// Reset rename state when leaving edit mode
+	$effect(() => {
+		if (!editMode) renaming = false;
+	});
+
+	function startRename() {
+		renameValue = column.name;
+		renaming = true;
+	}
+
+	async function commitRename() {
+		const name = renameValue.trim();
+		if (!name || name === column.name) {
+			renaming = false;
+			return;
+		}
+		renameBusy = true;
+		try {
+			await boardStore.updateColumn(column.id, { name });
+		} finally {
+			renameBusy = false;
+			renaming = false;
+		}
+	}
+
+	function handleRenameKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			void commitRename();
+		} else if (e.key === 'Escape') {
+			renaming = false;
+		}
+	}
+
 	// ── Column delete ────────────────────────────────────────────────────────
-	let menuOpen = $state(false);
 	let showDeleteConfirm = $state(false);
 	let moveTarget = $state('');
 	let deleteBusy = $state(false);
@@ -83,9 +126,7 @@
 	const otherColumns = $derived(boardStore.columns.filter((c) => c.id !== column.id));
 
 	function openDelete() {
-		menuOpen = false;
 		deleteError = null;
-		// Default the move target to a Backlog column, else the first other column.
 		const backlog = otherColumns.find((c) => c.name.toLowerCase() === 'backlog');
 		moveTarget = (backlog ?? otherColumns[0])?.id ?? '';
 		showDeleteConfirm = true;
@@ -106,75 +147,91 @@
 </script>
 
 <section
-	class="flex h-full min-w-0 flex-1 basis-0 flex-col gap-2 rounded-lg border border-[var(--border)] bg-[var(--muted)]/30 p-3"
+	class="flex h-full w-full flex-col gap-2 rounded-lg border border-[var(--border)] bg-[var(--muted)]/30 p-3
+		{editMode ? 'border-dashed' : ''}"
 >
-	<header class="flex items-center justify-between">
-		<h2 class="text-sm font-semibold tracking-tight">{column.name}</h2>
-		<div class="flex items-center gap-1.5">
+	<header class="flex items-center justify-between gap-1.5">
+		{#if editMode}
+			<GripVertical class="h-4 w-4 shrink-0 cursor-grab text-[var(--muted-foreground)]" />
+		{/if}
+
+		{#if renaming}
+			<input
+				bind:this={renameInputEl}
+				type="text"
+				bind:value={renameValue}
+				onblur={commitRename}
+				onkeydown={handleRenameKeydown}
+				disabled={renameBusy}
+				class="min-w-0 flex-1 rounded border border-[var(--input)] bg-[var(--background)] px-2 py-0.5 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+			/>
+		{:else}
+			<button
+				type="button"
+				onclick={editMode ? startRename : undefined}
+				title={editMode ? 'Click to rename' : undefined}
+				class="min-w-0 flex-1 truncate text-left text-sm font-semibold tracking-tight
+					{editMode ? 'cursor-text hover:text-[var(--primary)]' : 'cursor-default'}"
+			>
+				{column.name}
+			</button>
+		{/if}
+
+		<div class="flex shrink-0 items-center gap-1.5">
 			<span class="text-xs {limitClass}">
 				{tasks.length}{column.wip_limit !== null ? `/${column.wip_limit}` : ''}
 			</span>
-			<button
-				type="button"
-				onclick={openAdd}
-				title="New task"
-				aria-label="New task"
-				class="rounded p-0.5 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-			>
-				<Plus class="h-4 w-4" />
-			</button>
-			<div class="relative">
+
+			{#if editMode}
 				<button
 					type="button"
-					onclick={() => (menuOpen = !menuOpen)}
-					title="Column options"
-					aria-label="Column options"
+					onclick={openDelete}
+					title="Delete column"
+					aria-label="Delete column"
+					class="rounded p-0.5 text-red-500 hover:bg-[var(--accent)] hover:text-red-600 dark:text-red-400"
+				>
+					<Trash2 class="h-4 w-4" />
+				</button>
+			{:else}
+				<button
+					type="button"
+					onclick={openAdd}
+					title="New task"
+					aria-label="New task"
 					class="rounded p-0.5 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
 				>
-					<MoreVertical class="h-4 w-4" />
+					<Plus class="h-4 w-4" />
 				</button>
-				{#if menuOpen}
-					<!-- click-away backdrop -->
-					<button
-						type="button"
-						aria-label="Close menu"
-						class="fixed inset-0 z-10 cursor-default"
-						onclick={() => (menuOpen = false)}
-					></button>
-					<div
-						class="absolute right-0 z-20 mt-1 w-40 overflow-hidden rounded-md border border-[var(--border)] bg-[var(--card)] py-1 shadow-lg"
-					>
-						<button
-							type="button"
-							onclick={openDelete}
-							class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-red-600 hover:bg-[var(--accent)] dark:text-red-400"
-						>
-							<Trash2 class="h-3.5 w-3.5" />
-							Delete column
-						</button>
-					</div>
-				{/if}
-			</div>
+			{/if}
 		</div>
 	</header>
 
-	<div
-		class="flex min-h-12 flex-1 flex-col gap-2 overflow-y-auto"
-		use:dndzone={{
-			items,
-			type: 'task',
-			flipDurationMs: 150,
-			dropTargetStyle: {}
-		}}
-		onconsider={handleConsider}
-		onfinalize={handleFinalize}
-	>
-		{#each items as task (task.id)}
-			<div animate:flip={{ duration: 150 }}>
+	{#if editMode}
+		<!-- In edit mode show tasks as a static non-interactive list -->
+		<div class="flex min-h-12 flex-1 flex-col gap-2 overflow-y-auto opacity-50">
+			{#each tasks as task (task.id)}
 				<TaskCard {task} {labelMap} />
-			</div>
-		{/each}
-	</div>
+			{/each}
+		</div>
+	{:else}
+		<div
+			class="flex min-h-12 flex-1 flex-col gap-2 overflow-y-auto"
+			use:dndzone={{
+				items,
+				type: 'task',
+				flipDurationMs: 150,
+				dropTargetStyle: {}
+			}}
+			onconsider={handleConsider}
+			onfinalize={handleFinalize}
+		>
+			{#each items as task (task.id)}
+				<div animate:flip={{ duration: 150 }}>
+					<TaskCard {task} {labelMap} />
+				</div>
+			{/each}
+		</div>
+	{/if}
 </section>
 
 {#if showDeleteConfirm}
@@ -187,7 +244,7 @@
 		<div
 			class="w-full max-w-sm rounded-lg border border-[var(--border)] bg-[var(--card)] p-5 shadow-xl"
 		>
-			<h2 id="delete-column-title" class="text-base font-semibold">Delete “{column.name}”</h2>
+			<h2 id="delete-column-title" class="text-base font-semibold">Delete "{column.name}"</h2>
 
 			{#if tasks.length > 0}
 				<p class="mt-2 text-sm text-[var(--muted-foreground)]">

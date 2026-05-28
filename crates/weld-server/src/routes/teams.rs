@@ -12,6 +12,44 @@ use validator::Validate;
 use weld_core::models::enums::TeamRole;
 
 #[derive(Debug, Deserialize, Validate)]
+pub struct UpdateTeamRequest {
+    #[validate(length(min = 1, max = 100, message = "Team name must be 1-100 characters"))]
+    pub name: String,
+}
+
+pub async fn update(
+    auth: AuthUser,
+    State(state): State<AppState>,
+    Path(team_id): Path<Uuid>,
+    Json(input): Json<UpdateTeamRequest>,
+) -> Result<Json<UserTeamResponse>, ApiError> {
+    input
+        .validate()
+        .map_err(|e| ApiError::Validation(e.to_string()))?;
+
+    let (updated, role) =
+        team::update_team(&state.db, team_id, auth.user_id, &input.name).await?;
+    Ok(Json(UserTeamResponse {
+        id: updated.id,
+        name: updated.name,
+        slug: updated.slug,
+        owner_id: updated.owner_id,
+        role,
+        is_personal: updated.is_personal,
+        created_at: updated.created_at,
+    }))
+}
+
+pub async fn delete(
+    auth: AuthUser,
+    State(state): State<AppState>,
+    Path(team_id): Path<Uuid>,
+) -> Result<StatusCode, ApiError> {
+    team::delete_team(&state.db, team_id, auth.user_id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(Debug, Deserialize, Validate)]
 pub struct CreateTeamRequest {
     #[validate(length(min = 1, max = 100, message = "Team name must be 1-100 characters"))]
     pub name: String,

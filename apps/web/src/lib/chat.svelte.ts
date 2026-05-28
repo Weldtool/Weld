@@ -72,11 +72,14 @@ class ChatStore {
 		name: string;
 		topic?: string;
 		project_id?: string;
-		is_private?: boolean;
+		members?: string[];
 	}): Promise<Channel | null> {
 		if (!this.activeTeamId) return null;
 		try {
-			const created = await channelsApi.create(this.activeTeamId, input);
+			const created = await channelsApi.create(this.activeTeamId, {
+				...input,
+				is_private: true
+			});
 			this.channels = [...this.channels, created];
 			return created;
 		} catch (err) {

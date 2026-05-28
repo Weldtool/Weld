@@ -248,6 +248,14 @@ class BoardStore {
 		}
 	}
 
+	/** Move a task to the end of a column. Used to undo a drop into Review when
+	 *  the user cancels the Create PR dialog. */
+	async revertMove(taskId: string, toColumnId: string): Promise<boolean> {
+		const others = this.tasks.filter((t) => t.column_id === toColumnId && t.id !== taskId);
+		const last = others.length ? Math.max(...others.map((t) => t.position)) : undefined;
+		return this.moveTask(taskId, toColumnId, computePosition(last, undefined));
+	}
+
 	async createTask(input: Parameters<typeof tasksApi.create>[1]): Promise<Task | null> {
 		if (!this.projectId) return null;
 		const created = await tasksApi.create(this.projectId, input);
