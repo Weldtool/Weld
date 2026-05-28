@@ -224,19 +224,6 @@ pub async fn move_task(
     let resp: TaskResponse = task.into();
     publish_project_event(&state.hub, resp.project_id, "task.moved", &resp);
 
-    // Fire-and-forget: if task moved to the project's Done column and has a
-    // linked issue, post a comment on GitHub asynchronously.
-    if let Some(ref gh) = state.github {
-        let db = state.db.clone();
-        let hub = state.hub.clone();
-        let gh = gh.clone();
-        let task_id = resp.id;
-        let column_id = input.column_id;
-        tokio::spawn(async move {
-            sync::maybe_post_done_comment(&db, &hub, &gh, task_id, column_id).await;
-        });
-    }
-
     Ok(Json(resp))
 }
 

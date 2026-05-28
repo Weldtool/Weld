@@ -76,7 +76,7 @@
 				draft
 			});
 			boardStore.applyTaskUpdate(updated);
-			close();
+			createPrDialog.confirm();
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to create pull request.';
 		} finally {
@@ -164,8 +164,7 @@
 					<span class="mb-1 block text-xs text-[var(--muted-foreground)]">Description</span>
 					<textarea
 						bind:value={body}
-						rows="10"
-						class="block w-full resize-y rounded-md border border-[var(--input)] bg-[var(--background)] px-2 py-1.5 font-mono text-xs outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+						class="block h-48 w-full resize-none overflow-y-auto rounded-md border border-[var(--input)] bg-[var(--background)] px-2 py-1.5 font-mono text-xs outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
 					></textarea>
 				</label>
 

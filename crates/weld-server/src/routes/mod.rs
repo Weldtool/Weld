@@ -35,6 +35,10 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/users/me", get(users::me))
         .route("/api/v1/teams", get(teams::list).post(teams::create))
         .route(
+            "/api/v1/teams/{team_id}",
+            patch(teams::update).delete(teams::delete),
+        )
+        .route(
             "/api/v1/teams/{team_id}/members",
             get(teams::list_members).post(teams::add_member),
         )

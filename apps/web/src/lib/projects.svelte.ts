@@ -88,6 +88,25 @@ class ProjectsStore {
 		return team;
 	}
 
+	async updateTeam(id: string, name: string): Promise<void> {
+		const updated = await teamsApi.update(id, { name });
+		this.teams = this.teams.map((t) => (t.id === id ? { ...t, ...updated } : t));
+	}
+
+	async deleteTeam(id: string): Promise<void> {
+		await teamsApi.delete(id);
+		this.teams = this.teams.filter((t) => t.id !== id);
+		if (this.selectedTeamId === id) {
+			const next = this.teams[0];
+			if (next) await this.selectTeam(next.id);
+			else {
+				this.selectedTeamId = null;
+				this.projects = [];
+				this.selectedId = null;
+			}
+		}
+	}
+
 	async create(input: {
 		name: string;
 		description?: string;

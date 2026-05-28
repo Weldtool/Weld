@@ -83,7 +83,13 @@ export const teams = {
 		authStore.fetch<void>(`/api/v1/teams/${teamId}/members/${userId}`, {
 			...opts,
 			method: 'DELETE'
-		})
+		}),
+
+	update: (id: string, body: { name: string }, opts?: RequestOptions) =>
+		authStore.fetch<UserTeam>(`/api/v1/teams/${id}`, { ...opts, method: 'PATCH', body }),
+
+	delete: (id: string, opts?: RequestOptions) =>
+		authStore.fetch<void>(`/api/v1/teams/${id}`, { ...opts, method: 'DELETE' })
 };
 
 export const projects = {
