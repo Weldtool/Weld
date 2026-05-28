@@ -27,8 +27,7 @@ pub async fn update(
         .validate()
         .map_err(|e| ApiError::Validation(e.to_string()))?;
 
-    let (updated, role) =
-        team::update_team(&state.db, team_id, auth.user_id, &input.name).await?;
+    let (updated, role) = team::update_team(&state.db, team_id, auth.user_id, &input.name).await?;
     Ok(Json(UserTeamResponse {
         id: updated.id,
         name: updated.name,
