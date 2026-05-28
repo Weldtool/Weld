@@ -3,6 +3,7 @@
 	import { auth } from '$lib/auth.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { X, Search } from 'lucide-svelte';
 
 	interface Props {
@@ -14,14 +15,12 @@
 	let name = $state('');
 	let topic = $state('');
 	let memberSearch = $state('');
-	let selectedMembers = $state(new Set<string>());
+	let selectedMembers = $state(new SvelteSet<string>());
 	let busy = $state(false);
 	let err = $state<string | null>(null);
 
 	// Exclude the current user — they're added automatically by the backend
-	const otherMembers = $derived(
-		chat.members.filter((m) => m.user_id !== auth.user?.id)
-	);
+	const otherMembers = $derived(chat.members.filter((m) => m.user_id !== auth.user?.id));
 
 	const filteredMembers = $derived(
 		memberSearch.trim()
@@ -34,17 +33,16 @@
 	);
 
 	function toggleMember(userId: string) {
-		const next = new Set(selectedMembers);
-		if (next.has(userId)) next.delete(userId);
-		else next.add(userId);
-		selectedMembers = next;
+		if (selectedMembers.has(userId)) selectedMembers.delete(userId);
+		else selectedMembers.add(userId);
 	}
 
 	function toggleAll() {
 		if (selectedMembers.size === otherMembers.length) {
-			selectedMembers = new Set();
+			selectedMembers.clear();
 		} else {
-			selectedMembers = new Set(otherMembers.map((m) => m.user_id));
+			selectedMembers.clear();
+			for (const m of otherMembers) selectedMembers.add(m.user_id);
 		}
 	}
 
@@ -91,7 +89,12 @@
 		<!-- Header -->
 		<div class="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
 			<h2 id="new-channel-title" class="text-base font-semibold">Create channel</h2>
-			<button type="button" class="rounded p-1 hover:bg-[var(--accent)]" onclick={onClose} aria-label="Close">
+			<button
+				type="button"
+				class="rounded p-1 hover:bg-[var(--accent)]"
+				onclick={onClose}
+				aria-label="Close"
+			>
 				<X class="h-4 w-4" />
 			</button>
 		</div>
@@ -155,12 +158,14 @@
 					<!-- Search -->
 					{#if otherMembers.length > 5}
 						<div class="relative mx-5 mb-2">
-							<Search class="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--muted-foreground)]" />
+							<Search
+								class="absolute top-1/2 left-2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--muted-foreground)]"
+							/>
 							<input
 								type="search"
 								placeholder="Search members…"
 								bind:value={memberSearch}
-								class="w-full rounded-md border border-[var(--input)] bg-[var(--background)] py-1.5 pl-7 pr-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+								class="w-full rounded-md border border-[var(--input)] bg-[var(--background)] py-1.5 pr-3 pl-7 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
 							/>
 						</div>
 					{/if}
@@ -171,7 +176,9 @@
 							<p class="px-3 py-2 text-sm text-[var(--muted-foreground)]">No members match.</p>
 						{/if}
 						{#each filteredMembers as member (member.user_id)}
-							<label class="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 hover:bg-[var(--accent)]">
+							<label
+								class="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 hover:bg-[var(--accent)]"
+							>
 								<input
 									type="checkbox"
 									checked={selectedMembers.has(member.user_id)}

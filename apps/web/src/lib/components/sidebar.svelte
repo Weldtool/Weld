@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
-	import { goto } from '$app/navigation';
 	import { auth } from '$lib/auth.svelte';
 	import { projects } from '$lib/projects.svelte';
 	import { cn } from '$lib/utils';
@@ -11,7 +10,6 @@
 		Clock,
 		KeyRound,
 		Settings,
-		LayoutDashboard,
 		LogOut,
 		Moon,
 		Sun,
@@ -143,8 +141,7 @@
 			await projects.deleteTeam(currentTeam.id);
 			showDeleteWorkspace = false;
 		} catch (err) {
-			deleteWorkspaceError =
-				err instanceof Error ? err.message : 'Failed to delete workspace.';
+			deleteWorkspaceError = err instanceof Error ? err.message : 'Failed to delete workspace.';
 		} finally {
 			deleteWorkspaceBusy = false;
 		}
@@ -177,7 +174,11 @@
 				collapsed ? 'justify-center' : ''
 			)}
 			aria-label="Switch workspace"
-			title={collapsed ? (currentTeam?.is_personal ? 'Personal' : (currentTeam?.name ?? 'Workspace')) : undefined}
+			title={collapsed
+				? currentTeam?.is_personal
+					? 'Personal'
+					: (currentTeam?.name ?? 'Workspace')
+				: undefined}
 		>
 			<span
 				class="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-[var(--primary)] text-xs font-semibold text-[var(--primary-foreground)]"
@@ -195,11 +196,9 @@
 		<!-- Workspace popover -->
 		{#if workspaceOpen}
 			<div
-				class="absolute left-0 top-full z-20 mt-1 w-56 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--card)] py-1 shadow-lg"
+				class="absolute top-full left-0 z-20 mt-1 w-56 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--card)] py-1 shadow-lg"
 			>
-				<p class="px-3 pb-1 pt-2 text-xs font-medium text-[var(--muted-foreground)]">
-					Workspaces
-				</p>
+				<p class="px-3 pt-2 pb-1 text-xs font-medium text-[var(--muted-foreground)]">Workspaces</p>
 				{#each projects.teams as team (team.id)}
 					<button
 						type="button"
