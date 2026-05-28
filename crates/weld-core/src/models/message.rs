@@ -35,6 +35,7 @@ pub struct ChatMessage {
     pub content: String,
     pub thread_parent_id: Option<Uuid>,
     pub mentions: Vec<Uuid>,
+    pub task_refs: Vec<Uuid>,
     pub metadata: serde_json::Value,
     pub edited_at: Option<DateTime<Utc>>,
     pub deleted_at: Option<DateTime<Utc>>,

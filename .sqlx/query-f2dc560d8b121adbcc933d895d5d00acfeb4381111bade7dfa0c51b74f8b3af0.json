@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        INSERT INTO projects (team_id, name, slug, description)\n        VALUES ($1, $2, $3, $4)\n        RETURNING id, team_id, name, slug, description, github_repo, done_column_id, auto_close_on_issue_closed,\n                  created_at, updated_at, deleted_at\n        ",
+  "query": "\n        UPDATE projects\n        SET name = $1,\n            description = $2,\n            github_repo = $3,\n            done_column_id = $4,\n            auto_close_on_issue_closed = $5,\n            in_progress_column_id = $7,\n            review_column_id = $8,\n            updated_at = NOW()\n        WHERE id = $6 AND deleted_at IS NULL\n        RETURNING id, team_id, name, slug, description, github_repo, done_column_id,\n                  in_progress_column_id, review_column_id,\n                  auto_close_on_issue_closed, created_at, updated_at, deleted_at\n        ",
   "describe": {
     "columns": [
       {
@@ -40,31 +40,45 @@
       },
       {
         "ordinal": 7,
+        "name": "in_progress_column_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 8,
+        "name": "review_column_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 9,
         "name": "auto_close_on_issue_closed",
         "type_info": "Bool"
       },
       {
-        "ordinal": 8,
+        "ordinal": 10,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 9,
+        "ordinal": 11,
         "name": "updated_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 10,
+        "ordinal": 12,
         "name": "deleted_at",
         "type_info": "Timestamptz"
       }
     ],
     "parameters": {
       "Left": [
+        "Text",
+        "Text",
+        "Text",
         "Uuid",
-        "Text",
-        "Text",
-        "Text"
+        "Bool",
+        "Uuid",
+        "Uuid",
+        "Uuid"
       ]
     },
     "nullable": [
@@ -75,11 +89,13 @@
       true,
       true,
       true,
+      true,
+      true,
       false,
       false,
       false,
       true
     ]
   },
-  "hash": "db4e1383cca0d17a7670b68e7dc9eff8086ddcdf6a3a459d458923cb053ff49e"
+  "hash": "f2dc560d8b121adbcc933d895d5d00acfeb4381111bade7dfa0c51b74f8b3af0"
 }

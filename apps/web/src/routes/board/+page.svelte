@@ -3,8 +3,19 @@
 	import { resolve } from '$app/paths';
 	import Board from '$lib/components/board/Board.svelte';
 	import TaskDetail from '$lib/components/board/TaskDetail.svelte';
+	import TaskDraft from '$lib/components/board/TaskDraft.svelte';
+	import CreatePrDialog from '$lib/components/board/CreatePrDialog.svelte';
 	import { boardStore } from '$lib/board.svelte';
 	import { projects } from '$lib/projects.svelte';
+
+	// A `?project=` param (e.g. from a chat task link) selects that project so
+	// the linked task's board loads even if another project was active.
+	$effect(() => {
+		const wanted = page.url.searchParams.get('project');
+		if (wanted && wanted !== projects.selectedId) {
+			projects.select(wanted);
+		}
+	});
 
 	$effect(() => {
 		const projectId = projects.selectedId;
@@ -16,6 +27,7 @@
 	});
 
 	const taskId = $derived(page.url.searchParams.get('task'));
+	const draftColumnId = $derived(page.url.searchParams.get('column'));
 </script>
 
 <header class="mb-6 flex items-end justify-between gap-3">
@@ -44,8 +56,14 @@
 	</div>
 {/if}
 
-{#if taskId}
+{#if taskId === 'new' && draftColumnId}
+	{#key draftColumnId}
+		<TaskDraft columnId={draftColumnId} />
+	{/key}
+{:else if taskId}
 	{#key taskId}
 		<TaskDetail {taskId} />
 	{/key}
 {/if}
+
+<CreatePrDialog />

@@ -1,8 +1,10 @@
 <script lang="ts">
 	import type { Channel, GitHubEventFilter } from '$lib/api/types';
-	import { apiRequest } from '$lib/api/client';
+	import { channels as channelsApi } from '$lib/api';
 	import { chat } from '$lib/chat.svelte';
-	import { X, GitBranch } from 'lucide-svelte';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { X, GitBranch, Trash2 } from 'lucide-svelte';
 
 	interface Props {
 		channel: Channel;
@@ -29,6 +31,22 @@
 		}
 	}
 	let muted = $state(getMuted());
+
+	let confirmArchive = $state('');
+	let archiving = $state(false);
+
+	async function archive() {
+		if (confirmArchive !== channel.name) return;
+		archiving = true;
+		const ok = await chat.archiveChannel(channel.id);
+		archiving = false;
+		if (ok) {
+			onClose();
+			void goto(resolve('/chat'));
+		} else {
+			error = chat.error ?? 'Failed to archive channel.';
+		}
+	}
 
 	function toggleMute() {
 		try {
@@ -60,9 +78,9 @@
 			push: pushEnabled
 		};
 		try {
-			const updated = await apiRequest<Channel>(`/channels/${channel.id}`, {
-				method: 'PATCH',
-				body: JSON.stringify({ github_repos: repos, github_event_filter: filter })
+			const updated = await channelsApi.update(channel.id, {
+				github_repos: repos,
+				github_event_filter: filter
 			});
 			chat.updateChannel(updated);
 			onClose();
@@ -145,6 +163,33 @@
 		{#if error}
 			<p class="text-xs text-red-500">{error}</p>
 		{/if}
+
+		<section class="border-t border-[var(--border)] pt-4">
+			<h3
+				class="mb-2 flex items-center gap-2 text-xs font-semibold tracking-wide text-red-500 uppercase"
+			>
+				<Trash2 class="h-3.5 w-3.5" />
+				Danger zone
+			</h3>
+			<p class="mb-2 text-[11px] text-[var(--muted-foreground)]">
+				Archiving removes <code>#{channel.name}</code> from the sidebar. Message history is kept but not
+				visible. Type the channel name to confirm.
+			</p>
+			<input
+				type="text"
+				bind:value={confirmArchive}
+				placeholder={channel.name}
+				class="mb-2 w-full rounded-md border border-[var(--input)] bg-[var(--background)] px-2 py-1.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+			/>
+			<button
+				type="button"
+				onclick={archive}
+				disabled={archiving || confirmArchive !== channel.name}
+				class="w-full rounded-md border border-red-500 px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-red-500"
+			>
+				{archiving ? 'Archiving…' : 'Archive channel'}
+			</button>
+		</section>
 	</div>
 
 	<div class="border-t border-[var(--border)] px-4 py-3">

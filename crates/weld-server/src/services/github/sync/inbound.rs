@@ -47,14 +47,16 @@ pub async fn on_issue_event(
     .await?;
 
     for task in tasks {
-        move_to_done_if_configured(db, hub, task).await?;
+        move_to_role_column_if_configured(db, hub, task, PrSyncOutcome::Merged).await?;
     }
 
     Ok(())
 }
 
-/// Called by the `pull_request` webhook handler.  On merge, moves linked tasks
-/// to Done if the project is configured to auto-close.
+/// Called by the `pull_request` webhook handler. Moves the linked task as the
+/// PR changes state: a merged PR sends it to the Done column, a PR closed
+/// without merging sends it back to In Progress, and a reopened PR sends it
+/// back to Review. All are gated on the project's auto-move setting.
 #[tracing::instrument(skip(db, hub))]
 pub async fn on_pr_event(
     db: &PgPool,
@@ -64,9 +66,12 @@ pub async fn on_pr_event(
     action: &str,
     merged: bool,
 ) -> Result<(), ApiError> {
-    if action != "closed" || !merged {
-        return Ok(());
-    }
+    let outcome = match action {
+        "closed" if merged => PrSyncOutcome::Merged,
+        "closed" => PrSyncOutcome::ClosedUnmerged,
+        "reopened" => PrSyncOutcome::Reopened,
+        _ => return Ok(()),
+    };
 
     let tasks = sqlx::query_as!(
         Task,
@@ -89,10 +94,21 @@ pub async fn on_pr_event(
     .await?;
 
     for task in tasks {
-        move_to_done_if_configured(db, hub, task).await?;
+        move_to_role_column_if_configured(db, hub, task, outcome).await?;
     }
 
     Ok(())
+}
+
+/// Which destination column a PR/issue state change maps to.
+#[derive(Clone, Copy)]
+enum PrSyncOutcome {
+    /// PR merged or issue closed → Done column.
+    Merged,
+    /// PR closed without merging → In Progress column.
+    ClosedUnmerged,
+    /// Closed PR reopened → Review column.
+    Reopened,
 }
 
 /// Sets `github_repo` on tasks whose `short_id` appears in commit messages.
@@ -122,13 +138,15 @@ pub async fn autolink_from_push(
     Ok(())
 }
 
-async fn move_to_done_if_configured(
+async fn move_to_role_column_if_configured(
     db: &PgPool,
     hub: &Arc<Hub>,
     task: Task,
+    outcome: PrSyncOutcome,
 ) -> Result<(), ApiError> {
     let project = sqlx::query!(
-        "SELECT done_column_id, auto_close_on_issue_closed FROM projects WHERE id = $1 AND deleted_at IS NULL",
+        "SELECT done_column_id, in_progress_column_id, review_column_id, auto_close_on_issue_closed
+         FROM projects WHERE id = $1 AND deleted_at IS NULL",
         task.project_id
     )
     .fetch_optional(db)
@@ -142,21 +160,28 @@ async fn move_to_done_if_configured(
         return Ok(());
     }
 
-    let Some(done_col) = project.done_column_id else {
+    let (target_col, role) = match outcome {
+        PrSyncOutcome::Merged => (project.done_column_id, "done"),
+        PrSyncOutcome::ClosedUnmerged => (project.in_progress_column_id, "in-progress"),
+        PrSyncOutcome::Reopened => (project.review_column_id, "review"),
+    };
+
+    let Some(target_col) = target_col else {
         tracing::debug!(
             project_id = %task.project_id,
-            "auto_close_on_issue_closed is set but done_column_id is not configured"
+            role,
+            "auto-move is enabled but the target column is not configured"
         );
         return Ok(());
     };
 
-    if task.column_id == done_col {
+    if task.column_id == target_col {
         return Ok(()); // already there
     }
 
     let max_pos: Option<f64> = sqlx::query_scalar!(
         "SELECT MAX(position) FROM tasks WHERE column_id = $1 AND deleted_at IS NULL",
-        done_col
+        target_col
     )
     .fetch_one(db)
     .await?;
@@ -175,7 +200,7 @@ async fn move_to_done_if_configured(
                   short_id, github_issue_id, github_pr_id, github_repo,
                   deleted_at, created_at, updated_at
         "#,
-        done_col,
+        target_col,
         new_pos,
         task.id,
     )
@@ -192,8 +217,9 @@ async fn move_to_done_if_configured(
 
     tracing::info!(
         task_id = %resp.id,
-        column_id = %done_col,
-        "Auto-moved task to Done column via webhook"
+        column_id = %target_col,
+        role,
+        "Auto-moved task to role column via webhook"
     );
 
     Ok(())

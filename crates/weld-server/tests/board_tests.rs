@@ -244,27 +244,118 @@ async fn create_column_forbidden_for_member() {
 }
 
 #[tokio::test]
-async fn delete_column_with_active_tasks_returns_conflict() {
+async fn delete_column_relocates_active_tasks_to_target() {
     let app = setup_app().await;
     let owner = register_and_login(&app).await;
-    let team_id = create_team(&app, &owner, "BoardCoConflict").await;
+    let team_id = create_team(&app, &owner, "BoardCoRelocate").await;
     let project_id = create_project(&app, &owner, team_id, "BoardP3").await;
-    let column = create_column(&app, &owner, project_id, "Backlog").await;
-    let column_id = Uuid::parse_str(column["id"].as_str().unwrap()).unwrap();
-    create_task(&app, &owner, project_id, column_id, "T1").await;
+
+    let source = create_column(&app, &owner, project_id, "Doing").await;
+    let source_id = Uuid::parse_str(source["id"].as_str().unwrap()).unwrap();
+    let target = create_column(&app, &owner, project_id, "Parking").await;
+    let target_id = Uuid::parse_str(target["id"].as_str().unwrap()).unwrap();
+
+    let task = create_task(&app, &owner, project_id, source_id, "T1").await;
+    let task_id = task["id"].as_str().unwrap().to_string();
 
     let resp = app
+        .clone()
         .oneshot(
             Request::builder()
                 .method("DELETE")
-                .uri(format!("/api/v1/columns/{}", column_id))
+                .uri(format!(
+                    "/api/v1/columns/{}?move_to={}",
+                    source_id, target_id
+                ))
                 .header("Authorization", format!("Bearer {}", owner.access_token))
                 .body(Body::empty())
                 .unwrap(),
         )
         .await
         .unwrap();
-    assert_eq!(resp.status(), StatusCode::CONFLICT);
+    assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+
+    // The task should now live in the target column.
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/api/v1/tasks/{}", task_id))
+                .header("Authorization", format!("Bearer {}", owner.access_token))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let moved: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(moved["column_id"].as_str().unwrap(), target_id.to_string());
+}
+
+#[tokio::test]
+async fn delete_column_defaults_relocation_to_backlog() {
+    let app = setup_app().await;
+    let owner = register_and_login(&app).await;
+    let team_id = create_team(&app, &owner, "BoardCoBacklog").await;
+    // New projects auto-seed a "Backlog" column, which is the default target.
+    let project_id = create_project(&app, &owner, team_id, "BoardP4").await;
+
+    let source = create_column(&app, &owner, project_id, "Doing").await;
+    let source_id = Uuid::parse_str(source["id"].as_str().unwrap()).unwrap();
+    let task = create_task(&app, &owner, project_id, source_id, "T1").await;
+    let task_id = task["id"].as_str().unwrap().to_string();
+
+    // Delete with no move_to — tasks fall back to the Backlog column.
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri(format!("/api/v1/columns/{}", source_id))
+                .header("Authorization", format!("Bearer {}", owner.access_token))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+
+    // Resolve the Backlog column id from the board to verify the relocation.
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/api/v1/projects/{}/board", project_id))
+                .header("Authorization", format!("Bearer {}", owner.access_token))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let board: Value = serde_json::from_slice(&body).unwrap();
+    let backlog_id = board["columns"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"].as_str() == Some("Backlog"))
+        .and_then(|c| c["id"].as_str())
+        .unwrap()
+        .to_string();
+
+    let task = board["tasks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["id"].as_str() == Some(task_id.as_str()))
+        .unwrap();
+    assert_eq!(task["column_id"].as_str().unwrap(), backlog_id);
 }
 
 #[tokio::test]

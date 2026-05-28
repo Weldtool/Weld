@@ -29,6 +29,8 @@ pub async fn register_user(
         .map_err(|e| ApiError::Internal(format!("Password hashing failed: {e}")))?
         .to_string();
 
+    let mut tx = pool.begin().await?;
+
     // Insert into database
     let user = sqlx::query!(
         r#"
@@ -40,7 +42,7 @@ pub async fn register_user(
         password_hash,
         display_name
     )
-    .fetch_one(pool)
+    .fetch_one(&mut *tx)
     .await
     .map_err(|e| match &e {
         sqlx::Error::Database(db_err) if db_err.is_unique_violation() => {
@@ -48,6 +50,31 @@ pub async fn register_user(
         }
         _ => ApiError::Internal(format!("Database error: {e}")),
     })?;
+
+    // Give every user a personal team — a private workspace separate from any
+    // shared teams. Personal projects/board/chat reuse all team-scoped logic.
+    let personal_slug = format!("personal-{}", user.id);
+    let personal_team_id = sqlx::query_scalar!(
+        r#"
+        INSERT INTO teams (name, slug, owner_id, is_personal)
+        VALUES ('Personal', $1, $2, TRUE)
+        RETURNING id
+        "#,
+        personal_slug,
+        user.id,
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+
+    sqlx::query!(
+        "INSERT INTO team_memberships (team_id, user_id, role) VALUES ($1, $2, 'owner')",
+        personal_team_id,
+        user.id,
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
 
     Ok(RegisteredUser {
         id: user.id,

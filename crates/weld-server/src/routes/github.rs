@@ -125,10 +125,7 @@ pub async fn setup_callback(
         "GitHub App installed"
     );
 
-    let redirect_url = format!(
-        "{}/teams/{team_id}?github_connected=true",
-        state.frontend_url
-    );
+    let redirect_url = format!("{}/settings?github_connected=true", state.frontend_url);
     Ok(Redirect::to(&redirect_url).into_response())
 }
 
@@ -280,6 +277,20 @@ pub async fn list_project_issues(
     Ok(Json(issues))
 }
 
+// ── GET /api/v1/projects/:id/github/issues/:number ────────────────────────
+
+pub async fn get_project_issue(
+    auth: AuthUser,
+    State(state): State<AppState>,
+    Path((project_id, issue_number)): Path<(Uuid, i64)>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let gh_cfg = require_github_config(&state.github)?;
+    let issue =
+        github::sync::get_project_issue(&state.db, gh_cfg, project_id, issue_number, auth.user_id)
+            .await?;
+    Ok(Json(issue))
+}
+
 // ── GET /api/v1/projects/:id/github/prs ───────────────────────────────────
 
 pub async fn list_project_prs(
@@ -290,4 +301,60 @@ pub async fn list_project_prs(
     let gh_cfg = require_github_config(&state.github)?;
     let prs = github::sync::list_project_prs(&state.db, gh_cfg, project_id, auth.user_id).await?;
     Ok(Json(prs))
+}
+
+// ── GET /api/v1/projects/:id/github/branches ──────────────────────────────
+
+pub async fn list_project_branches(
+    auth: AuthUser,
+    State(state): State<AppState>,
+    Path(project_id): Path<Uuid>,
+) -> Result<Json<github::sync::RepoBranches>, ApiError> {
+    let gh_cfg = require_github_config(&state.github)?;
+    let branches = github::sync::list_branches(&state.db, gh_cfg, project_id, auth.user_id).await?;
+    Ok(Json(branches))
+}
+
+// ── GET /api/v1/projects/:id/github/pr-template ───────────────────────────
+
+#[derive(Debug, Serialize)]
+pub struct PrTemplateResponse {
+    pub template: Option<String>,
+}
+
+pub async fn get_pr_template(
+    auth: AuthUser,
+    State(state): State<AppState>,
+    Path(project_id): Path<Uuid>,
+) -> Result<Json<PrTemplateResponse>, ApiError> {
+    let gh_cfg = require_github_config(&state.github)?;
+    let template =
+        github::sync::get_pr_template(&state.db, gh_cfg, project_id, auth.user_id).await?;
+    Ok(Json(PrTemplateResponse { template }))
+}
+
+// ── GET /api/v1/projects/:id/github/issue-templates ───────────────────────
+
+pub async fn list_issue_templates(
+    auth: AuthUser,
+    State(state): State<AppState>,
+    Path(project_id): Path<Uuid>,
+) -> Result<Json<Vec<github::sync::IssueTemplate>>, ApiError> {
+    let gh_cfg = require_github_config(&state.github)?;
+    let templates =
+        github::sync::list_issue_templates(&state.db, gh_cfg, project_id, auth.user_id).await?;
+    Ok(Json(templates))
+}
+
+// ── POST /api/v1/projects/:id/github/labels/sync ──────────────────────────
+
+pub async fn sync_project_labels(
+    auth: AuthUser,
+    State(state): State<AppState>,
+    Path(project_id): Path<Uuid>,
+) -> Result<Json<Vec<weld_core::models::task::Label>>, ApiError> {
+    let gh_cfg = require_github_config(&state.github)?;
+    let labels =
+        github::sync::sync_labels_from_github(&state.db, gh_cfg, project_id, auth.user_id).await?;
+    Ok(Json(labels))
 }

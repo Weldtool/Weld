@@ -25,6 +25,8 @@
 		(channelState?.messages ?? []).filter((m) => m.thread_parent_id === null)
 	);
 	const hasMore = $derived(channelState ? !channelState.loadedAll : true);
+	const initialLoading = $derived(chat.loadingChannel === channelId);
+	const loadError = $derived(channelState?.loadError ?? null);
 
 	$effect(() => {
 		// new message arrived: stick to bottom if user was already there
@@ -83,7 +85,26 @@
 	aria-live="polite"
 	aria-relevant="additions"
 >
-	{#if loadingOlder}
+	{#if initialLoading}
+		<div
+			class="flex flex-1 items-center justify-center py-8 text-xs text-[var(--muted-foreground)]"
+		>
+			Loading messages…
+		</div>
+	{:else if loadError}
+		<div
+			class="flex flex-1 flex-col items-center justify-center gap-2 py-8 text-center text-xs text-red-500"
+		>
+			<span>Failed to load messages: {loadError}</span>
+			<button
+				type="button"
+				class="underline hover:no-underline"
+				onclick={() => chat.openChannel(channelId)}
+			>
+				Retry
+			</button>
+		</div>
+	{:else if loadingOlder}
 		<div class="py-2 text-center text-xs text-[var(--muted-foreground)]">
 			Loading older messages…
 		</div>
@@ -93,21 +114,23 @@
 		</div>
 	{/if}
 
-	{#each messages as m, i (m.id)}
-		{@const day = dayLabel(i)}
-		{#if day}
-			<div class="my-2 flex items-center gap-2 text-[10px] text-[var(--muted-foreground)]">
-				<div class="h-px flex-1 bg-[var(--border)]"></div>
-				<span>{day}</span>
-				<div class="h-px flex-1 bg-[var(--border)]"></div>
+	{#if !initialLoading && !loadError}
+		{#each messages as m, i (m.id)}
+			{@const day = dayLabel(i)}
+			{#if day}
+				<div class="my-2 flex items-center gap-2 text-[10px] text-[var(--muted-foreground)]">
+					<div class="h-px flex-1 bg-[var(--border)]"></div>
+					<span>{day}</span>
+					<div class="h-px flex-1 bg-[var(--border)]"></div>
+				</div>
+			{/if}
+			<Message message={m} {members} {selfId} showAvatar={showAvatarFor(i)} {onReply} />
+		{/each}
+
+		{#if messages.length === 0 && !loadingOlder}
+			<div class="flex h-full items-center justify-center text-sm text-[var(--muted-foreground)]">
+				No messages yet. Say hi!
 			</div>
 		{/if}
-		<Message message={m} {members} {selfId} showAvatar={showAvatarFor(i)} {onReply} />
-	{/each}
-
-	{#if messages.length === 0 && !loadingOlder}
-		<div class="flex h-full items-center justify-center text-sm text-[var(--muted-foreground)]">
-			No messages yet. Say hi!
-		</div>
 	{/if}
 </div>

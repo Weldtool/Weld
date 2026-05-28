@@ -1,7 +1,8 @@
 import { channels as channelsApi, messages as messagesApi, teams as teamsApi } from '$lib/api';
-import type { Channel, ChatMessage, TeamMember } from '$lib/api/types';
+import type { Channel, ChatMessage, TaskRef, TeamMember } from '$lib/api/types';
 import { auth } from '$lib/auth.svelte';
 import { realtime, type RealtimeEnvelope } from '$lib/realtime.svelte';
+import { untrack } from 'svelte';
 
 const TYPING_TTL_MS = 3_000;
 const TYPING_EMIT_INTERVAL_MS = 2_000;
@@ -20,6 +21,7 @@ type ChannelMessages = {
 	messages: AnyMessage[];
 	nextBefore: string | null;
 	loadedAll: boolean;
+	loadError: string | null;
 };
 
 type ThreadState = {
@@ -32,6 +34,7 @@ type ThreadState = {
 class ChatStore {
 	channels = $state<Channel[]>([]);
 	members = $state<TeamMember[]>([]);
+	taskRefs = $state<TaskRef[]>([]);
 	messagesByChannel = $state<Record<string, ChannelMessages>>({});
 	/** channelId -> userId -> last seen typing timestamp (ms) */
 	typingByChannel = $state<Record<string, Record<string, number>>>({});
@@ -52,12 +55,14 @@ class ChatStore {
 		if (this.activeTeamId === teamId && this.channels.length > 0) return;
 		this.activeTeamId = teamId;
 		try {
-			const [chans, members] = await Promise.all([
+			const [chans, members, taskRefs] = await Promise.all([
 				channelsApi.listForTeam(teamId),
-				teamsApi.listMembers(teamId)
+				teamsApi.listMembers(teamId),
+				teamsApi.listTaskRefs(teamId).catch(() => [])
 			]);
 			this.channels = chans;
 			this.members = members;
+			this.taskRefs = taskRefs;
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : 'Failed to load chat data.';
 		}
@@ -67,11 +72,14 @@ class ChatStore {
 		name: string;
 		topic?: string;
 		project_id?: string;
-		is_private?: boolean;
+		members?: string[];
 	}): Promise<Channel | null> {
 		if (!this.activeTeamId) return null;
 		try {
-			const created = await channelsApi.create(this.activeTeamId, input);
+			const created = await channelsApi.create(this.activeTeamId, {
+				...input,
+				is_private: true
+			});
 			this.channels = [...this.channels, created];
 			return created;
 		} catch (err) {
@@ -84,11 +92,41 @@ class ChatStore {
 		this.channels = this.channels.map((c) => (c.id === updated.id ? updated : c));
 	}
 
+	async archiveChannel(channelId: string): Promise<boolean> {
+		try {
+			await channelsApi.archive(channelId);
+			this.channels = this.channels.filter((c) => c.id !== channelId);
+			if (this.activeChannelId === channelId) this.activeChannelId = null;
+			const restMsgs = { ...this.messagesByChannel };
+			delete restMsgs[channelId];
+			this.messagesByChannel = restMsgs;
+			const restUnread = { ...this.unreadByChannel };
+			delete restUnread[channelId];
+			this.unreadByChannel = restUnread;
+			return true;
+		} catch (err) {
+			this.error = err instanceof Error ? err.message : 'Failed to archive channel.';
+			return false;
+		}
+	}
+
+	loadingChannel = $state<string | null>(null);
+
 	async openChannel(channelId: string): Promise<void> {
 		this.activeChannelId = channelId;
-		this.unreadByChannel = { ...this.unreadByChannel, [channelId]: 0 };
-		if (!this.messagesByChannel[channelId]) {
-			await this.#fetchPage(channelId, undefined);
+		// `untrack` so callers inside an $effect don't register a dep on the spread
+		// read of `unreadByChannel` (which we also write to, causing an infinite loop).
+		untrack(() => {
+			this.unreadByChannel = { ...this.unreadByChannel, [channelId]: 0 };
+		});
+		const existing = untrack(() => this.messagesByChannel[channelId]);
+		if (!existing || existing.loadError) {
+			this.loadingChannel = channelId;
+			try {
+				await this.#fetchPage(channelId, undefined);
+			} finally {
+				this.loadingChannel = null;
+			}
 		}
 		this.#joinChannelRoom(channelId);
 		this.#ensureRealtimeWired();
@@ -123,6 +161,7 @@ class ChatStore {
 			content: trimmed,
 			thread_parent_id: threadParentId ?? null,
 			mentions: [],
+			task_refs: [],
 			metadata: {},
 			edited_at: null,
 			created_at: new Date().toISOString(),
@@ -192,17 +231,21 @@ class ChatStore {
 	}
 
 	async openThread(parentId: string): Promise<void> {
-		const existing = this.threadByParent[parentId];
+		// `untrack` so callers inside an $effect (e.g. ThreadPanel) don't register
+		// a dep on threadByParent — we read and then write it, which would loop.
+		const existing = untrack(() => this.threadByParent[parentId]);
 		if (existing && existing.parent && !existing.loading) return;
-		this.threadByParent = {
-			...this.threadByParent,
-			[parentId]: {
-				parent: existing?.parent ?? null,
-				replies: existing?.replies ?? [],
-				loading: true,
-				error: null
-			}
-		};
+		untrack(() => {
+			this.threadByParent = {
+				...this.threadByParent,
+				[parentId]: {
+					parent: existing?.parent ?? null,
+					replies: existing?.replies ?? [],
+					loading: true,
+					error: null
+				}
+			};
+		});
 		try {
 			const view = await messagesApi.thread(parentId);
 			this.threadByParent = {
@@ -262,6 +305,10 @@ class ChatStore {
 		return this.members.find((m) => m.user_id === id) ?? null;
 	}
 
+	taskByShortId(shortId: number): TaskRef | null {
+		return this.taskRefs.find((t) => t.short_id === shortId) ?? null;
+	}
+
 	/** Subscribe to mention notifications. Fires for every incoming message
 	 * whose `mentions` array includes `selfId`. The caller passes `selfId`. */
 	onMention(selfId: string, handler: (msg: ChatMessage) => void): () => void {
@@ -284,6 +331,7 @@ class ChatStore {
 		}
 		this.channels = [];
 		this.members = [];
+		this.taskRefs = [];
 		this.messagesByChannel = {};
 		this.typingByChannel = {};
 		this.unreadByChannel = {};
@@ -303,7 +351,8 @@ class ChatStore {
 			const cur = this.messagesByChannel[channelId] ?? {
 				messages: [],
 				nextBefore: null,
-				loadedAll: false
+				loadedAll: false,
+				loadError: null
 			};
 			const incoming = [...page.messages].reverse(); // newest-first → ascending
 			const merged = before ? [...incoming, ...cur.messages] : [...cur.messages, ...incoming];
@@ -313,14 +362,26 @@ class ChatStore {
 				[channelId]: {
 					messages: dedup,
 					nextBefore: page.next_before,
-					loadedAll: page.next_before === null
+					loadedAll: page.next_before === null,
+					loadError: null
 				}
 			};
 			const newest = dedup[dedup.length - 1];
 			if (newest && !isPending(newest))
 				realtime.setCursor(`channel:${channelId}`, newest.created_at);
 		} catch (err) {
-			this.error = err instanceof Error ? err.message : 'Failed to load messages.';
+			const msg = err instanceof Error ? err.message : 'Failed to load messages.';
+			this.error = msg;
+			const cur = this.messagesByChannel[channelId];
+			this.messagesByChannel = {
+				...this.messagesByChannel,
+				[channelId]: {
+					messages: cur?.messages ?? [],
+					nextBefore: cur?.nextBefore ?? null,
+					loadedAll: cur?.loadedAll ?? false,
+					loadError: msg
+				}
+			};
 		}
 	}
 
@@ -415,7 +476,7 @@ class ChatStore {
 			: [...cur.messages, msg];
 		this.messagesByChannel = {
 			...this.messagesByChannel,
-			[msg.channel_id]: { ...cur, messages: dedupAndSort(merged) }
+			[msg.channel_id]: { ...cur, messages: dedupAndSort(merged), loadError: null }
 		};
 	}
 

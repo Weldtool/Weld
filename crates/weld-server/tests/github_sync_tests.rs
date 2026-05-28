@@ -1,9 +1,9 @@
 /// Integration tests for issue #29: task ↔ GitHub issue/PR linking and two-way sync.
 ///
-/// The outbound direction (posting a GitHub comment when a task moves to Done)
-/// makes a real HTTPS call, so those paths are exercised via unit-level
-/// helpers rather than full HTTP round-trips.  All inbound paths (webhook →
-/// task auto-close, link/unlink endpoints) use the real database.
+/// Sync is inbound-only: GitHub PR/issue webhooks move the linked task between
+/// the project's role columns (merged → Done, closed unmerged → In Progress,
+/// reopened → Review). Weld never posts comments back to GitHub. All inbound
+/// paths (webhook → task auto-move, link/unlink endpoints) use the real database.
 use axum::Router;
 use axum::body::Body;
 use axum::http::{Request, StatusCode};

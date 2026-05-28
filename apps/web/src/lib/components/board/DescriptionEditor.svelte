@@ -46,7 +46,8 @@
 			editable: !disabled,
 			editorProps: {
 				attributes: {
-					class: 'tiptap-content min-h-[160px] px-3 py-2 focus:outline-none'
+					class:
+						'tiptap-content min-h-[120px] max-h-[220px] overflow-y-auto px-3 py-2 focus:outline-none'
 				}
 			},
 			onUpdate({ editor }) {

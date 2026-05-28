@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT done_column_id, in_progress_column_id, review_column_id, auto_close_on_issue_closed\n         FROM projects WHERE id = $1 AND deleted_at IS NULL",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "done_column_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "in_progress_column_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "review_column_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "auto_close_on_issue_closed",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "6863b407e6eca05255bd95c0b408672bf7bc12d61579fe56dbdd89922f6c1a3d"
+}

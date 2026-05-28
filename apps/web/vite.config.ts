@@ -4,6 +4,12 @@ import { sveltekit } from '@sveltejs/kit/vite';
 
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
+	build: {
+		// Ship source maps so production stack traces map back to original files.
+		// They sit alongside the JS chunks and are only fetched by browsers when
+		// devtools is open, so there's no perf cost for normal users.
+		sourcemap: true
+	},
 	server: {
 		proxy: {
 			'/api': {

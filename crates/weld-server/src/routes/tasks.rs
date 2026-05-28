@@ -52,6 +52,23 @@ pub struct LinkTaskRequest {
     pub pr_number: Option<i64>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct CreatePrRequest {
+    pub head: String,
+    pub base: String,
+    pub title: String,
+    #[serde(default)]
+    pub body: String,
+    #[serde(default)]
+    pub draft: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PushToGithubRequest {
+    pub title: Option<String>,
+    pub body: Option<String>,
+}
+
 fn deserialize_optional_field<'de, T, D>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
 where
     T: serde::Deserialize<'de>,
@@ -106,6 +123,15 @@ impl From<TaskWithLabels> for TaskResponse {
             updated_at: task.updated_at,
         }
     }
+}
+
+pub async fn list_team_task_refs(
+    auth: AuthUser,
+    State(state): State<AppState>,
+    Path(team_id): Path<Uuid>,
+) -> Result<Json<Vec<task::TaskRef>>, ApiError> {
+    let refs = task::list_team_task_refs(&state.db, team_id, auth.user_id).await?;
+    Ok(Json(refs))
 }
 
 pub async fn create(
@@ -198,19 +224,6 @@ pub async fn move_task(
     let resp: TaskResponse = task.into();
     publish_project_event(&state.hub, resp.project_id, "task.moved", &resp);
 
-    // Fire-and-forget: if task moved to the project's Done column and has a
-    // linked issue, post a comment on GitHub asynchronously.
-    if let Some(ref gh) = state.github {
-        let db = state.db.clone();
-        let hub = state.hub.clone();
-        let gh = gh.clone();
-        let task_id = resp.id;
-        let column_id = input.column_id;
-        tokio::spawn(async move {
-            sync::maybe_post_done_comment(&db, &hub, &gh, task_id, column_id).await;
-        });
-    }
-
     Ok(Json(resp))
 }
 
@@ -245,6 +258,54 @@ pub async fn unlink_task(
     Path(id): Path<Uuid>,
 ) -> Result<Json<TaskResponse>, ApiError> {
     let task = sync::unlink_task(&state.db, id, auth.user_id).await?;
+    let resp: TaskResponse = task.into();
+    publish_project_event(&state.hub, resp.project_id, "task.updated", &resp);
+    Ok(Json(resp))
+}
+
+pub async fn push_task_to_github(
+    auth: AuthUser,
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    body: Option<Json<PushToGithubRequest>>,
+) -> Result<Json<TaskResponse>, ApiError> {
+    let gh_cfg = state.github.as_ref().ok_or_else(|| {
+        ApiError::Validation("GitHub integration is not configured on the server".into())
+    })?;
+    let (title, issue_body) = match body {
+        Some(Json(input)) => (input.title, input.body),
+        None => (None, None),
+    };
+    let task =
+        sync::push_task_to_github(&state.db, gh_cfg, id, auth.user_id, title, issue_body).await?;
+    let resp: TaskResponse = task.into();
+    publish_project_event(&state.hub, resp.project_id, "task.updated", &resp);
+    Ok(Json(resp))
+}
+
+pub async fn create_pr(
+    auth: AuthUser,
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    Json(input): Json<CreatePrRequest>,
+) -> Result<Json<TaskResponse>, ApiError> {
+    let gh_cfg = state.github.as_ref().ok_or_else(|| {
+        ApiError::Validation("GitHub integration is not configured on the server".into())
+    })?;
+    let task = sync::create_pr_for_task(
+        &state.db,
+        gh_cfg,
+        id,
+        auth.user_id,
+        sync::CreatePrInput {
+            head: input.head,
+            base: input.base,
+            title: input.title,
+            body: input.body,
+            draft: input.draft,
+        },
+    )
+    .await?;
     let resp: TaskResponse = task.into();
     publish_project_event(&state.hub, resp.project_id, "task.updated", &resp);
     Ok(Json(resp))

@@ -192,6 +192,7 @@ async fn post_to_subscribed_channels(
             VALUES ($1, $2, $3, $4, '{}')
             RETURNING id, channel_id, sender_id, content, thread_parent_id,
                       mentions as "mentions!: Vec<Uuid>",
+               task_refs as "task_refs!: Vec<Uuid>",
                       metadata, edited_at, created_at
             "#,
             row.id,
@@ -209,6 +210,7 @@ async fn post_to_subscribed_channels(
             content: msg.content,
             thread_parent_id: msg.thread_parent_id,
             mentions: msg.mentions,
+            task_refs: msg.task_refs,
             metadata: msg.metadata,
             edited_at: msg.edited_at,
             created_at: msg.created_at,

@@ -570,13 +570,21 @@ async fn list_teams_returns_only_users_active_teams() {
         .unwrap();
     let json: Value = serde_json::from_slice(&body).unwrap();
     let teams = json.as_array().unwrap();
-    assert_eq!(teams.len(), 2);
-    let ids: Vec<Uuid> = teams
+    // The two explicitly created teams plus the auto-created personal team.
+    assert_eq!(teams.len(), 3);
+    let shared: Vec<&Value> = teams
+        .iter()
+        .filter(|t| !t["is_personal"].as_bool().unwrap())
+        .collect();
+    assert_eq!(shared.len(), 2);
+    let ids: Vec<Uuid> = shared
         .iter()
         .map(|t| Uuid::parse_str(t["id"].as_str().unwrap()).unwrap())
         .collect();
     assert!(ids.contains(&team_a));
     assert!(ids.contains(&team_b));
+    // Personal team is sorted first and is also owned by the user.
+    assert_eq!(teams[0]["is_personal"], true);
     assert_eq!(teams[0]["role"], "owner");
 }
 

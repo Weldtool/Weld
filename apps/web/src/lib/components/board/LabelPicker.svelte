@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Label } from '$lib/api/types';
 	import { boardStore } from '$lib/board.svelte';
+	import { projects } from '$lib/projects.svelte';
 
 	interface Props {
 		value: string[];
@@ -14,6 +15,29 @@
 	let newName = $state('');
 	let newColor = $state('#6366f1');
 	let createError = $state<string | null>(null);
+
+	const hasRepo = $derived(!!projects.current?.github_repo);
+	let syncing = $state(false);
+	let syncMessage = $state<string | null>(null);
+
+	async function syncFromGithub() {
+		if (syncing) return;
+		syncing = true;
+		syncMessage = null;
+		try {
+			const added = await boardStore.syncLabelsFromGithub();
+			syncMessage =
+				added === null
+					? null
+					: added > 0
+						? `Imported ${added} new label${added === 1 ? '' : 's'}.`
+						: 'Already in sync.';
+		} catch (err) {
+			syncMessage = err instanceof Error ? err.message : 'Sync failed.';
+		} finally {
+			syncing = false;
+		}
+	}
 
 	const labelMap = $derived(new Map(boardStore.labels.map((l) => [l.id, l] as const)));
 	const selected = $derived(value.map((id) => labelMap.get(id)).filter((l): l is Label => !!l));
@@ -121,6 +145,22 @@
 					>
 						+ Create new label
 					</button>
+				{/if}
+
+				{#if hasRepo}
+					<div class="mt-2 border-t border-[var(--border)] pt-2">
+						<button
+							type="button"
+							class="w-full text-left text-xs text-[var(--muted-foreground)] hover:underline disabled:opacity-50"
+							disabled={syncing}
+							onclick={syncFromGithub}
+						>
+							{syncing ? 'Syncing…' : '↻ Sync labels from GitHub'}
+						</button>
+						{#if syncMessage}
+							<p class="mt-1 text-[10px] text-[var(--muted-foreground)]">{syncMessage}</p>
+						{/if}
+					</div>
 				{/if}
 			</div>
 		</details>

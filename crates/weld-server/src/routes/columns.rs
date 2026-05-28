@@ -1,10 +1,11 @@
 use crate::errors::ApiError;
 use crate::middleware::auth::AuthUser;
 use crate::realtime::broadcast::publish_project_event;
+use crate::routes::tasks::TaskResponse;
 use crate::services::column::{self, UpdateColumnInput};
 use crate::state::AppState;
 use axum::Json;
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -101,14 +102,30 @@ pub async fn update(
     Ok(Json(resp))
 }
 
+#[derive(Debug, Deserialize)]
+pub struct DeleteColumnQuery {
+    /// Column to relocate active tasks into. Defaults to the project's Backlog
+    /// column when omitted.
+    pub move_to: Option<Uuid>,
+}
+
 pub async fn delete(
     auth: AuthUser,
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
+    Query(query): Query<DeleteColumnQuery>,
 ) -> Result<StatusCode, ApiError> {
     let existing = column::helpers::fetch_column(&state.db, id).await?;
     let project_id = existing.project_id;
-    column::delete_column(&state.db, id, auth.user_id).await?;
+    let moved = column::delete_column(&state.db, id, auth.user_id, query.move_to).await?;
+
+    // Broadcast relocations first so clients move the cards before the column
+    // they came from disappears.
+    for task in moved {
+        let resp: TaskResponse = task.into();
+        publish_project_event(&state.hub, resp.project_id, "task.moved", &resp);
+    }
+
     publish_project_event(
         &state.hub,
         project_id,

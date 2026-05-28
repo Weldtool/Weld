@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id FROM columns\n         WHERE project_id = $1 AND id <> $2 AND LOWER(name) = 'backlog'\n         ORDER BY position ASC\n         LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "11d69efee218e688cadd0093393e438cf06e8d3d89f89ccfbdc35a33f9532195"
+}

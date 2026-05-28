@@ -10,12 +10,17 @@ import type {
 	Column,
 	GithubConnection,
 	GitHubIssue,
+	GitHubIssueDetail,
 	GitHubPR,
+	IssueTemplate,
 	Label,
+	RepoBranches,
+	TaskRef,
 	LoginResponse,
 	MessagePage,
 	Priority,
 	Project,
+	ProjectMember,
 	Task,
 	Team,
 	TeamMember,
@@ -58,7 +63,33 @@ export const teams = {
 		authStore.fetch<Team>('/api/v1/teams', { ...opts, method: 'POST', body }),
 
 	listMembers: (teamId: string, opts?: RequestOptions) =>
-		authStore.fetch<TeamMember[]>(`/api/v1/teams/${teamId}/members`, opts)
+		authStore.fetch<TeamMember[]>(`/api/v1/teams/${teamId}/members`, opts),
+
+	listTaskRefs: (teamId: string, opts?: RequestOptions) =>
+		authStore.fetch<TaskRef[]>(`/api/v1/teams/${teamId}/task-refs`, opts),
+
+	addMember: (
+		teamId: string,
+		body: { email?: string; user_id?: string; role: 'owner' | 'admin' | 'member' | 'viewer' },
+		opts?: RequestOptions
+	) =>
+		authStore.fetch<TeamMember>(`/api/v1/teams/${teamId}/members`, {
+			...opts,
+			method: 'POST',
+			body
+		}),
+
+	removeMember: (teamId: string, userId: string, opts?: RequestOptions) =>
+		authStore.fetch<void>(`/api/v1/teams/${teamId}/members/${userId}`, {
+			...opts,
+			method: 'DELETE'
+		}),
+
+	update: (id: string, body: { name: string }, opts?: RequestOptions) =>
+		authStore.fetch<UserTeam>(`/api/v1/teams/${id}`, { ...opts, method: 'PATCH', body }),
+
+	delete: (id: string, opts?: RequestOptions) =>
+		authStore.fetch<void>(`/api/v1/teams/${id}`, { ...opts, method: 'DELETE' })
 };
 
 export const projects = {
@@ -82,13 +113,31 @@ export const projects = {
 			description?: string | null;
 			github_repo?: string | null;
 			done_column_id?: string | null;
+			in_progress_column_id?: string | null;
+			review_column_id?: string | null;
 			auto_close_on_issue_closed?: boolean;
 		},
 		opts?: RequestOptions
 	) => authStore.fetch<Project>(`/api/v1/projects/${id}`, { ...opts, method: 'PATCH', body }),
 
 	delete: (id: string, opts?: RequestOptions) =>
-		authStore.fetch<void>(`/api/v1/projects/${id}`, { ...opts, method: 'DELETE' })
+		authStore.fetch<void>(`/api/v1/projects/${id}`, { ...opts, method: 'DELETE' }),
+
+	listMembers: (id: string, opts?: RequestOptions) =>
+		authStore.fetch<ProjectMember[]>(`/api/v1/projects/${id}/members`, opts),
+
+	addMember: (id: string, body: { user_id?: string; email?: string }, opts?: RequestOptions) =>
+		authStore.fetch<ProjectMember>(`/api/v1/projects/${id}/members`, {
+			...opts,
+			method: 'POST',
+			body
+		}),
+
+	removeMember: (id: string, userId: string, opts?: RequestOptions) =>
+		authStore.fetch<void>(`/api/v1/projects/${id}/members/${userId}`, {
+			...opts,
+			method: 'DELETE'
+		})
 };
 
 export const board = {
@@ -114,8 +163,10 @@ export const columns = {
 		opts?: RequestOptions
 	) => authStore.fetch<Column>(`/api/v1/columns/${id}`, { ...opts, method: 'PATCH', body }),
 
-	delete: (id: string, opts?: RequestOptions) =>
-		authStore.fetch<void>(`/api/v1/columns/${id}`, { ...opts, method: 'DELETE' })
+	delete: (id: string, moveTo?: string | null, opts?: RequestOptions) => {
+		const query = moveTo ? `?move_to=${moveTo}` : '';
+		return authStore.fetch<void>(`/api/v1/columns/${id}${query}`, { ...opts, method: 'DELETE' });
+	}
 };
 
 export const labels = {
@@ -187,7 +238,20 @@ export const tasks = {
 	) => authStore.fetch<Task>(`/api/v1/tasks/${id}/link`, { ...opts, method: 'POST', body }),
 
 	unlink: (id: string, opts?: RequestOptions) =>
-		authStore.fetch<Task>(`/api/v1/tasks/${id}/link`, { ...opts, method: 'DELETE' })
+		authStore.fetch<Task>(`/api/v1/tasks/${id}/link`, { ...opts, method: 'DELETE' }),
+
+	pushToGithub: (id: string, body?: { title?: string; body?: string }, opts?: RequestOptions) =>
+		authStore.fetch<Task>(`/api/v1/tasks/${id}/push-to-github`, {
+			...opts,
+			method: 'POST',
+			body: body ?? {}
+		}),
+
+	createPR: (
+		id: string,
+		body: { head: string; base: string; title: string; body?: string; draft?: boolean },
+		opts?: RequestOptions
+	) => authStore.fetch<Task>(`/api/v1/tasks/${id}/create-pr`, { ...opts, method: 'POST', body })
 };
 
 export const github = {
@@ -206,8 +270,32 @@ export const github = {
 	listIssues: (projectId: string, opts?: RequestOptions) =>
 		authStore.fetch<GitHubIssue[]>(`/api/v1/projects/${projectId}/github/issues`, opts),
 
+	getIssue: (projectId: string, number: number, opts?: RequestOptions) =>
+		authStore.fetch<GitHubIssueDetail>(
+			`/api/v1/projects/${projectId}/github/issues/${number}`,
+			opts
+		),
+
 	listPRs: (projectId: string, opts?: RequestOptions) =>
-		authStore.fetch<GitHubPR[]>(`/api/v1/projects/${projectId}/github/prs`, opts)
+		authStore.fetch<GitHubPR[]>(`/api/v1/projects/${projectId}/github/prs`, opts),
+
+	listBranches: (projectId: string, opts?: RequestOptions) =>
+		authStore.fetch<RepoBranches>(`/api/v1/projects/${projectId}/github/branches`, opts),
+
+	getPRTemplate: (projectId: string, opts?: RequestOptions) =>
+		authStore.fetch<{ template: string | null }>(
+			`/api/v1/projects/${projectId}/github/pr-template`,
+			opts
+		),
+
+	listIssueTemplates: (projectId: string, opts?: RequestOptions) =>
+		authStore.fetch<IssueTemplate[]>(`/api/v1/projects/${projectId}/github/issue-templates`, opts),
+
+	syncLabels: (projectId: string, opts?: RequestOptions) =>
+		authStore.fetch<Label[]>(`/api/v1/projects/${projectId}/github/labels/sync`, {
+			...opts,
+			method: 'POST'
+		})
 };
 
 export const channels = {
@@ -235,8 +323,16 @@ export const channels = {
 	get: (id: string, opts?: RequestOptions) =>
 		authStore.fetch<Channel>(`/api/v1/channels/${id}`, opts),
 
-	update: (id: string, body: { name?: string; topic?: string | null }, opts?: RequestOptions) =>
-		authStore.fetch<Channel>(`/api/v1/channels/${id}`, { ...opts, method: 'PATCH', body }),
+	update: (
+		id: string,
+		body: {
+			name?: string;
+			topic?: string | null;
+			github_repos?: string[];
+			github_event_filter?: { pr?: boolean; issue?: boolean; review?: boolean; push?: boolean };
+		},
+		opts?: RequestOptions
+	) => authStore.fetch<Channel>(`/api/v1/channels/${id}`, { ...opts, method: 'PATCH', body }),
 
 	archive: (id: string, opts?: RequestOptions) =>
 		authStore.fetch<void>(`/api/v1/channels/${id}`, { ...opts, method: 'DELETE' }),

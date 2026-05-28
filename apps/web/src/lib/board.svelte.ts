@@ -1,6 +1,7 @@
 import {
 	board as boardApi,
 	columns as columnsApi,
+	github as githubApi,
 	labels as labelsApi,
 	tasks as tasksApi,
 	teams as teamsApi
@@ -247,9 +248,17 @@ class BoardStore {
 		}
 	}
 
-	async createTask(columnId: string, title: string): Promise<Task | null> {
+	/** Move a task to the end of a column. Used to undo a drop into Review when
+	 *  the user cancels the Create PR dialog. */
+	async revertMove(taskId: string, toColumnId: string): Promise<boolean> {
+		const others = this.tasks.filter((t) => t.column_id === toColumnId && t.id !== taskId);
+		const last = others.length ? Math.max(...others.map((t) => t.position)) : undefined;
+		return this.moveTask(taskId, toColumnId, computePosition(last, undefined));
+	}
+
+	async createTask(input: Parameters<typeof tasksApi.create>[1]): Promise<Task | null> {
 		if (!this.projectId) return null;
-		const created = await tasksApi.create(this.projectId, { title, column_id: columnId });
+		const created = await tasksApi.create(this.projectId, input);
 		// Guard against the WS task.created event arriving first and already inserting.
 		if (!this.tasks.some((t) => t.id === created.id)) {
 			this.tasks = [...this.tasks, { ...created, labels: created.labels ?? [] }];
@@ -289,8 +298,17 @@ class BoardStore {
 		return updated;
 	}
 
-	async deleteColumn(id: string): Promise<void> {
-		await columnsApi.delete(id);
+	/**
+	 * Delete a column. Any tasks it holds are relocated to `moveTo` (or the
+	 * project's Backlog column server-side when omitted). The relocation is
+	 * applied optimistically; the server also broadcasts `task.moved` events
+	 * which reconcile the exact positions.
+	 */
+	async deleteColumn(id: string, moveTo?: string | null): Promise<void> {
+		await columnsApi.delete(id, moveTo);
+		if (moveTo) {
+			this.tasks = this.tasks.map((t) => (t.column_id === id ? { ...t, column_id: moveTo } : t));
+		}
 		this.columns = this.columns.filter((c) => c.id !== id);
 	}
 
@@ -313,6 +331,14 @@ class BoardStore {
 		this.tasks = this.tasks.map((t) =>
 			t.labels.includes(id) ? { ...t, labels: t.labels.filter((l) => l !== id) } : t
 		);
+	}
+
+	async syncLabelsFromGithub(): Promise<number | null> {
+		if (!this.projectId) return null;
+		const before = this.labels.length;
+		const next = await githubApi.syncLabels(this.projectId);
+		this.labels = next;
+		return next.length - before;
 	}
 }
 

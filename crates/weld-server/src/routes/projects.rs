@@ -27,6 +27,10 @@ pub struct UpdateProjectRequest {
     pub github_repo: Option<Option<String>>,
     #[serde(default, deserialize_with = "deserialize_optional_field")]
     pub done_column_id: Option<Option<Uuid>>,
+    #[serde(default, deserialize_with = "deserialize_optional_field")]
+    pub in_progress_column_id: Option<Option<Uuid>>,
+    #[serde(default, deserialize_with = "deserialize_optional_field")]
+    pub review_column_id: Option<Option<Uuid>>,
     pub auto_close_on_issue_closed: Option<bool>,
 }
 
@@ -47,6 +51,8 @@ pub struct ProjectResponse {
     pub description: Option<String>,
     pub github_repo: Option<String>,
     pub done_column_id: Option<Uuid>,
+    pub in_progress_column_id: Option<Uuid>,
+    pub review_column_id: Option<Uuid>,
     pub auto_close_on_issue_closed: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -62,6 +68,8 @@ impl From<Project> for ProjectResponse {
             description: p.description,
             github_repo: p.github_repo,
             done_column_id: p.done_column_id,
+            in_progress_column_id: p.in_progress_column_id,
+            review_column_id: p.review_column_id,
             auto_close_on_issue_closed: p.auto_close_on_issue_closed,
             created_at: p.created_at,
             updated_at: p.updated_at,
@@ -124,6 +132,8 @@ pub async fn update(
             description: input.description,
             github_repo: input.github_repo,
             done_column_id: input.done_column_id,
+            in_progress_column_id: input.in_progress_column_id,
+            review_column_id: input.review_column_id,
             auto_close_on_issue_closed: input.auto_close_on_issue_closed,
         },
     )
@@ -137,5 +147,76 @@ pub async fn delete(
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, ApiError> {
     project::delete_project(&state.db, id, auth.user_id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(Debug, Serialize)]
+pub struct ProjectMemberResponse {
+    pub user_id: Uuid,
+    pub email: String,
+    pub display_name: String,
+    pub avatar_url: Option<String>,
+    pub team_role: weld_core::models::enums::TeamRole,
+    pub added_at: DateTime<Utc>,
+}
+
+impl From<project::ProjectMember> for ProjectMemberResponse {
+    fn from(m: project::ProjectMember) -> Self {
+        Self {
+            user_id: m.user_id,
+            email: m.email,
+            display_name: m.display_name,
+            avatar_url: m.avatar_url,
+            team_role: m.team_role,
+            added_at: m.added_at,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AddProjectMemberRequest {
+    /// One of `user_id` or `email` is required. `email` is matched
+    /// case-insensitively against registered users.
+    pub user_id: Option<Uuid>,
+    pub email: Option<String>,
+}
+
+pub async fn list_members(
+    auth: AuthUser,
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<Vec<ProjectMemberResponse>>, ApiError> {
+    let members = project::list_project_members(&state.db, id, auth.user_id).await?;
+    Ok(Json(members.into_iter().map(Into::into).collect()))
+}
+
+pub async fn add_member(
+    auth: AuthUser,
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    Json(input): Json<AddProjectMemberRequest>,
+) -> Result<(StatusCode, Json<ProjectMemberResponse>), ApiError> {
+    let new_member_id = match (input.user_id, input.email.as_deref()) {
+        (Some(uid), _) => uid,
+        (None, Some(email)) if !email.trim().is_empty() => {
+            crate::services::team::find_user_id_by_email(&state.db, email.trim()).await?
+        }
+        _ => {
+            return Err(ApiError::Validation(
+                "Provide either user_id or email".into(),
+            ));
+        }
+    };
+
+    let member = project::add_project_member(&state.db, id, auth.user_id, new_member_id).await?;
+    Ok((StatusCode::CREATED, Json(member.into())))
+}
+
+pub async fn remove_member(
+    auth: AuthUser,
+    State(state): State<AppState>,
+    Path((id, user_id)): Path<(Uuid, Uuid)>,
+) -> Result<StatusCode, ApiError> {
+    project::remove_project_member(&state.db, id, auth.user_id, user_id).await?;
     Ok(StatusCode::NO_CONTENT)
 }

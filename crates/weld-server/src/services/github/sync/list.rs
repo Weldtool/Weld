@@ -24,6 +24,23 @@ pub async fn list_project_issues(
     .await
 }
 
+/// Proxies a single GitHub issue (by number) for the project's connected repository.
+/// Returns the raw JSON object — callers decide which fields to expose.
+pub async fn get_project_issue(
+    pool: &PgPool,
+    github: &GithubConfig,
+    project_id: Uuid,
+    issue_number: i64,
+    caller_id: Uuid,
+) -> Result<serde_json::Value, ApiError> {
+    let (repo, token) = resolve_repo_and_token(pool, github, project_id, caller_id).await?;
+    fetch_github_object(
+        &token,
+        &format!("https://api.github.com/repos/{repo}/issues/{issue_number}"),
+    )
+    .await
+}
+
 /// Proxies GitHub's pull-request list for the project's connected repository.
 pub async fn list_project_prs(
     pool: &PgPool,
@@ -39,7 +56,9 @@ pub async fn list_project_prs(
     .await
 }
 
-async fn resolve_repo_and_token(
+/// Resolves a project's connected repository (`owner/repo`) and a fresh
+/// installation access token, after checking the caller is at least `Viewer`.
+pub(crate) async fn resolve_repo_and_token(
     pool: &PgPool,
     github: &GithubConfig,
     project_id: Uuid,
@@ -83,6 +102,32 @@ async fn fetch_github_list(token: &str, url: &str) -> Result<Vec<serde_json::Val
     }
 
     resp.json::<Vec<serde_json::Value>>()
+        .await
+        .map_err(|e| ApiError::Internal(format!("Failed to parse GitHub response: {e}")))
+}
+
+async fn fetch_github_object(token: &str, url: &str) -> Result<serde_json::Value, ApiError> {
+    let client = reqwest::Client::new();
+    let resp = client
+        .get(url)
+        .bearer_auth(token)
+        .header("Accept", "application/vnd.github.v3+json")
+        .header("User-Agent", "Weld/1.0")
+        .send()
+        .await?;
+
+    if resp.status() == reqwest::StatusCode::NOT_FOUND {
+        return Err(ApiError::NotFound("GitHub issue not found".into()));
+    }
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        return Err(ApiError::Internal(format!(
+            "GitHub request failed ({status}): {body}"
+        )));
+    }
+
+    resp.json::<serde_json::Value>()
         .await
         .map_err(|e| ApiError::Internal(format!("Failed to parse GitHub response: {e}")))
 }

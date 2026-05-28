@@ -3,14 +3,21 @@ import { projects as projectsApi, teams as teamsApi } from '$lib/api';
 import type { Project, UserTeam } from '$lib/api/types';
 
 const SELECTED_PROJECT_KEY = 'weld:selected-project';
+const SELECTED_TEAM_KEY = 'weld:selected-team';
 
 class ProjectsStore {
-	team = $state<UserTeam | null>(null);
+	teams = $state<UserTeam[]>([]);
+	selectedTeamId = $state<string | null>(null);
 	projects = $state<Project[]>([]);
 	selectedId = $state<string | null>(null);
 	loading = $state(false);
 	error = $state<string | null>(null);
 	#loaded = false;
+
+	get team(): UserTeam | null {
+		if (!this.selectedTeamId) return null;
+		return this.teams.find((t) => t.id === this.selectedTeamId) ?? null;
+	}
 
 	get current(): Project | null {
 		if (!this.selectedId) return null;
@@ -30,10 +37,9 @@ class ProjectsStore {
 		this.loading = true;
 		this.error = null;
 		try {
-			const teams = await teamsApi.list();
-			this.team = teams[0] ?? null;
-			this.projects = this.team ? await projectsApi.listForTeam(this.team.id) : [];
-			this.#restoreSelection();
+			this.teams = await teamsApi.list();
+			this.#restoreTeamSelection();
+			await this.#loadProjects();
 			this.#loaded = true;
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : 'Failed to load projects.';
@@ -42,11 +48,63 @@ class ProjectsStore {
 		}
 	}
 
+	/** Switch the active team, reloading its visible projects. */
+	async selectTeam(teamId: string): Promise<void> {
+		if (teamId === this.selectedTeamId) return;
+		this.selectedTeamId = teamId;
+		if (browser) localStorage.setItem(SELECTED_TEAM_KEY, teamId);
+		this.loading = true;
+		this.error = null;
+		try {
+			await this.#loadProjects();
+		} catch (err) {
+			this.error = err instanceof Error ? err.message : 'Failed to load projects.';
+		} finally {
+			this.loading = false;
+		}
+	}
+
+	async #loadProjects(): Promise<void> {
+		const team = this.team;
+		this.projects = team ? await projectsApi.listForTeam(team.id) : [];
+		this.#restoreSelection();
+	}
+
+	/** Ensure a (selected) team exists, creating a shared team if the user has none. */
 	async ensureTeam(name = 'My team'): Promise<UserTeam | null> {
 		if (this.team) return this.team;
 		await teamsApi.create({ name });
 		await this.refresh();
 		return this.team;
+	}
+
+	/** Create a new shared team and switch to it. */
+	async createTeam(name: string): Promise<UserTeam> {
+		const created = await teamsApi.create({ name });
+		await this.refresh();
+		await this.selectTeam(created.id);
+		const team = this.teams.find((t) => t.id === created.id);
+		if (!team) throw new Error('Team creation succeeded but the team did not load.');
+		return team;
+	}
+
+	async updateTeam(id: string, name: string): Promise<void> {
+		const updated = await teamsApi.update(id, { name });
+		this.teams = this.teams.map((t) => (t.id === id ? { ...t, ...updated } : t));
+	}
+
+	async deleteTeam(id: string): Promise<void> {
+		await teamsApi.delete(id);
+		this.teams = this.teams.filter((t) => t.id !== id);
+		if (this.selectedTeamId === id) {
+			const next = this.teams[0];
+			if (next) await this.selectTeam(next.id);
+			else {
+				this.selectedTeamId = null;
+				this.projects = [];
+				this.selectedId = null;
+			}
+		}
 	}
 
 	async create(input: {
@@ -72,6 +130,8 @@ class ProjectsStore {
 			description?: string | null;
 			github_repo?: string | null;
 			done_column_id?: string | null;
+			in_progress_column_id?: string | null;
+			review_column_id?: string | null;
 			auto_close_on_issue_closed?: boolean;
 		}
 	): Promise<Project> {
@@ -100,12 +160,27 @@ class ProjectsStore {
 	}
 
 	reset(): void {
-		this.team = null;
+		this.teams = [];
+		this.selectedTeamId = null;
 		this.projects = [];
 		this.selectedId = null;
 		this.error = null;
 		this.#loaded = false;
-		if (browser) localStorage.removeItem(SELECTED_PROJECT_KEY);
+		if (browser) {
+			localStorage.removeItem(SELECTED_PROJECT_KEY);
+			localStorage.removeItem(SELECTED_TEAM_KEY);
+		}
+	}
+
+	#restoreTeamSelection(): void {
+		const stored = browser ? localStorage.getItem(SELECTED_TEAM_KEY) : null;
+		const found = stored && this.teams.some((t) => t.id === stored) ? stored : null;
+		// Default to the first team — the API sorts personal teams first.
+		this.selectedTeamId = found ?? this.teams[0]?.id ?? null;
+		if (browser) {
+			if (this.selectedTeamId) localStorage.setItem(SELECTED_TEAM_KEY, this.selectedTeamId);
+			else localStorage.removeItem(SELECTED_TEAM_KEY);
+		}
 	}
 
 	#restoreSelection(): void {

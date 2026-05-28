@@ -27,6 +27,7 @@ pub async fn get_thread(
         r#"
         SELECT id, channel_id, sender_id, content, thread_parent_id,
                mentions as "mentions!: Vec<Uuid>",
+               task_refs as "task_refs!: Vec<Uuid>",
                metadata, edited_at, deleted_at, created_at
         FROM messages
         WHERE thread_parent_id = $1 AND deleted_at IS NULL

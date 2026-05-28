@@ -10,6 +10,8 @@ pub struct Project {
     pub description: Option<String>,
     pub github_repo: Option<String>,
     pub done_column_id: Option<Uuid>,
+    pub in_progress_column_id: Option<Uuid>,
+    pub review_column_id: Option<Uuid>,
     pub auto_close_on_issue_closed: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
