@@ -93,7 +93,7 @@
 		aria-labelledby="create-pr-title"
 	>
 		<div
-			class="flex max-h-[90vh] w-full max-w-lg flex-col rounded-lg border border-[var(--border)] bg-[var(--card)] shadow-xl"
+			class="flex h-[85vh] w-full max-w-3xl flex-col rounded-lg border border-[var(--border)] bg-[var(--card)] shadow-xl"
 		>
 			<div class="flex items-center justify-between border-b border-[var(--border)] px-5 py-3">
 				<h2 id="create-pr-title" class="flex items-center gap-2 text-base font-semibold">
