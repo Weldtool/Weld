@@ -9,12 +9,21 @@
 		value: string;
 		disabled?: boolean;
 		saving?: boolean;
+		fill?: boolean;
 		onInput: (next: string) => void;
 		onFocus?: () => void;
 		onBlur?: () => void;
 	}
 
-	const { value, disabled = false, saving = false, onInput, onFocus, onBlur }: Props = $props();
+	const {
+		value,
+		disabled = false,
+		saving = false,
+		fill = false,
+		onInput,
+		onFocus,
+		onBlur
+	}: Props = $props();
 
 	let element = $state<HTMLDivElement | null>(null);
 	let editor: Editor | null = null;
@@ -46,8 +55,9 @@
 			editable: !disabled,
 			editorProps: {
 				attributes: {
-					class:
-						'tiptap-content min-h-[120px] max-h-[220px] overflow-y-auto px-3 py-2 focus:outline-none'
+					class: fill
+						? 'tiptap-content h-full overflow-y-auto px-3 py-2 focus:outline-none'
+						: 'tiptap-content min-h-[120px] max-h-[220px] overflow-y-auto px-3 py-2 focus:outline-none'
 				}
 			},
 			onUpdate({ editor }) {
@@ -84,7 +94,7 @@
 	});
 </script>
 
-<div class="space-y-1">
+<div class={fill ? 'flex min-h-0 flex-1 flex-col gap-1' : 'space-y-1'}>
 	<div class="flex items-center justify-between text-xs text-[var(--muted-foreground)]">
 		<span>Description</span>
 		{#if saving}
@@ -93,7 +103,9 @@
 	</div>
 	<div
 		bind:this={element}
-		class="rounded-md border border-[var(--border)] bg-[var(--card)] text-sm text-[var(--card-foreground)] focus-within:border-[var(--ring)] {disabled
+		class="{fill
+			? 'flex min-h-0 flex-1 flex-col'
+			: ''} rounded-md border border-[var(--border)] bg-[var(--card)] text-sm text-[var(--card-foreground)] focus-within:border-[var(--ring)] {disabled
 			? 'opacity-60'
 			: ''}"
 	></div>

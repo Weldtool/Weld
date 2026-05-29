@@ -10,7 +10,6 @@
 		Clock,
 		KeyRound,
 		Settings,
-		LogOut,
 		Moon,
 		Sun,
 		PanelLeftClose,
@@ -41,8 +40,7 @@
 		{ href: '/board', label: 'Board', icon: Kanban },
 		{ href: '/chat', label: 'Chat', icon: MessageSquare },
 		{ href: '/time', label: 'Time', icon: Clock },
-		{ href: '/secrets', label: 'Secrets', icon: KeyRound },
-		{ href: '/settings', label: 'Settings', icon: Settings }
+		{ href: '/secrets', label: 'Secrets', icon: KeyRound }
 	] as const;
 
 	function isActive(href: string): boolean {
@@ -394,15 +392,19 @@
 				{/if}
 			</button>
 
-			<button
-				type="button"
-				onclick={() => auth.logout()}
-				class="flex h-8 w-8 items-center justify-center rounded-md text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--accent-foreground)]"
-				aria-label="Sign out"
-				title="Sign out"
+			<a
+				href={resolve('/settings')}
+				class={cn(
+					'flex h-8 w-8 items-center justify-center rounded-md transition-colors',
+					isActive('/settings')
+						? 'bg-[var(--accent)] text-[var(--accent-foreground)]'
+						: 'text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--accent-foreground)]'
+				)}
+				aria-label="Settings"
+				title="Settings"
 			>
-				<LogOut class="h-4 w-4" />
-			</button>
+				<Settings class="h-4 w-4" />
+			</a>
 
 			{#if !collapsed}
 				<div class="ml-auto">

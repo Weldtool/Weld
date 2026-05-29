@@ -110,7 +110,7 @@
 				</button>
 			</div>
 
-			<form onsubmit={submit} class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-5">
+			<form onsubmit={submit} class="flex min-h-0 flex-1 flex-col gap-3 p-5">
 				<p class="text-xs text-[var(--muted-foreground)]">
 					{project.github_repo}
 					{#if task.github_issue_id}
@@ -160,11 +160,11 @@
 					/>
 				</label>
 
-				<label class="block text-sm">
+				<label class="flex min-h-0 flex-1 flex-col text-sm">
 					<span class="mb-1 block text-xs text-[var(--muted-foreground)]">Description</span>
 					<textarea
 						bind:value={body}
-						class="block h-48 w-full resize-none overflow-y-auto rounded-md border border-[var(--input)] bg-[var(--background)] px-2 py-1.5 font-mono text-xs outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+						class="block min-h-0 w-full flex-1 resize-none overflow-y-auto rounded-md border border-[var(--input)] bg-[var(--background)] px-2 py-1.5 font-mono text-xs outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
 					></textarea>
 				</label>
 

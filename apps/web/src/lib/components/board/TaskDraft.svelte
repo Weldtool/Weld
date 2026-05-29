@@ -194,7 +194,7 @@
 			</button>
 		</header>
 
-		<div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
+		<div class="flex min-h-0 flex-1 flex-col gap-4 px-6 py-4">
 			{#if error}
 				<p
 					role="alert"
@@ -251,7 +251,7 @@
 				</div>
 			{/if}
 
-			<DescriptionEditor value={description} onInput={(next) => (description = next)} />
+			<DescriptionEditor value={description} fill onInput={(next) => (description = next)} />
 
 			<div class="grid gap-4 sm:grid-cols-2">
 				<div class="space-y-1">
