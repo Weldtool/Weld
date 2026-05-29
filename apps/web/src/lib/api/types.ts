@@ -65,7 +65,6 @@ export interface GithubConnection {
 	team_id: string;
 	installation_id: number;
 	account_login: string;
-	repos: string[];
 	created_by: string;
 	created_at: string;
 	updated_at: string;

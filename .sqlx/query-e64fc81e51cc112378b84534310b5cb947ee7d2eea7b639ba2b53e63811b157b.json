@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        UPDATE github_connections\n        SET repos = $2, updated_at = NOW()\n        WHERE team_id = $1\n        RETURNING id, team_id, installation_id, account_login, repos, created_by,\n                  created_at, updated_at\n        ",
+  "query": "\n        SELECT id, team_id, installation_id, account_login, created_by,\n               created_at, updated_at\n        FROM github_connections\n        WHERE team_id = $1\n        ",
   "describe": {
     "columns": [
       {
@@ -25,29 +25,23 @@
       },
       {
         "ordinal": 4,
-        "name": "repos",
-        "type_info": "TextArray"
-      },
-      {
-        "ordinal": 5,
         "name": "created_by",
         "type_info": "Uuid"
       },
       {
-        "ordinal": 6,
+        "ordinal": 5,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 7,
+        "ordinal": 6,
         "name": "updated_at",
         "type_info": "Timestamptz"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "TextArray"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -57,9 +51,8 @@
       false,
       false,
       false,
-      false,
       false
     ]
   },
-  "hash": "200f1cde06570d30230ea747287f069c03191fb1632afb1620d1e26eb4b1a98f"
+  "hash": "e64fc81e51cc112378b84534310b5cb947ee7d2eea7b639ba2b53e63811b157b"
 }

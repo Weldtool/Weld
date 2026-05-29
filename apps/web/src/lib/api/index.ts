@@ -261,6 +261,9 @@ export const github = {
 	getConnection: (teamId: string, opts?: RequestOptions) =>
 		authStore.fetch<GithubConnection>(`/api/v1/teams/${teamId}/github`, opts),
 
+	listInstallationRepos: (teamId: string, opts?: RequestOptions) =>
+		authStore.fetch<{ repos: string[] }>(`/api/v1/teams/${teamId}/github/repos`, opts),
+
 	disconnect: (teamId: string, opts?: RequestOptions) =>
 		authStore.fetch<void>(`/api/v1/teams/${teamId}/github`, { ...opts, method: 'DELETE' }),
 
