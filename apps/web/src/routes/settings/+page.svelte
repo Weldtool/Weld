@@ -4,7 +4,7 @@
 	import type { GithubConnection, TeamMember, TeamRole } from '$lib/api/types';
 	import { auth } from '$lib/auth.svelte';
 	import { projects } from '$lib/projects.svelte';
-	import { GitBranch, Link, Unlink, Users, X } from 'lucide-svelte';
+	import { GitBranch, Link, LogOut, Unlink, User, Users, X } from 'lucide-svelte';
 
 	const teamId = $derived(projects.team?.id ?? null);
 
@@ -157,6 +157,42 @@
 {/if}
 
 <div class="flex flex-col gap-6">
+	<!-- Profile / account -->
+	<section
+		class="flex flex-col gap-4 rounded-lg border border-[var(--border)] bg-[var(--card)] p-6"
+	>
+		<div class="flex items-center gap-2">
+			<User class="h-4 w-4 text-[var(--muted-foreground)]" />
+			<h2 class="text-base font-semibold">Account</h2>
+		</div>
+
+		{#if auth.user}
+			<dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+				<dt class="text-[var(--muted-foreground)]">Name</dt>
+				<dd>{auth.user.display_name}</dd>
+				<dt class="text-[var(--muted-foreground)]">Email</dt>
+				<dd>{auth.user.email}</dd>
+			</dl>
+		{/if}
+
+		<div class="flex items-center justify-between border-t border-[var(--border)] pt-4">
+			<div>
+				<p class="text-sm font-medium">Sign out</p>
+				<p class="text-xs text-[var(--muted-foreground)]">
+					End your session on this device. You'll need to sign in again to access your workspace.
+				</p>
+			</div>
+			<button
+				type="button"
+				onclick={() => auth.logout()}
+				class="inline-flex items-center gap-1.5 rounded-md border border-red-500/40 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-500/10 dark:text-red-400"
+			>
+				<LogOut class="h-3.5 w-3.5" />
+				Sign out
+			</button>
+		</div>
+	</section>
+
 	<!-- Team members -->
 	<section
 		class="flex flex-col gap-4 rounded-lg border border-[var(--border)] bg-[var(--card)] p-6"
