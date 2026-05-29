@@ -147,9 +147,11 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/github/oauth/url", get(github::get_oauth_url))
         .route(
             "/api/v1/teams/{team_id}/github",
-            get(github::get_connection)
-                .patch(github::update_repos)
-                .delete(github::disconnect),
+            get(github::get_connection).delete(github::disconnect),
+        )
+        .route(
+            "/api/v1/teams/{team_id}/github/repos",
+            get(github::list_installation_repos),
         );
 
     let frontend_origin =

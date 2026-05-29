@@ -301,23 +301,12 @@
 					<span class="h-2 w-2 rounded-full bg-emerald-500"></span>
 					<span>
 						Connected to <span class="font-semibold">{connection.account_login}</span>
-						{#if connection.repos.length > 0}
-							· {connection.repos.length} repo{connection.repos.length === 1 ? '' : 's'}
-						{/if}
 					</span>
 				</div>
-
-				{#if connection.repos.length > 0}
-					<div class="flex flex-wrap gap-1.5">
-						{#each connection.repos as repo (repo)}
-							<span
-								class="rounded-full border border-[var(--border)] bg-[var(--muted)] px-2 py-0.5 text-xs"
-							>
-								{repo}
-							</span>
-						{/each}
-					</div>
-				{/if}
+				<p class="text-xs text-[var(--muted-foreground)]">
+					This installs the GitHub App at the workspace level. Each project picks its own repo in
+					project settings.
+				</p>
 
 				<button
 					type="button"

@@ -17,7 +17,7 @@ pub async fn get_github_connection(
 
     let row = sqlx::query!(
         r#"
-        SELECT id, team_id, installation_id, account_login, repos, created_by,
+        SELECT id, team_id, installation_id, account_login, created_by,
                created_at, updated_at
         FROM github_connections
         WHERE team_id = $1
@@ -33,7 +33,6 @@ pub async fn get_github_connection(
         team_id: row.team_id,
         installation_id: row.installation_id,
         account_login: row.account_login,
-        repos: row.repos,
         created_by: row.created_by,
         created_at: row.created_at,
         updated_at: row.updated_at,

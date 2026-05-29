@@ -27,7 +27,6 @@ pub struct GithubConnectionResponse {
     pub team_id: Uuid,
     pub installation_id: i64,
     pub account_login: String,
-    pub repos: Vec<String>,
     pub created_by: Uuid,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -40,7 +39,6 @@ impl From<GithubConnectionRecord> for GithubConnectionResponse {
             team_id: r.team_id,
             installation_id: r.installation_id,
             account_login: r.account_login,
-            repos: r.repos,
             created_by: r.created_by,
             created_at: r.created_at,
             updated_at: r.updated_at,
@@ -210,21 +208,24 @@ pub async fn get_connection(
     Ok(Json(conn.into()))
 }
 
-// ── PATCH /api/v1/teams/:team_id/github ───────────────────────────────────
+// ── GET /api/v1/teams/:team_id/github/repos ───────────────────────────────
 
-#[derive(Debug, Deserialize)]
-pub struct UpdateReposRequest {
+#[derive(Debug, Serialize)]
+pub struct InstallationReposResponse {
     pub repos: Vec<String>,
 }
 
-pub async fn update_repos(
+/// Lists the repositories accessible via the team's GitHub App installation.
+/// Live-fetched from GitHub on every call.
+pub async fn list_installation_repos(
     auth: AuthUser,
     State(state): State<AppState>,
     Path(team_id): Path<Uuid>,
-    Json(input): Json<UpdateReposRequest>,
-) -> Result<Json<GithubConnectionResponse>, ApiError> {
-    let conn = github::update_github_repos(&state.db, team_id, auth.user_id, input.repos).await?;
-    Ok(Json(conn.into()))
+) -> Result<Json<InstallationReposResponse>, ApiError> {
+    let gh_cfg = require_github_config(&state.github)?;
+    let repos =
+        github::list_team_installation_repos(&state.db, gh_cfg, team_id, auth.user_id).await?;
+    Ok(Json(InstallationReposResponse { repos }))
 }
 
 // ── POST /api/v1/github/webhook ───────────────────────────────────────────

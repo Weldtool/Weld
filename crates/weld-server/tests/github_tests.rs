@@ -447,45 +447,6 @@ async fn test_disconnect_returns_404_when_not_connected() {
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
-// ── PATCH /teams/:id/github ───────────────────────────────────────────────────
-
-#[tokio::test]
-async fn test_update_repos_requires_admin() {
-    let app = setup_app().await;
-    let (owner_token, _) = register_and_login(&app).await;
-    let (member_token, member_id) = register_and_login(&app).await;
-    let team_id = create_team(&app, &owner_token).await;
-
-    app.clone()
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri(format!("/api/v1/teams/{team_id}/members"))
-                .header("Authorization", format!("Bearer {owner_token}"))
-                .header("Content-Type", "application/json")
-                .body(Body::from(
-                    json!({"user_id": member_id, "role": "member"}).to_string(),
-                ))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    let resp = app
-        .oneshot(
-            Request::builder()
-                .method("PATCH")
-                .uri(format!("/api/v1/teams/{team_id}/github"))
-                .header("Authorization", format!("Bearer {member_token}"))
-                .header("Content-Type", "application/json")
-                .body(Body::from(json!({"repos": ["org/repo"]}).to_string()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
-}
-
 // ── webhook ───────────────────────────────────────────────────────────────────
 
 #[tokio::test]

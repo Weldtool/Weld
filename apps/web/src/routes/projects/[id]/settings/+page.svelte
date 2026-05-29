@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { ApiError } from '$lib/api/client';
-	import { board as boardApi, projects as projectsApi } from '$lib/api';
+	import { board as boardApi, github as githubApi, projects as projectsApi } from '$lib/api';
 	import type { Column, ProjectMember } from '$lib/api/types';
 	import { projects } from '$lib/projects.svelte';
 	import { ArrowLeft, X } from 'lucide-svelte';
@@ -24,6 +24,14 @@
 	let saveSuccess = $state(false);
 
 	let columns = $state<Column[]>([]);
+
+	// Repos accessible via the workspace's GitHub App installation. Live-fetched
+	// from GitHub when the page mounts. Empty when the team has no install yet
+	// or the user can't reach GitHub — the dropdown then offers only "None"
+	// plus the project's current binding (if any) so it stays editable.
+	let availableRepos = $state<string[]>([]);
+	let reposLoading = $state(false);
+	let reposError = $state<string | null>(null);
 
 	let confirming = $state(false);
 	let confirmSlug = $state('');
@@ -100,6 +108,26 @@
 		saveError = null;
 	});
 
+	async function loadRepos() {
+		const teamId = projects.team?.id;
+		if (!teamId) return;
+		reposLoading = true;
+		reposError = null;
+		try {
+			const res = await githubApi.listInstallationRepos(teamId);
+			availableRepos = res.repos.slice().sort();
+		} catch (err) {
+			reposError =
+				err instanceof ApiError
+					? err.status === 404
+						? null // no install yet — handled in the template
+						: err.message
+					: 'Failed to load repositories.';
+		} finally {
+			reposLoading = false;
+		}
+	}
+
 	onMount(async () => {
 		if (!projectId) return;
 		try {
@@ -108,7 +136,7 @@
 		} catch {
 			// columns stays empty — dropdown just won't show options
 		}
-		await loadMembers();
+		await Promise.all([loadMembers(), loadRepos()]);
 	});
 
 	async function onSave(event: SubmitEvent) {
@@ -210,12 +238,32 @@
 
 			<label class="flex flex-col gap-1.5 text-sm">
 				<span class="font-medium">GitHub repo</span>
-				<input
-					type="text"
-					placeholder="owner/repo"
-					bind:value={githubRepo}
-					class="rounded-md border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-				/>
+				{#if reposLoading}
+					<p class="text-xs text-[var(--muted-foreground)]">Loading repos…</p>
+				{:else if availableRepos.length === 0 && !githubRepo}
+					<p class="text-xs text-[var(--muted-foreground)]">
+						No GitHub App installed for this workspace yet.
+						<a class="underline" href={resolve('/settings')}>Install it in workspace settings</a> to pick
+						a repo here.
+					</p>
+				{:else}
+					{@const opts =
+						githubRepo && !availableRepos.includes(githubRepo)
+							? [githubRepo, ...availableRepos]
+							: availableRepos}
+					<select
+						bind:value={githubRepo}
+						class="rounded-md border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+					>
+						<option value="">None</option>
+						{#each opts as repo (repo)}
+							<option value={repo}>{repo}</option>
+						{/each}
+					</select>
+					{#if reposError}
+						<p class="text-xs text-red-500">{reposError}</p>
+					{/if}
+				{/if}
 			</label>
 
 			<fieldset class="flex flex-col gap-3 rounded-md border border-[var(--border)] p-4">
