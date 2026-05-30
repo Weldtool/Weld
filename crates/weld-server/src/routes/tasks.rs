@@ -269,6 +269,11 @@ pub async fn push_task_to_github(
     Path(id): Path<Uuid>,
     body: Option<Json<PushToGithubRequest>>,
 ) -> Result<Json<TaskResponse>, ApiError> {
+    if state.study_mode {
+        return Err(ApiError::Forbidden(
+            "GitHub writes are disabled in study mode".into(),
+        ));
+    }
     let gh_cfg = state.github.as_ref().ok_or_else(|| {
         ApiError::Validation("GitHub integration is not configured on the server".into())
     })?;
@@ -289,6 +294,11 @@ pub async fn create_pr(
     Path(id): Path<Uuid>,
     Json(input): Json<CreatePrRequest>,
 ) -> Result<Json<TaskResponse>, ApiError> {
+    if state.study_mode {
+        return Err(ApiError::Forbidden(
+            "GitHub writes are disabled in study mode".into(),
+        ));
+    }
     let gh_cfg = state.github.as_ref().ok_or_else(|| {
         ApiError::Validation("GitHub integration is not configured on the server".into())
     })?;

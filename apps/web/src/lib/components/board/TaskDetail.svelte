@@ -6,6 +6,7 @@
 	import type { GitHubIssue, Priority } from '$lib/api/types';
 	import { auth } from '$lib/auth.svelte';
 	import { boardStore } from '$lib/board.svelte';
+	import { appConfig } from '$lib/config.svelte';
 	import { projects } from '$lib/projects.svelte';
 	import { canEditTask, TaskSaver } from '$lib/task-detail.svelte';
 	import { createPrDialog } from '$lib/create-pr-dialog.svelte';
@@ -485,7 +486,7 @@
 								>
 									+ Link GitHub issue or PR
 								</button>
-								{#if projects.current?.github_repo}
+								{#if projects.current?.github_repo && !appConfig.studyMode}
 									<button
 										type="button"
 										class="text-xs text-[var(--muted-foreground)] hover:underline"
@@ -500,7 +501,7 @@
 						<p class="text-xs text-[var(--muted-foreground)]">Not linked</p>
 					{/if}
 
-					{#if editable && projects.current?.github_repo && !task.github_pr_id}
+					{#if editable && projects.current?.github_repo && !task.github_pr_id && !appConfig.studyMode}
 						<button
 							type="button"
 							class="inline-flex items-center gap-1 text-xs text-[var(--muted-foreground)] hover:underline"

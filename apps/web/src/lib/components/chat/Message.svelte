@@ -3,6 +3,7 @@
 	import { renderMessageMarkdown } from '$lib/chat-helpers';
 	import type { PendingMessage } from '$lib/chat.svelte';
 	import { isPending, chat } from '$lib/chat.svelte';
+	import { telemetry } from '$lib/telemetry.svelte';
 	import { cn } from '$lib/utils';
 	import type { ChatMessage } from '$lib/api/types';
 	import { MessageSquare, Pencil, Trash2, RotateCw, X } from 'lucide-svelte';
@@ -48,6 +49,32 @@
 		}
 		onEdit?.(message.id, next);
 		editing = false;
+	}
+
+	// Delegate clicks on rendered card/task cross-reference links so the study
+	// can record a `card_referenced_from_chat` event (headline integration
+	// metric). Inert outside study mode. An action avoids a11y warnings that an
+	// inline click handler on the (non-interactive) body div would trigger.
+	function trackCardRefs(node: HTMLElement) {
+		const handler = (e: Event) => {
+			const target = e.target as HTMLElement;
+			const link = target.closest('.chat-cardref, .chat-taskref') as HTMLAnchorElement | null;
+			if (!link) return;
+			const taskId =
+				link.getAttribute('data-card-ref') ??
+				new URL(link.href, window.location.origin).searchParams.get('task');
+			telemetry.log('card_referenced_from_chat', {
+				task_id: taskId,
+				message_id: isPending(message) ? null : message.id,
+				channel_id: message.channel_id
+			});
+		};
+		node.addEventListener('click', handler);
+		return {
+			destroy() {
+				node.removeEventListener('click', handler);
+			}
+		};
 	}
 
 	function formatTime(iso: string): string {
@@ -157,7 +184,7 @@
 					</div>
 				</div>
 			{:else}
-				<div class="chat-message-body text-sm leading-snug">
+				<div class="chat-message-body text-sm leading-snug" use:trackCardRefs>
 					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 					{@html html}
 				</div>

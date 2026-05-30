@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO study_survey_responses (participant_id, item_id, value)\n            VALUES ($1, $2, $3)\n            ON CONFLICT (participant_id, item_id)\n            DO UPDATE SET value = EXCLUDED.value, answered_at = NOW()\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "77cbe20c8b44bb96457de542e555b3a1eb014b413bc2458880c3a0fc52a7dad6"
+}

@@ -21,6 +21,7 @@ import type {
 	Priority,
 	Project,
 	ProjectMember,
+	PublicConfig,
 	Task,
 	Team,
 	TeamMember,
@@ -35,6 +36,64 @@ import type {
  * The `auth` namespace bypasses that — its endpoints are the refresh
  * mechanism itself, and must not loop through it.
  */
+
+/** Public runtime config — no auth, so it calls `apiRequest` directly. */
+export const config = {
+	get: (opts?: RequestOptions) => apiRequest<PublicConfig>('/api/v1/config', opts)
+};
+
+/** Research-study endpoints (only meaningful when the backend runs in STUDY_MODE). */
+export interface TelemetryEvent {
+	event_type: string;
+	current_task_id?: string | null;
+	payload?: Record<string, unknown>;
+	client_ts?: string;
+}
+
+export interface ProvisionResponse {
+	participant_code: string;
+	agent_condition: 'C1' | 'C2' | 'C3';
+	team_id: string;
+	project_id: string;
+	access_token: string;
+	token_type: string;
+}
+
+export const study = {
+	/** Create a participant with an isolated seed + session. Public (no token). */
+	provision: (body: { consent_version?: string } = {}, opts?: RequestOptions) =>
+		apiRequest<ProvisionResponse>('/api/v1/study/provision', {
+			...opts,
+			method: 'POST',
+			body
+		}),
+
+	/** Batch-ingest behavioral telemetry for the authenticated participant. */
+	events: (body: { events: TelemetryEvent[] }, opts?: RequestOptions) =>
+		authStore.fetch<{ stored: number }>('/api/v1/study/events', {
+			...opts,
+			method: 'POST',
+			body
+		}),
+
+	/** Submit the exit survey and mark the participant completed. */
+	submitSurvey: (
+		body: { responses: Record<string, string>; followup_email?: string },
+		opts?: RequestOptions
+	) =>
+		authStore.fetch<void>('/api/v1/study/survey', {
+			...opts,
+			method: 'POST',
+			body
+		}),
+
+	/** One agent turn, scoped to the participant's condition server-side. */
+	agent: (body: { message: string; current_task_id?: string | null }, opts?: RequestOptions) =>
+		authStore.fetch<{ reply: string; actions: string[]; agent_condition: string }>(
+			'/api/v1/study/agent',
+			{ ...opts, method: 'POST', body }
+		)
+};
 
 export const auth = {
 	register: (

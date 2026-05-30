@@ -27,6 +27,8 @@ async fn setup_app() -> Router {
         github: None,
         master_encryption_key: config.master_encryption_key,
         frontend_url: config.frontend_url,
+        study_mode: false,
+        agent: None,
     };
     weld_server::routes::router().with_state(state)
 }
@@ -55,6 +57,8 @@ async fn setup_app_with_github() -> Router {
         github: Some(std::sync::Arc::new(gh_cfg)),
         master_encryption_key: config.master_encryption_key,
         frontend_url: config.frontend_url,
+        study_mode: false,
+        agent: None,
     };
     weld_server::routes::router().with_state(state)
 }

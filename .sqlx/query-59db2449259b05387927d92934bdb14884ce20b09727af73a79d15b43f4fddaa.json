@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT nextval('study_participant_code_seq')",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "nextval",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "59db2449259b05387927d92934bdb14884ce20b09727af73a79d15b43f4fddaa"
+}

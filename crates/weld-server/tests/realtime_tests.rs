@@ -30,6 +30,8 @@ async fn build_app() -> Router {
         github: None,
         master_encryption_key: config.master_encryption_key,
         frontend_url: config.frontend_url,
+        study_mode: false,
+        agent: None,
     };
     weld_server::routes::router().with_state(state)
 }

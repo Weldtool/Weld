@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT ch.name AS channel, u.display_name AS sender, m.content\n        FROM messages m\n        JOIN channels ch ON ch.id = m.channel_id\n        JOIN users u ON u.id = m.sender_id\n        WHERE ch.team_id = $1 AND m.deleted_at IS NULL AND ch.deleted_at IS NULL\n        ORDER BY m.created_at ASC\n        LIMIT 200\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "channel",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "sender",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "content",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "5f55077a672461432b7e1386c017f2894e0870aa2822a3c34ac01bf639d0468c"
+}

@@ -1,0 +1,411 @@
+{
+  "fixture_version": "1.0",
+  "project": {
+    "id": "proj_pettracker",
+    "name": "PetTracker",
+    "slug": "pettracker",
+    "description": "A mobile app for tracking pet vet visits, vaccinations, and feeding schedules.",
+    "github_repo": "welddev/pettracker"
+  },
+  "_notes": {
+    "timestamps": "All *_offset fields are minutes relative to participant provisioning time (negative = in the past). Render absolute timestamps at provisioning so content always feels recent. Example: chat message with created_offset -1440 = 'yesterday'.",
+    "task_anchors": "Cards/messages referenced by study tasks are tagged with task_anchor. Do not rename or remove these without updating the task config.",
+    "authors": "All seed content is authored by the 4 fake teammates. The participant is a 5th member who joins at provisioning."
+  },
+
+  "teammates": [
+    {
+      "id": "user_sarah",
+      "display_name": "Sarah Chen",
+      "avatar_seed": "sarah-chen",
+      "role": "Member",
+      "blurb": "Backend developer. Going on leave soon (relevant to handoff task)."
+    },
+    {
+      "id": "user_alex",
+      "display_name": "Alex Rivera",
+      "avatar_seed": "alex-rivera",
+      "role": "Admin",
+      "blurb": "Tech lead. Starts the database decision thread."
+    },
+    {
+      "id": "user_priya",
+      "display_name": "Priya Nair",
+      "avatar_seed": "priya-nair",
+      "role": "Member",
+      "blurb": "Frontend developer."
+    },
+    {
+      "id": "user_marcus",
+      "display_name": "Marcus Webb",
+      "avatar_seed": "marcus-webb",
+      "role": "Member",
+      "blurb": "Full-stack. Optional bot voices Marcus for trigger #2."
+    }
+  ],
+
+  "columns": [
+    { "id": "col_backlog", "name": "Backlog", "position": 1.0 },
+    { "id": "col_inprogress", "name": "In Progress", "position": 2.0 },
+    { "id": "col_done", "name": "Done", "position": 3.0 }
+  ],
+
+  "labels": [
+    { "id": "lbl_bug", "name": "bug", "color": "#e11d48" },
+    { "id": "lbl_feature", "name": "feature", "color": "#2563eb" },
+    { "id": "lbl_testing", "name": "testing", "color": "#16a34a" },
+    { "id": "lbl_frontend", "name": "frontend", "color": "#9333ea" },
+    { "id": "lbl_backend", "name": "backend", "color": "#ea580c" },
+    { "id": "lbl_new-issue", "name": "new-issue", "color": "#facc15" },
+    { "id": "lbl_docs", "name": "docs", "color": "#64748b" }
+  ],
+
+  "cards": [
+    {
+      "id": "card_vaccination_reminders",
+      "task_anchor": "p1_orient, p2_handoff",
+      "column_id": "col_inprogress",
+      "title": "Add vaccination reminders",
+      "description": "Implement scheduled local notifications that remind owners when a pet's vaccination is due. Should read from the vaccination records table and fire a notification 7 days before and on the due date. Sarah has been working on this; see the status thread in #pettracker.",
+      "labels": ["lbl_feature", "lbl_backend"],
+      "assignee_id": "user_sarah",
+      "priority": "High",
+      "position": 1.0,
+      "github_issue": 14,
+      "created_offset": -4320
+    },
+    {
+      "id": "card_login_crash",
+      "task_anchor": "p1_crossref",
+      "column_id": "col_backlog",
+      "title": "Login screen crashes on empty email",
+      "description": "Reported by a beta tester: tapping 'Log in' with an empty email field crashes the app instead of showing a validation error. Sarah flagged this in chat. Needs a null/empty guard in the login handler.",
+      "labels": ["lbl_bug", "lbl_frontend"],
+      "assignee_id": null,
+      "priority": "High",
+      "position": 1.0,
+      "created_offset": -1500
+    },
+    {
+      "id": "card_feeding_schedule_ui",
+      "column_id": "col_inprogress",
+      "title": "Feeding schedule editor UI",
+      "description": "Build the screen where owners set daily feeding times and portion sizes. Priya is on this.",
+      "labels": ["lbl_feature", "lbl_frontend"],
+      "assignee_id": "user_priya",
+      "priority": "Medium",
+      "position": 2.0,
+      "github_pr": 22,
+      "created_offset": -5760
+    },
+    {
+      "id": "card_vet_directory",
+      "column_id": "col_backlog",
+      "title": "Nearby vet directory",
+      "description": "Show a list of nearby veterinary clinics using the device location. Stretch goal for v1.1.",
+      "labels": ["lbl_feature"],
+      "assignee_id": null,
+      "priority": "Low",
+      "position": 2.0,
+      "created_offset": -7200
+    },
+    {
+      "id": "card_new_issue_sync",
+      "task_anchor": "p2_triage",
+      "column_id": "col_backlog",
+      "title": "Vaccination records don't sync across devices",
+      "description": "User report: vaccination records entered on a phone don't appear on the same account's tablet. Suspected issue with the sync conflict resolution. Came in this morning.",
+      "labels": ["lbl_new-issue", "lbl_bug", "lbl_backend"],
+      "assignee_id": null,
+      "priority": null,
+      "position": 3.0,
+      "created_offset": -180
+    },
+    {
+      "id": "card_new_issue_notification",
+      "task_anchor": "p2_triage",
+      "column_id": "col_backlog",
+      "title": "Feeding notifications fire at wrong time in some timezones",
+      "description": "User report: feeding reminders are arriving several hours off for users outside US timezones. Likely a UTC-vs-local conversion bug. Came in this morning.",
+      "labels": ["lbl_new-issue", "lbl_bug"],
+      "assignee_id": null,
+      "priority": null,
+      "position": 4.0,
+      "created_offset": -175
+    },
+    {
+      "id": "card_new_issue_typo",
+      "task_anchor": "p2_triage",
+      "column_id": "col_backlog",
+      "title": "Typo on the onboarding welcome screen",
+      "description": "User report: the welcome screen says 'Wlecome to PetTracker'. Minor cosmetic fix. Came in this morning.",
+      "labels": ["lbl_new-issue", "lbl_docs"],
+      "assignee_id": null,
+      "priority": null,
+      "position": 5.0,
+      "created_offset": -170
+    },
+    {
+      "id": "card_db_decision",
+      "column_id": "col_backlog",
+      "title": "Decide local cache database",
+      "description": "We need to settle on a local cache DB for offline support. Discussion ongoing in #pettracker (thread started by Alex). NOTE: this is intentionally a placeholder; the decision card the participant creates in task p2_decision is separate.",
+      "labels": ["lbl_backend"],
+      "assignee_id": "user_alex",
+      "priority": "Medium",
+      "position": 6.0,
+      "created_offset": -2880
+    },
+    {
+      "id": "card_api_refactor",
+      "column_id": "col_inprogress",
+      "title": "Refactor feeding schedule API",
+      "description": "Clean up the feeding schedule endpoints and add retry logic to outbound calls. PR open for review.",
+      "labels": ["lbl_backend"],
+      "assignee_id": "user_marcus",
+      "priority": "Medium",
+      "position": 3.0,
+      "github_pr": 27,
+      "created_offset": -2880
+    },
+    {
+      "id": "card_onboarding_flow",
+      "column_id": "col_done",
+      "title": "Onboarding flow for first-time users",
+      "description": "Three-screen intro shown on first launch. Shipped last sprint.",
+      "labels": ["lbl_feature", "lbl_frontend"],
+      "assignee_id": "user_priya",
+      "priority": "Medium",
+      "position": 1.0,
+      "created_offset": -14400
+    },
+    {
+      "id": "card_pet_profile",
+      "column_id": "col_done",
+      "title": "Pet profile creation",
+      "description": "Owners can create a profile per pet with name, species, breed, and birthday. Done.",
+      "labels": ["lbl_feature"],
+      "assignee_id": "user_sarah",
+      "priority": "High",
+      "position": 2.0,
+      "created_offset": -20160
+    },
+    {
+      "id": "card_ci_setup",
+      "column_id": "col_done",
+      "title": "Set up CI pipeline",
+      "description": "GitHub Actions running tests and lint on every PR. Done.",
+      "labels": ["lbl_testing", "lbl_backend"],
+      "assignee_id": "user_marcus",
+      "priority": "Medium",
+      "position": 3.0,
+      "created_offset": -25920
+    }
+  ],
+
+  "channels": [
+    { "id": "chan_general", "name": "general", "project_scoped": false },
+    { "id": "chan_pettracker", "name": "pettracker", "project_scoped": true }
+  ],
+
+  "messages": [
+    {
+      "id": "msg_001",
+      "channel_id": "chan_general",
+      "sender_id": "user_alex",
+      "content": "Morning all! Standup at 10. Quick heads up that we've got a few new user reports in the backlog to triage.",
+      "created_offset": -200
+    },
+    {
+      "id": "msg_002",
+      "channel_id": "chan_general",
+      "sender_id": "user_priya",
+      "content": "Thanks Alex. I'll be a couple minutes late, finishing up the feeding schedule UI.",
+      "created_offset": -195
+    },
+    {
+      "id": "msg_003",
+      "channel_id": "chan_general",
+      "sender_id": "user_marcus",
+      "content": "The feeding schedule API refactor PR is up for review whenever someone has a sec 🙏",
+      "created_offset": -190
+    },
+    {
+      "id": "msg_010",
+      "channel_id": "chan_pettracker",
+      "sender_id": "user_sarah",
+      "task_anchor": "p1_crossref",
+      "content": "Heads up — a beta tester found a crash: if you tap Log in with an empty email field the whole app crashes. I made a card for it: [[card:card_login_crash]]. Someone should grab this, it's pretty visible.",
+      "created_offset": -1500
+    },
+    {
+      "id": "msg_011",
+      "channel_id": "chan_pettracker",
+      "sender_id": "user_priya",
+      "content": "Yikes, good catch. I'm heads-down on the feeding UI but can look later if no one beats me to it.",
+      "created_offset": -1480
+    },
+    {
+      "id": "msg_020",
+      "channel_id": "chan_pettracker",
+      "sender_id": "user_sarah",
+      "task_anchor": "p2_handoff",
+      "content": "Status update on the vaccination reminders card [[card:card_vaccination_reminders]]: the notification scheduling is wired up and working for the 'on due date' case. Still TODO: the 7-days-before reminder, and I haven't tested what happens when a vaccination record is edited after a reminder is already scheduled.",
+      "created_offset": -1200
+    },
+    {
+      "id": "msg_021",
+      "channel_id": "chan_pettracker",
+      "sender_id": "user_sarah",
+      "task_anchor": "p2_handoff",
+      "content": "Also FYI I'm going on leave starting tomorrow for two weeks, so someone will need to take this over. I linked the relevant PR on the card. Sorry for the timing!",
+      "created_offset": -1190
+    },
+    {
+      "id": "msg_022",
+      "channel_id": "chan_pettracker",
+      "sender_id": "user_alex",
+      "content": "No worries Sarah, thanks for the detailed notes. We'll sort out the handoff.",
+      "created_offset": -1180
+    },
+    {
+      "id": "msg_030",
+      "channel_id": "chan_pettracker",
+      "sender_id": "user_alex",
+      "task_anchor": "p2_decision",
+      "content": "We need to lock in a local cache DB for offline support. I see two realistic options: SQLite (battle-tested, everyone knows it, great tooling) or just rolling with PostgreSQL-on-device via an embedded build. Thoughts?",
+      "created_offset": -2880
+    },
+    {
+      "id": "msg_031",
+      "channel_id": "chan_pettracker",
+      "sender_id": "user_marcus",
+      "task_anchor": "p2_decision",
+      "content": "Strong vote for SQLite. Embedded Postgres on mobile is a maintenance headache and the binary size alone will hurt us. SQLite is the standard choice on-device for a reason.",
+      "created_offset": -2870
+    },
+    {
+      "id": "msg_032",
+      "channel_id": "chan_pettracker",
+      "sender_id": "user_priya",
+      "task_anchor": "p2_decision",
+      "content": "Agreed on SQLite. Our data model is simple enough that we don't need Postgres features locally, and it keeps the app lightweight.",
+      "created_offset": -2860
+    },
+    {
+      "id": "msg_033",
+      "channel_id": "chan_pettracker",
+      "sender_id": "user_alex",
+      "task_anchor": "p2_decision",
+      "content": "Makes sense to me. Let's go SQLite for the local cache and keep Postgres on the server side. Can someone capture this decision on the board so we don't relitigate it in three weeks?",
+      "created_offset": -2850
+    },
+    {
+      "id": "msg_040",
+      "channel_id": "chan_pettracker",
+      "sender_id": "user_marcus",
+      "content": "FYI the API refactor [[card:card_api_refactor]] adds retry-with-backoff to the outbound feeding sync calls. PR #27 if anyone wants to review.",
+      "created_offset": -2400
+    },
+    {
+      "id": "msg_050",
+      "channel_id": "chan_pettracker",
+      "sender_id": "user_alex",
+      "task_anchor": "p2_triage",
+      "content": "Three new user reports landed this morning — they're in the Backlog tagged 'new-issue'. We should prioritize them. The timezone notification one feels potentially widespread to me, but take a look and use your judgement.",
+      "created_offset": -180
+    },
+    {
+      "id": "msg_051",
+      "channel_id": "chan_pettracker",
+      "sender_id": "user_priya",
+      "content": "The sync-across-devices one worries me too — data loss bugs erode trust fast. Curious what others think.",
+      "created_offset": -170
+    },
+    {
+      "id": "msg_d1",
+      "channel_id": "chan_general",
+      "sender_id": "user_priya",
+      "task_anchor": "B1",
+      "content": "I'm blocked on the feeding schedule editor [[card:card_feeding_schedule_ui]] until the API refactor lands — going to switch to something else in the meantime.",
+      "created_offset": -150
+    },
+    {
+      "id": "msg_d2",
+      "channel_id": "chan_general",
+      "sender_id": "user_marcus",
+      "task_anchor": "B2",
+      "content": "Quick — what's the status on pet profile creation? Did that ship?",
+      "created_offset": -140
+    }
+  ],
+
+  "github": {
+    "_note": "Mocked/seeded fixtures rendered in Weld's GitHub view. No live API. Write actions hidden under STUDY_MODE.",
+    "repo": {
+      "full_name": "welddev/pettracker",
+      "description": "Mobile app for tracking pet vet visits, vaccinations, and feeding schedules.",
+      "default_branch": "main",
+      "readme_excerpt": "# PetTracker\n\nA cross-platform mobile app to help pet owners stay on top of vet visits, vaccinations, and feeding schedules. Built with a shared core and native mobile shells.\n\n## Status\nActive development toward v1.0."
+    },
+    "issues": [
+      {
+        "number": 14,
+        "title": "Vaccination reminders should fire 7 days before due date",
+        "state": "open",
+        "author": "user_sarah",
+        "body": "Currently we only fire on the due date. Owners want a heads-up a week ahead. Linked to board card 'Add vaccination reminders'.",
+        "labels": ["feature", "backend"],
+        "created_offset": -4320
+      },
+      {
+        "number": 31,
+        "title": "Crash on empty email at login",
+        "state": "open",
+        "author": "user_sarah",
+        "body": "Tapping Log in with an empty email crashes the app. Needs an input guard.",
+        "labels": ["bug", "frontend"],
+        "created_offset": -1500
+      },
+      {
+        "number": 33,
+        "title": "Feeding notifications off by hours in non-US timezones",
+        "state": "open",
+        "author": "user_alex",
+        "body": "Suspected UTC-to-local conversion bug in the notification scheduler.",
+        "labels": ["bug"],
+        "created_offset": -175
+      }
+    ],
+    "pull_requests": [
+      {
+        "number": 22,
+        "title": "Feeding schedule editor UI",
+        "state": "open",
+        "author": "user_priya",
+        "body": "Adds the screen for setting daily feeding times and portions. Still polishing the time picker.",
+        "labels": ["feature", "frontend"],
+        "linked_card": "card_feeding_schedule_ui",
+        "created_offset": -5760
+      },
+      {
+        "number": 27,
+        "task_anchor": "p1_github",
+        "title": "Refactor feeding schedule API",
+        "state": "open",
+        "author": "user_marcus",
+        "body": "Cleans up the feeding schedule endpoints and adds retry-with-backoff to outbound sync calls. Ready for review.",
+        "labels": ["backend"],
+        "linked_card": "card_api_refactor",
+        "created_offset": -2880
+      }
+    ],
+    "commits": [
+      { "sha": "a1b2c3d", "author": "user_marcus", "message": "Add retry-with-backoff to feeding sync client", "created_offset": -2900 },
+      { "sha": "e4f5g6h", "author": "user_priya", "message": "WIP: feeding schedule time picker", "created_offset": -5800 },
+      { "sha": "i7j8k9l", "author": "user_sarah", "message": "Schedule vaccination notification on due date", "created_offset": -4400 },
+      { "sha": "m1n2o3p", "author": "user_marcus", "message": "Set up GitHub Actions CI for tests and lint", "created_offset": -25920 },
+      { "sha": "q4r5s6t", "author": "user_sarah", "message": "Implement pet profile creation", "created_offset": -20160 }
+    ]
+  }
+}
