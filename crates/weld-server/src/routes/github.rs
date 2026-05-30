@@ -7,6 +7,7 @@ use crate::services::github::{
         verify_state_token,
     },
 };
+use crate::services::study::github_fixtures;
 use crate::services::team::helpers::require_team_role;
 use crate::state::AppState;
 use axum::Json;
@@ -271,6 +272,11 @@ pub async fn list_project_issues(
     State(state): State<AppState>,
     Path(project_id): Path<Uuid>,
 ) -> Result<Json<Vec<serde_json::Value>>, ApiError> {
+    if state.study_mode {
+        return Ok(Json(
+            github_fixtures::list_issues(&state.db, project_id, auth.user_id).await?,
+        ));
+    }
     let gh_cfg = require_github_config(&state.github)?;
     let issues =
         github::sync::list_project_issues(&state.db, gh_cfg, project_id, auth.user_id).await?;
@@ -284,6 +290,11 @@ pub async fn get_project_issue(
     State(state): State<AppState>,
     Path((project_id, issue_number)): Path<(Uuid, i64)>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
+    if state.study_mode {
+        return Ok(Json(
+            github_fixtures::get_issue(&state.db, project_id, issue_number, auth.user_id).await?,
+        ));
+    }
     let gh_cfg = require_github_config(&state.github)?;
     let issue =
         github::sync::get_project_issue(&state.db, gh_cfg, project_id, issue_number, auth.user_id)
@@ -298,6 +309,11 @@ pub async fn list_project_prs(
     State(state): State<AppState>,
     Path(project_id): Path<Uuid>,
 ) -> Result<Json<Vec<serde_json::Value>>, ApiError> {
+    if state.study_mode {
+        return Ok(Json(
+            github_fixtures::list_prs(&state.db, project_id, auth.user_id).await?,
+        ));
+    }
     let gh_cfg = require_github_config(&state.github)?;
     let prs = github::sync::list_project_prs(&state.db, gh_cfg, project_id, auth.user_id).await?;
     Ok(Json(prs))
@@ -310,6 +326,11 @@ pub async fn list_project_branches(
     State(state): State<AppState>,
     Path(project_id): Path<Uuid>,
 ) -> Result<Json<github::sync::RepoBranches>, ApiError> {
+    if state.study_mode {
+        return Ok(Json(
+            github_fixtures::list_branches(&state.db, project_id, auth.user_id).await?,
+        ));
+    }
     let gh_cfg = require_github_config(&state.github)?;
     let branches = github::sync::list_branches(&state.db, gh_cfg, project_id, auth.user_id).await?;
     Ok(Json(branches))
@@ -327,6 +348,11 @@ pub async fn get_pr_template(
     State(state): State<AppState>,
     Path(project_id): Path<Uuid>,
 ) -> Result<Json<PrTemplateResponse>, ApiError> {
+    if state.study_mode {
+        let template =
+            github_fixtures::get_pr_template(&state.db, project_id, auth.user_id).await?;
+        return Ok(Json(PrTemplateResponse { template }));
+    }
     let gh_cfg = require_github_config(&state.github)?;
     let template =
         github::sync::get_pr_template(&state.db, gh_cfg, project_id, auth.user_id).await?;
@@ -340,6 +366,11 @@ pub async fn list_issue_templates(
     State(state): State<AppState>,
     Path(project_id): Path<Uuid>,
 ) -> Result<Json<Vec<github::sync::IssueTemplate>>, ApiError> {
+    if state.study_mode {
+        return Ok(Json(
+            github_fixtures::list_issue_templates(&state.db, project_id, auth.user_id).await?,
+        ));
+    }
     let gh_cfg = require_github_config(&state.github)?;
     let templates =
         github::sync::list_issue_templates(&state.db, gh_cfg, project_id, auth.user_id).await?;
@@ -353,6 +384,11 @@ pub async fn sync_project_labels(
     State(state): State<AppState>,
     Path(project_id): Path<Uuid>,
 ) -> Result<Json<Vec<weld_core::models::task::Label>>, ApiError> {
+    if state.study_mode {
+        return Err(ApiError::Forbidden(
+            "GitHub label sync is disabled in study mode".into(),
+        ));
+    }
     let gh_cfg = require_github_config(&state.github)?;
     let labels =
         github::sync::sync_labels_from_github(&state.db, gh_cfg, project_id, auth.user_id).await?;

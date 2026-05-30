@@ -7,7 +7,7 @@ use tokio::net::TcpListener;
 use weld_server::config;
 use weld_server::realtime::Hub;
 use weld_server::routes;
-use weld_server::state::{AppState, GithubConfig};
+use weld_server::state::{AgentConfig, AppState, GithubConfig};
 
 #[tokio::main]
 async fn main() {
@@ -26,6 +26,14 @@ async fn main() {
         .expect("Failed to run database migrations");
 
     let github = build_github_config(&config);
+    let agent = config.openai_api_key.clone().map(|api_key| {
+        Arc::new(AgentConfig {
+            api_key,
+            model: config.openai_model.clone(),
+            temperature: 0.2,
+            prompt_version: "v1".to_string(),
+        })
+    });
 
     let state = AppState {
         db: pool,
@@ -35,7 +43,14 @@ async fn main() {
         github,
         master_encryption_key: config.master_encryption_key,
         frontend_url: config.frontend_url,
+        study_mode: config.study_mode,
+        agent,
     };
+
+    if state.study_mode {
+        tracing::warn!("STUDY_MODE is ON — research-study behavior is active");
+    }
+
     let app = Router::new().merge(routes::router()).with_state(state);
 
     let listener = TcpListener::bind(&addr).await.unwrap();

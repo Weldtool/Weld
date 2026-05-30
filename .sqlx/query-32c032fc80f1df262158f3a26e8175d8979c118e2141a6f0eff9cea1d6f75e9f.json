@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE study_participants SET status = 'completed', completed_at = NOW() WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "32c032fc80f1df262158f3a26e8175d8979c118e2141a6f0eff9cea1d6f75e9f"
+}

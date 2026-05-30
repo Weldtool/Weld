@@ -1,5 +1,6 @@
 import type { Task } from '$lib/api/types';
 import { boardStore } from '$lib/board.svelte';
+import { appConfig } from '$lib/config.svelte';
 
 /**
  * Shared state driving the "Create pull request" dialog. The board's drag
@@ -19,6 +20,9 @@ class CreatePrDialogState {
 	private originColumnId: string | null = null;
 
 	request(task: Task, originColumnId?: string): void {
+		// In study mode GitHub is read-only/mocked — never prompt PR creation.
+		// A card dropped into Review just stays there (no PR automation).
+		if (appConfig.studyMode) return;
 		this.task = task;
 		this.originColumnId = originColumnId ?? null;
 	}

@@ -1,0 +1,70 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT t.id, t.title, t.description, c.name AS column_name,\n               t.priority::text AS \"priority!\", u.display_name AS \"assignee?\",\n               t.github_issue_id, t.github_pr_id,\n               COALESCE(array_agg(l.name) FILTER (WHERE l.name IS NOT NULL), '{}') AS \"labels!\"\n        FROM tasks t\n        JOIN columns c ON c.id = t.column_id\n        LEFT JOIN users u ON u.id = t.assignee_id\n        LEFT JOIN task_labels tl ON tl.task_id = t.id\n        LEFT JOIN labels l ON l.id = tl.label_id\n        WHERE t.project_id = $1 AND t.deleted_at IS NULL\n        GROUP BY t.id, c.name, u.display_name, c.position, t.position\n        ORDER BY c.position, t.position\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "title",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "column_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "priority!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "assignee?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "github_issue_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 7,
+        "name": "github_pr_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 8,
+        "name": "labels!",
+        "type_info": "TextArray"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      null,
+      false,
+      true,
+      true,
+      null
+    ]
+  },
+  "hash": "b309f002fbfae38ee2756ffa46fe8dbc2fb458b5c8500bd82819c9e1759a9d0b"
+}

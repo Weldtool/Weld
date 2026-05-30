@@ -58,6 +58,19 @@ class AuthStore {
 		await this.#loadUser();
 	}
 
+	/**
+	 * Adopt a session minted elsewhere (e.g. study participant provisioning,
+	 * which returns an access token and sets the refresh cookie). Mirrors the
+	 * post-login state so the rest of the app treats the participant as logged in.
+	 */
+	async adoptSession(accessToken: string): Promise<void> {
+		this.accessToken = accessToken;
+		this.#refreshCooldownUntil = 0;
+		if (browser) sessionStorage.setItem(SESSION_KEY, accessToken);
+		await this.#loadUser();
+		this.ready = true;
+	}
+
 	async register(email: string, password: string, displayName: string): Promise<void> {
 		await apiRequest<User>('/api/v1/auth/register', {
 			method: 'POST',

@@ -12,6 +12,19 @@ pub struct GithubConfig {
     pub app_slug: String,
 }
 
+/// OpenAI-backed study agent settings. Present only when an API key is
+/// configured; the agent endpoint degrades cleanly when this is `None`.
+#[derive(Clone)]
+pub struct AgentConfig {
+    pub api_key: String,
+    /// Pinned dated model snapshot, held constant for the whole study.
+    pub model: String,
+    /// Fixed low temperature for reproducibility (CLAUDE_AGENT_BUILD.md §6).
+    pub temperature: f32,
+    /// Bumped whenever the system prompt or tool defs change; logged per call.
+    pub prompt_version: String,
+}
+
 #[derive(Clone)]
 pub struct AppState {
     pub db: sqlx::PgPool,
@@ -21,4 +34,8 @@ pub struct AppState {
     pub github: Option<Arc<GithubConfig>>,
     pub master_encryption_key: Option<String>,
     pub frontend_url: String,
+    /// Global research-study flag. Gates all study behavior; off = normal product.
+    pub study_mode: bool,
+    /// Study agent config; `None` when no OpenAI key is set.
+    pub agent: Option<Arc<AgentConfig>>,
 }

@@ -5,5 +5,6 @@ pub mod column;
 pub mod github;
 pub mod label;
 pub mod project;
+pub mod study;
 pub mod task;
 pub mod team;

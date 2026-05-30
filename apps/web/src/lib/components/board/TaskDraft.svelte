@@ -5,6 +5,7 @@
 	import { tasks as tasksApi, github as githubApi } from '$lib/api';
 	import type { GitHubIssue, Priority } from '$lib/api/types';
 	import { boardStore } from '$lib/board.svelte';
+	import { appConfig } from '$lib/config.svelte';
 	import { projects } from '$lib/projects.svelte';
 	import AssigneePicker from './AssigneePicker.svelte';
 	import DescriptionEditor from './DescriptionEditor.svelte';
@@ -35,6 +36,9 @@
 	// repo, default on so users opt out rather than in (matches the goal of
 	// keeping GitHub in sync without extra clicks).
 	const hasRepo = $derived(!!projects.current?.github_repo);
+	// Pushing a *new* issue to GitHub is a write — disabled in study mode (GitHub
+	// is read-only/mocked). Importing/linking existing issues stays available.
+	const canPushToGithub = $derived(hasRepo && !appConfig.studyMode);
 	let pushToGithub = $state(true);
 
 	// ── Import from GitHub ─────────────────────────────────────────────────
@@ -142,7 +146,7 @@
 					} catch (err) {
 						error = err instanceof Error ? err.message : 'Created locally, GitHub link failed.';
 					}
-				} else if (hasRepo && pushToGithub) {
+				} else if (canPushToGithub && pushToGithub) {
 					try {
 						const pushed = await tasksApi.pushToGithub(created.id);
 						boardStore.applyTaskUpdate(pushed);
@@ -286,7 +290,7 @@
 		</div>
 
 		<div class="shrink-0 space-y-3 border-t border-[var(--border)] px-6 py-4">
-			{#if hasRepo && importedIssue === null}
+			{#if canPushToGithub && importedIssue === null}
 				<label
 					class="flex cursor-pointer items-center gap-2 text-xs text-[var(--muted-foreground)]"
 				>

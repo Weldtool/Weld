@@ -14,6 +14,7 @@ pub mod columns;
 mod github;
 pub mod labels;
 mod projects;
+mod study;
 pub mod tasks;
 mod teams;
 mod users;
@@ -21,6 +22,10 @@ mod ws;
 pub fn router() -> Router<AppState> {
     let public = Router::new()
         .route("/health", get(health_check))
+        .route("/api/v1/config", get(public_config))
+        // Study participant provisioning — public (no account yet), but the
+        // handler 404s unless STUDY_MODE is on.
+        .route("/api/v1/study/provision", post(study::provision))
         .route("/api/v1/auth/register", post(auth::register))
         .route("/api/v1/auth/login", post(auth::login))
         .route("/api/v1/auth/logout", post(auth::logout))
@@ -33,6 +38,10 @@ pub fn router() -> Router<AppState> {
 
     let protected = Router::new()
         .route("/api/v1/users/me", get(users::me))
+        // Study telemetry ingest (auth'd participant; 404s unless STUDY_MODE).
+        .route("/api/v1/study/events", post(study::ingest_events))
+        .route("/api/v1/study/survey", post(study::submit_survey))
+        .route("/api/v1/study/agent", post(study::agent_turn))
         .route("/api/v1/teams", get(teams::list).post(teams::create))
         .route(
             "/api/v1/teams/{team_id}",
@@ -170,4 +179,10 @@ pub fn router() -> Router<AppState> {
 
 async fn health_check(State(_state): State<AppState>) -> impl IntoResponse {
     Json(json!({"status": "ok"}))
+}
+
+/// Public, unauthenticated runtime config the frontend reads on load to decide
+/// which behavior to render. Intentionally exposes only non-sensitive flags.
+async fn public_config(State(state): State<AppState>) -> impl IntoResponse {
+    Json(json!({ "study_mode": state.study_mode }))
 }

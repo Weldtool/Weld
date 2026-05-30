@@ -231,3 +231,8 @@ export interface ThreadView {
 	parent: ChatMessage;
 	replies: ChatMessage[];
 }
+
+/** Public, unauthenticated runtime config served from `GET /api/v1/config`. */
+export interface PublicConfig {
+	study_mode: boolean;
+}

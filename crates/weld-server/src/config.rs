@@ -5,6 +5,16 @@ pub struct Config {
     pub jwt_secret: String,
     pub secure_cookies: bool,
     pub frontend_url: String,
+    /// When true, the server runs in research-study mode (see `research-paper/`):
+    /// study provisioning/telemetry/agent endpoints are active, GitHub writes are
+    /// locked down, and the frontend renders the study flow. Off = normal product.
+    pub study_mode: bool,
+    // Study agent (OpenAI). Only used under study_mode; the agent endpoint
+    // degrades cleanly if the key is unset.
+    pub openai_api_key: Option<String>,
+    /// Pinned, dated model snapshot — a mid-study change is a confound, so this
+    /// is held constant for the whole study (CLAUDE_AGENT_BUILD.md §6).
+    pub openai_model: String,
     pub master_encryption_key: Option<String>,
     // GitHub App integration (all optional; set in .env to enable)
     pub github_app_id: Option<String>,
@@ -31,6 +41,13 @@ impl Config {
                 .unwrap_or(false),
             frontend_url: std::env::var("FRONTEND_URL")
                 .unwrap_or_else(|_| "http://localhost:5173".to_string()),
+            study_mode: std::env::var("STUDY_MODE")
+                .unwrap_or_else(|_| "false".to_string())
+                .parse::<bool>()
+                .unwrap_or(false),
+            openai_api_key: std::env::var("OPENAI_API_KEY").ok(),
+            openai_model: std::env::var("OPENAI_MODEL")
+                .unwrap_or_else(|_| "gpt-4o-mini-2024-07-18".to_string()),
             master_encryption_key: std::env::var("MASTER_ENCRYPTION_KEY").ok(),
             github_app_id: std::env::var("GITHUB_APP_ID").ok(),
             github_app_private_key: std::env::var("GITHUB_APP_PRIVATE_KEY").ok(),
