@@ -72,7 +72,7 @@ class StudyStore {
 			this.stage = 'tasks';
 			this.#persist();
 			telemetry.log('consent_given', { consent_version: CONSENT_VERSION });
-			this.#enterTask(0, null);
+			this.#enterTask(0);
 		} catch (e) {
 			this.error = e instanceof Error ? e.message : 'Could not start the study. Please retry.';
 		} finally {
@@ -127,10 +127,10 @@ class StudyStore {
 		if (phaseChanged) telemetry.log('phase_ended', { phase: completed.phase });
 		this.taskIndex = next;
 		this.#persist();
-		this.#enterTask(next, phaseChanged ? completed.phase : null);
+		this.#enterTask(next);
 	}
 
-	#enterTask(index: number, _prevPhase: string | null): void {
+	#enterTask(index: number): void {
 		const task = STUDY_TASKS[index];
 		if (!task) return;
 		// Emit phase_started at the first task of a phase.
