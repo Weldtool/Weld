@@ -29,6 +29,7 @@ async fn setup_app() -> Router {
         frontend_url: config.frontend_url,
         study_mode: false,
         agent: None,
+        study_export_token: None,
     };
     weld_server::routes::router().with_state(state)
 }
@@ -59,6 +60,7 @@ async fn setup_app_with_github() -> Router {
         frontend_url: config.frontend_url,
         study_mode: false,
         agent: None,
+        study_export_token: None,
     };
     weld_server::routes::router().with_state(state)
 }

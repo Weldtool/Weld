@@ -2,6 +2,7 @@ import { tasks as tasksApi } from '$lib/api';
 import { ApiError } from '$lib/api/client';
 import type { Priority, Task, TeamRole } from '$lib/api/types';
 import { boardStore } from '$lib/board.svelte';
+import { telemetry } from '$lib/telemetry.svelte';
 
 /** Whether the caller may edit a task in this project. Mirrors the server's
  *  rule: Member+ can edit anyone's task; Viewer can only edit a task they
@@ -61,10 +62,36 @@ export class TaskSaver {
 		const payload = this.#pending;
 		this.#pending = {};
 		this.#inflight = true;
+		// Snapshot before-values so the telemetry below can report what changed.
+		// This is the primary edit path from the task detail panel (priority for
+		// T1/T4, assignee, etc.); it bypasses board.updateTask, so it logs its own.
+		const before = boardStore.taskById(this.getTaskId());
 		try {
 			const updated = await tasksApi.update(this.getTaskId(), payload);
 			boardStore.applyTaskUpdate(updated);
 			this.error = null;
+			const base = { task_id: updated.id, short_id: updated.short_id, title: updated.title };
+			if ('priority' in payload && payload.priority !== before?.priority) {
+				telemetry.log('card_priority_set', {
+					...base,
+					from: before?.priority ?? null,
+					to: updated.priority
+				});
+			}
+			if ('assignee_id' in payload && payload.assignee_id !== before?.assignee_id) {
+				telemetry.log('card_assigned', { ...base, to: updated.assignee_id });
+			}
+			if ('labels' in payload) {
+				telemetry.log('card_labeled', { ...base, labels: updated.labels });
+			}
+			if (
+				'title' in payload ||
+				'description' in payload ||
+				'due_date' in payload ||
+				'estimate_hours' in payload
+			) {
+				telemetry.log('card_edited', { ...base, fields: Object.keys(payload) });
+			}
 		} catch (err) {
 			this.error =
 				err instanceof ApiError

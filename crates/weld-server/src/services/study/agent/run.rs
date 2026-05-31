@@ -19,6 +19,11 @@ use crate::state::AgentConfig;
 /// Max model⇄tool round-trips before we stop (guards against loops).
 const MAX_TURNS: usize = 5;
 
+/// Hard cap on agent messages per participant for the whole session. A normal
+/// run is well under this; the cap exists only to stop a spammer from running
+/// up unbounded API cost. Counted from `agent_invoked` events.
+const MAX_AGENT_MESSAGES: i64 = 50;
+
 pub struct AgentRunResult {
     /// The agent's final text reply to show the user.
     pub reply: String,
@@ -38,6 +43,20 @@ pub async fn run_turn(
 ) -> Result<AgentRunResult, ApiError> {
     let condition = ctx.condition;
     let pid = ctx.participant_id;
+
+    // Cost guardrail: stop a participant who has already sent the cap's worth of
+    // messages. Cheap count of prior invocations for this participant.
+    let prior: i64 =
+        sqlx::query_scalar!("SELECT COUNT(*) FROM study_events WHERE participant_id = $1 AND event_type = 'agent_invoked'", pid)
+            .fetch_one(pool)
+            .await
+            .map_err(|e| ApiError::Internal(format!("agent quota check failed: {e}")))?
+            .unwrap_or(0);
+    if prior >= MAX_AGENT_MESSAGES {
+        return Err(ApiError::Validation(
+            "You've reached the assistant message limit for this session.".into(),
+        ));
+    }
 
     record_server_event(
         pool,

@@ -2,6 +2,7 @@
 //! `STUDY_MODE`; gated at the route layer.
 
 pub mod agent;
+pub mod export;
 pub mod github_fixtures;
 pub mod provision;
 pub mod seed;

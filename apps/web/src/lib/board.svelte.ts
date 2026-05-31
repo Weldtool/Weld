@@ -9,6 +9,12 @@ import {
 import type { Column, Label, Priority, Task, TeamMember } from '$lib/api/types';
 import { realtime, type RealtimeEnvelope } from '$lib/realtime.svelte';
 import { projects } from '$lib/projects.svelte';
+import { telemetry } from '$lib/telemetry.svelte';
+
+/** Resolve a column id to its name for richer telemetry payloads. */
+function columnName(columns: Column[], id: string | null | undefined): string | null {
+	return columns.find((c) => c.id === id)?.name ?? null;
+}
 
 export interface BoardFilters {
 	search: string;
@@ -213,6 +219,14 @@ class BoardStore {
 
 	setFilter<K extends keyof BoardFilters>(key: K, value: BoardFilters[K]): void {
 		this.filters = { ...this.filters, [key]: value };
+		// A text-search filter is its own metric; other facets are board_filtered.
+		if (key === 'search') {
+			if (typeof value === 'string' && value.trim()) {
+				telemetry.log('card_searched', { query_length: value.trim().length });
+			}
+		} else {
+			telemetry.log('board_filtered', { facet: key, active: value !== null });
+		}
 	}
 
 	clearFilters(): void {
@@ -234,6 +248,17 @@ class BoardStore {
 		try {
 			const updated = await tasksApi.move(taskId, { column_id: toColumnId, position });
 			this.tasks = this.tasks.map((t) => (t.id === taskId ? updated : t));
+			// User-initiated move (the agent/realtime path is #applyTaskUpsert, not
+			// this method) — log for who-did-it attribution.
+			telemetry.log('card_moved', {
+				task_id: taskId,
+				short_id: moved.short_id,
+				title: moved.title,
+				from_column_id: moved.column_id,
+				from_column: columnName(this.columns, moved.column_id),
+				to_column_id: toColumnId,
+				to_column: columnName(this.columns, toColumnId)
+			});
 			return true;
 		} catch (err) {
 			this.tasks = previous;
@@ -263,20 +288,53 @@ class BoardStore {
 		if (!this.tasks.some((t) => t.id === created.id)) {
 			this.tasks = [...this.tasks, { ...created, labels: created.labels ?? [] }];
 		}
+		telemetry.log('card_created', {
+			task_id: created.id,
+			short_id: created.short_id,
+			title: created.title,
+			column_id: created.column_id,
+			column: columnName(this.columns, created.column_id)
+		});
 		return created;
 	}
 
 	async updateTask(id: string, patch: Parameters<typeof tasksApi.update>[1]): Promise<Task> {
+		const before = this.tasks.find((t) => t.id === id);
 		const updated = await tasksApi.update(id, patch);
 		this.tasks = this.tasks.map((t) => (t.id === id ? updated : t));
+		// Decompose the patch into specific user-action events so a coder can see
+		// exactly what changed (priority for T1/T4, assignee, labels, content).
+		const base = { task_id: id, short_id: updated.short_id, title: updated.title };
+		if ('priority' in patch && patch.priority !== before?.priority) {
+			telemetry.log('card_priority_set', {
+				...base,
+				from: before?.priority ?? null,
+				to: updated.priority
+			});
+		}
+		if ('assignee_id' in patch && patch.assignee_id !== before?.assignee_id) {
+			telemetry.log('card_assigned', { ...base, to: updated.assignee_id });
+		}
+		if ('labels' in patch) {
+			telemetry.log('card_labeled', { ...base, labels: updated.labels });
+		}
+		if ('title' in patch || 'description' in patch) {
+			telemetry.log('card_edited', { ...base, fields: Object.keys(patch) });
+		}
 		return updated;
 	}
 
 	async deleteTask(id: string): Promise<void> {
 		const previous = this.tasks;
+		const removed = previous.find((t) => t.id === id);
 		this.tasks = previous.filter((t) => t.id !== id);
 		try {
 			await tasksApi.delete(id);
+			telemetry.log('card_deleted', {
+				task_id: id,
+				short_id: removed?.short_id,
+				title: removed?.title
+			});
 		} catch (err) {
 			this.tasks = previous;
 			throw err;

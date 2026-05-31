@@ -126,12 +126,13 @@
 			<main class="flex flex-1 flex-col overflow-y-auto p-8">
 				{@render children()}
 			</main>
+			<!-- Agent docked on the right, present only for the agent-task phase;
+			     absent during C0 baseline. -->
+			{#if study.currentTask?.phase === 'agent'}
+				<AgentPanel />
+			{/if}
 		</div>
 		<TaskPanel />
-		<!-- Agent present only for the agent-task phase; absent during C0 baseline. -->
-		{#if study.currentTask?.phase === 'agent'}
-			<AgentPanel />
-		{/if}
 	{/if}
 {:else if !auth.ready}
 	<div class="flex min-h-screen items-center justify-center text-sm text-[var(--muted-foreground)]">

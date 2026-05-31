@@ -7,6 +7,7 @@
 	import BoardToolbar from './BoardToolbar.svelte';
 
 	const labelMap = $derived(new Map(boardStore.labels.map((l) => [l.id, l])));
+	const memberMap = $derived(new Map(boardStore.members.map((m) => [m.user_id, m])));
 
 	let editMode = $state(false);
 
@@ -65,6 +66,7 @@
 						{column}
 						tasks={boardStore.tasksForColumn(column.id)}
 						{labelMap}
+						{memberMap}
 						{editMode}
 					/>
 				</div>
@@ -77,6 +79,7 @@
 					{column}
 					tasks={boardStore.tasksForColumn(column.id)}
 					{labelMap}
+					{memberMap}
 					{editMode}
 				/>
 			{/each}

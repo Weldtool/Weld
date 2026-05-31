@@ -1,0 +1,62 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT p.participant_code, p.agent_condition,\n                  e.id AS event_id, e.event_type, e.current_task_id,\n                  e.payload, e.client_ts, e.server_ts\n           FROM study_events e\n           JOIN study_participants p ON p.id = e.participant_id\n           ORDER BY p.participant_code, e.server_ts, e.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "participant_code",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "agent_condition",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "event_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "event_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "current_task_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "payload",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 6,
+        "name": "client_ts",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "server_ts",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "db1402d7b012d840916cc94e4861d47d549f892fdb55f6fe2630440029f63af1"
+}

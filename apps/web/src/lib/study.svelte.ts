@@ -2,6 +2,7 @@ import { browser } from '$app/environment';
 import { study as studyApi } from '$lib/api';
 import { auth } from '$lib/auth.svelte';
 import { STUDY_TASKS, type StudyTask } from '$lib/study-tasks';
+import { buildTaskSnapshot } from '$lib/study-snapshot';
 import { telemetry } from '$lib/telemetry.svelte';
 
 /**
@@ -71,6 +72,7 @@ class StudyStore {
 			this.taskIndex = 0;
 			this.stage = 'tasks';
 			this.#persist();
+			telemetry.markInProgress(true);
 			telemetry.log('consent_given', { consent_version: CONSENT_VERSION });
 			this.#enterTask(0);
 		} catch (e) {
@@ -83,6 +85,7 @@ class StudyStore {
 	completeCurrentTask(): void {
 		const task = this.currentTask;
 		if (!task) return;
+		telemetry.log('task_final_state', buildTaskSnapshot());
 		telemetry.log('task_completed', { task_id: task.id });
 		this.#advance(task);
 	}
@@ -90,6 +93,7 @@ class StudyStore {
 	skipCurrentTask(): void {
 		const task = this.currentTask;
 		if (!task) return;
+		telemetry.log('task_final_state', buildTaskSnapshot());
 		telemetry.log('task_skipped', { task_id: task.id });
 		this.#advance(task);
 	}
@@ -107,6 +111,7 @@ class StudyStore {
 
 	/** Survey submitted successfully → final screen. */
 	finishSurvey(): void {
+		telemetry.markInProgress(false);
 		telemetry.log('survey_completed', {});
 		this.stage = 'done';
 		this.#persist();
@@ -161,9 +166,13 @@ class StudyStore {
 			this.taskIndex = data.taskIndex ?? 0;
 			this.participantCode = data.participantCode ?? null;
 			this.agentCondition = data.agentCondition ?? null;
-			// Re-tag telemetry with the resumed task so events stay attributed.
+			// Re-tag telemetry with the resumed task so events stay attributed, and
+			// re-arm the dropout marker while mid-study (tasks/survey).
 			if (this.stage === 'tasks' && this.currentTask) {
 				telemetry.setTask(this.currentTask.id);
+			}
+			if (this.stage === 'tasks' || this.stage === 'survey') {
+				telemetry.markInProgress(true);
 			}
 		} catch {
 			// Corrupt state — start fresh.

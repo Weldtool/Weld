@@ -38,4 +38,6 @@ pub struct AppState {
     pub study_mode: bool,
     /// Study agent config; `None` when no OpenAI key is set.
     pub agent: Option<Arc<AgentConfig>>,
+    /// Bearer token guarding the study data-export endpoint; `None` disables it.
+    pub study_export_token: Option<String>,
 }

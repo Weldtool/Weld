@@ -1,12 +1,14 @@
 use crate::errors::ApiError;
 use crate::middleware::auth::AuthUser;
 use crate::services::study;
+use crate::services::study::export::{self, Dataset};
 use crate::services::study::telemetry::EventInput;
 use crate::state::AppState;
 use axum::Json;
-use axum::extract::State;
-use axum::http::header::SET_COOKIE;
-use axum::http::{HeaderMap, StatusCode};
+use axum::extract::{Query, State};
+use axum::http::header::{AUTHORIZATION, CONTENT_DISPOSITION, CONTENT_TYPE, SET_COOKIE};
+use axum::http::{HeaderMap, HeaderValue, StatusCode};
+use axum::response::{IntoResponse, Response};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -168,4 +170,61 @@ pub async fn agent_turn(
         actions: result.actions,
         agent_condition: result.condition,
     }))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ExportQuery {
+    /// Which dataset: `participants`, `events`, or `survey`.
+    pub dataset: String,
+}
+
+/// Export a research dataset as CSV for offline analysis. Study-mode only, and
+/// guarded by `STUDY_EXPORT_TOKEN`: if that env var is unset the endpoint 404s
+/// (disabled by default); otherwise the caller must present the matching token
+/// in the `Authorization: Bearer` header. The token is deliberately *not*
+/// accepted as a query param — query strings leak into access logs, proxies, and
+/// browser history. Participant accounts can't reach it (they don't hold the
+/// token). Follow-up contact PII is never exported.
+pub async fn export_data(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(q): Query<ExportQuery>,
+) -> Result<Response, ApiError> {
+    if !state.study_mode {
+        return Err(ApiError::NotFound("Not found".into()));
+    }
+    // Disabled unless a token is configured.
+    let configured = state
+        .study_export_token
+        .as_deref()
+        .ok_or_else(|| ApiError::NotFound("Not found".into()))?;
+    if bearer_token(&headers).as_deref() != Some(configured) {
+        return Err(ApiError::Unauthorized("Invalid export token".into()));
+    }
+
+    let dataset = Dataset::parse(&q.dataset)?;
+    let filename = dataset.filename();
+    let csv = export::export_csv(&state.db, dataset).await?;
+
+    let mut out = HeaderMap::new();
+    out.insert(
+        CONTENT_TYPE,
+        HeaderValue::from_static("text/csv; charset=utf-8"),
+    );
+    out.insert(
+        CONTENT_DISPOSITION,
+        HeaderValue::from_str(&format!("attachment; filename=\"{filename}\""))
+            .map_err(|_| ApiError::Internal("bad filename header".into()))?,
+    );
+    Ok((StatusCode::OK, out, csv).into_response())
+}
+
+/// Extract a bearer token from the Authorization header, if present.
+fn bearer_token(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get(AUTHORIZATION)?
+        .to_str()
+        .ok()?
+        .strip_prefix("Bearer ")
+        .map(str::to_string)
 }

@@ -8,6 +8,7 @@
 	import { boardStore } from '$lib/board.svelte';
 	import { appConfig } from '$lib/config.svelte';
 	import { projects } from '$lib/projects.svelte';
+	import { telemetry } from '$lib/telemetry.svelte';
 	import { canEditTask, TaskSaver } from '$lib/task-detail.svelte';
 	import { createPrDialog } from '$lib/create-pr-dialog.svelte';
 	import AssigneePicker from './AssigneePicker.svelte';
@@ -155,6 +156,24 @@
 				pr_number: prNum
 			});
 			boardStore.applyTaskUpdate(linked);
+
+			// User-performed GitHub link — the key T6 cross-surface action.
+			if (prNum !== null) {
+				telemetry.log('pr_linked_to_card', {
+					task_id: linked.id,
+					short_id: linked.short_id,
+					repo: linkRepo.trim(),
+					pr_number: prNum
+				});
+			}
+			if (issueNum !== null) {
+				telemetry.log('issue_linked_to_card', {
+					task_id: linked.id,
+					short_id: linked.short_id,
+					repo: linkRepo.trim(),
+					issue_number: issueNum
+				});
+			}
 
 			// Autofill: when linking to an issue, pull title/description/labels
 			// from GitHub for any fields the user hasn't filled in yet.
@@ -482,7 +501,13 @@
 								<button
 									type="button"
 									class="text-xs text-[var(--muted-foreground)] hover:underline"
-									onclick={() => (showLinkForm = true)}
+									onclick={() => {
+										showLinkForm = true;
+										telemetry.log('github_view_opened', {
+											task_id: task?.id,
+											context: 'link_form'
+										});
+									}}
 								>
 									+ Link GitHub issue or PR
 								</button>

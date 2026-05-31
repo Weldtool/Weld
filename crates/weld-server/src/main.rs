@@ -45,6 +45,7 @@ async fn main() {
         frontend_url: config.frontend_url,
         study_mode: config.study_mode,
         agent,
+        study_export_token: config.study_export_token,
     };
 
     if state.study_mode {

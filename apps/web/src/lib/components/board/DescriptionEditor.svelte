@@ -4,6 +4,7 @@
 	import Placeholder from '@tiptap/extension-placeholder';
 	import StarterKit from '@tiptap/starter-kit';
 	import { Markdown } from 'tiptap-markdown';
+	import { untrack } from 'svelte';
 
 	interface Props {
 		value: string;
@@ -41,34 +42,42 @@
 
 	$effect(() => {
 		if (!element) return;
-		const ed = new Editor({
-			element,
-			extensions: [
-				StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
-				Placeholder.configure({
-					placeholder: disabled ? '' : 'Add a description… markdown shortcuts work.'
-				}),
-				Link.configure({ openOnClick: false, autolink: true }),
-				Markdown.configure({ linkify: true, breaks: false, transformPastedText: true })
-			],
-			content: value,
-			editable: !disabled,
-			editorProps: {
-				attributes: {
-					class: fill
-						? 'tiptap-content h-full overflow-y-auto px-3 py-2 focus:outline-none'
-						: 'tiptap-content min-h-[120px] max-h-[220px] overflow-y-auto px-3 py-2 focus:outline-none'
-				}
-			},
-			onUpdate({ editor }) {
-				const md = readMarkdown(editor);
-				if (md === lastEmitted) return;
-				lastEmitted = md;
-				onInput(md);
-			},
-			onFocus: () => onFocus?.(),
-			onBlur: () => onBlur?.()
-		});
+		// Create the editor exactly once per mount. The initial content/config are
+		// read untracked so this effect depends only on `element` — otherwise typing
+		// (which feeds `value` back through the parent) would re-run it and destroy
+		// the editor mid-keystroke. External `value`/`disabled` changes are handled
+		// by the reconciliation effects below.
+		const ed = untrack(
+			() =>
+				new Editor({
+					element: element!,
+					extensions: [
+						StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
+						Placeholder.configure({
+							placeholder: disabled ? '' : 'Add a description… markdown shortcuts work.'
+						}),
+						Link.configure({ openOnClick: false, autolink: true }),
+						Markdown.configure({ linkify: true, breaks: false, transformPastedText: true })
+					],
+					content: value,
+					editable: !disabled,
+					editorProps: {
+						attributes: {
+							class: fill
+								? 'tiptap-content h-full overflow-y-auto px-3 py-2 focus:outline-none'
+								: 'tiptap-content min-h-[120px] max-h-[220px] overflow-y-auto px-3 py-2 focus:outline-none'
+						}
+					},
+					onUpdate({ editor }) {
+						const md = readMarkdown(editor);
+						if (md === lastEmitted) return;
+						lastEmitted = md;
+						onInput(md);
+					},
+					onFocus: () => onFocus?.(),
+					onBlur: () => onBlur?.()
+				})
+		);
 		editor = ed;
 		lastEmitted = readMarkdown(ed);
 		return () => {

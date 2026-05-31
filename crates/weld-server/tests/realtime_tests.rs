@@ -32,6 +32,7 @@ async fn build_app() -> Router {
         frontend_url: config.frontend_url,
         study_mode: false,
         agent: None,
+        study_export_token: None,
     };
     weld_server::routes::router().with_state(state)
 }

@@ -7,7 +7,7 @@
 	import { boardStore, computePosition } from '$lib/board.svelte';
 	import { projects } from '$lib/projects.svelte';
 	import { createPrDialog } from '$lib/create-pr-dialog.svelte';
-	import type { Column, Label, Task } from '$lib/api/types';
+	import type { Column, Label, Task, TeamMember } from '$lib/api/types';
 	import TaskCard from './TaskCard.svelte';
 	import { Plus, Trash2, GripVertical } from 'lucide-svelte';
 
@@ -15,10 +15,11 @@
 		column: Column;
 		tasks: Task[];
 		labelMap: Map<string, Label>;
+		memberMap: Map<string, TeamMember>;
 		editMode: boolean;
 	}
 
-	const { column, tasks, labelMap, editMode }: Props = $props();
+	const { column, tasks, labelMap, memberMap, editMode }: Props = $props();
 
 	let items = $state<Task[]>([]);
 
@@ -210,7 +211,7 @@
 		<!-- In edit mode show tasks as a static non-interactive list -->
 		<div class="flex min-h-12 flex-1 flex-col gap-2 overflow-y-auto opacity-50">
 			{#each tasks as task (task.id)}
-				<TaskCard {task} {labelMap} />
+				<TaskCard {task} {labelMap} {memberMap} />
 			{/each}
 		</div>
 	{:else}
@@ -227,7 +228,7 @@
 		>
 			{#each items as task (task.id)}
 				<div animate:flip={{ duration: 150 }}>
-					<TaskCard {task} {labelMap} />
+					<TaskCard {task} {labelMap} {memberMap} />
 				</div>
 			{/each}
 		</div>

@@ -2,6 +2,7 @@ import { channels as channelsApi, messages as messagesApi, teams as teamsApi } f
 import type { Channel, ChatMessage, TaskRef, TeamMember } from '$lib/api/types';
 import { auth } from '$lib/auth.svelte';
 import { realtime, type RealtimeEnvelope } from '$lib/realtime.svelte';
+import { telemetry } from '$lib/telemetry.svelte';
 import { untrack } from 'svelte';
 
 const TYPING_TTL_MS = 3_000;
@@ -113,6 +114,10 @@ class ChatStore {
 	loadingChannel = $state<string | null>(null);
 
 	async openChannel(channelId: string): Promise<void> {
+		const previous = this.activeChannelId;
+		if (previous !== channelId) {
+			telemetry.log('channel_switched', { from: previous, to: channelId });
+		}
 		this.activeChannelId = channelId;
 		// `untrack` so callers inside an $effect don't register a dep on the spread
 		// read of `unreadByChannel` (which we also write to, causing an infinite loop).
@@ -177,6 +182,16 @@ class ChatStore {
 			});
 			this.#replacePending(channelId, clientId, confirmed);
 			if (threadParentId) this.#replaceThreadPending(threadParentId, clientId, confirmed);
+			// User-sent message (the agent's chat_post path is server-side) — capture
+			// for B2/T3/T6 and who-did-it. Content length only, never the text (§5).
+			telemetry.log('message_sent', {
+				channel_id: channelId,
+				message_id: confirmed.id,
+				length: trimmed.length,
+				in_thread: Boolean(threadParentId),
+				task_refs: confirmed.task_refs ?? [],
+				mention_count: confirmed.mentions?.length ?? 0
+			});
 			return confirmed;
 		} catch (err) {
 			this.#markPendingFailed(channelId, clientId);
@@ -223,14 +238,17 @@ class ChatStore {
 	async editMessage(messageId: string, content: string): Promise<void> {
 		const updated = await messagesApi.edit(messageId, { content });
 		this.#applyMessageUpsert(updated);
+		telemetry.log('message_edited', { message_id: messageId, length: content.trim().length });
 	}
 
 	async deleteMessage(messageId: string, channelId: string): Promise<void> {
 		await messagesApi.delete(messageId);
 		this.#applyMessageDelete(channelId, messageId);
+		telemetry.log('message_deleted', { message_id: messageId, channel_id: channelId });
 	}
 
 	async openThread(parentId: string): Promise<void> {
+		telemetry.log('thread_opened', { parent_id: parentId });
 		// `untrack` so callers inside an $effect (e.g. ThreadPanel) don't register
 		// a dep on threadByParent — we read and then write it, which would loop.
 		const existing = untrack(() => this.threadByParent[parentId]);

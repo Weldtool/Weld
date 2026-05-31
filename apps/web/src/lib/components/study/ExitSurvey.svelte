@@ -2,6 +2,7 @@
 	import { study as studyApi } from '$lib/api';
 	import { study } from '$lib/study.svelte';
 	import { SURVEY, type SurveyItem } from '$lib/survey-config';
+	import { cn } from '$lib/utils';
 
 	// Single response per item. Multi-selects keep an array, joined on submit.
 	let responses = $state<Record<string, string>>({});
@@ -99,25 +100,58 @@
 			{#if item.required}<span class="text-red-500">*</span>{/if}
 		</p>
 
-		{#if item.type === 'scale21' || item.type === 'likert5' || item.type === 'likert7'}
-			{@const max = item.type === 'scale21' ? 21 : item.type === 'likert5' ? 5 : 7}
-			<div class="mt-2">
-				<div class="flex flex-wrap items-center gap-1">
+		{#if item.type === 'slider100'}
+			{@const touched = responses[item.id] !== undefined && responses[item.id] !== ''}
+			<div class="mt-3">
+				<input
+					type="range"
+					min="1"
+					max="100"
+					step="1"
+					name={item.id}
+					value={touched ? responses[item.id] : '50'}
+					oninput={(e) => (responses[item.id] = e.currentTarget.value)}
+					class="w-full accent-[var(--primary)]"
+					aria-label={item.label}
+				/>
+				<div
+					class="mt-1 flex items-center justify-between text-[11px] text-[var(--muted-foreground)]"
+				>
+					<span>{item.lowAnchor ?? ''}</span>
+					<span class="text-sm font-medium text-[var(--foreground)]">
+						{touched ? responses[item.id] : 'Drag to set'}
+					</span>
+					<span>{item.highAnchor ?? ''}</span>
+				</div>
+			</div>
+		{:else if item.type === 'likert5' || item.type === 'likert7'}
+			{@const max = item.type === 'likert5' ? 5 : 7}
+			<div class="mt-2.5">
+				<div class="flex gap-1.5">
 					{#each scaleTicks(max) as n (n)}
-						<label class="flex cursor-pointer flex-col items-center">
+						{@const selected = responses[item.id] === String(n)}
+						<label
+							class={cn(
+								'flex h-9 flex-1 cursor-pointer items-center justify-center rounded-md border text-sm transition-colors',
+								selected
+									? 'border-[var(--primary)] bg-[var(--primary)] font-medium text-[var(--primary-foreground)]'
+									: 'border-[var(--border)] text-[var(--muted-foreground)] hover:border-[var(--primary)] hover:text-[var(--foreground)]'
+							)}
+						>
 							<input
 								type="radio"
+								class="sr-only"
 								name={item.id}
 								value={String(n)}
-								checked={responses[item.id] === String(n)}
+								checked={selected}
 								onchange={() => (responses[item.id] = String(n))}
 							/>
-							<span class="mt-0.5 text-[10px] text-[var(--muted-foreground)]">{n}</span>
+							{n}
 						</label>
 					{/each}
 				</div>
 				{#if item.lowAnchor || item.highAnchor}
-					<div class="mt-1 flex justify-between text-[11px] text-[var(--muted-foreground)]">
+					<div class="mt-1.5 flex justify-between text-[11px] text-[var(--muted-foreground)]">
 						<span>{item.lowAnchor ?? ''}</span>
 						<span>{item.highAnchor ?? ''}</span>
 					</div>

@@ -25,6 +25,7 @@ class Telemetry {
 	#currentTaskId: string | null = null;
 	#timer: ReturnType<typeof setInterval> | null = null;
 	#started = false;
+	#inProgress = false;
 
 	get active(): boolean {
 		return appConfig.studyMode;
@@ -33,6 +34,17 @@ class Telemetry {
 	/** The task panel calls this so subsequent events are tagged with the task. */
 	setTask(taskId: string | null): void {
 		this.#currentTaskId = taskId;
+	}
+
+	/**
+	 * Mark whether the participant is mid-study (tasks/survey, not yet done). When
+	 * set, an unload (tab close / reload) emits `session_abandoned` on the way out
+	 * so dropouts are explicit. Refreshes also emit it; analysis treats a final
+	 * `session_abandoned` with no later events / no `survey_completed` as a true
+	 * dropout.
+	 */
+	markInProgress(value: boolean): void {
+		this.#inProgress = value;
 	}
 
 	/** Record an event. No-op outside study mode. */
@@ -89,6 +101,15 @@ class Telemetry {
 	// final batch survives the page going away. sendBeacon can't set the auth
 	// header, so we use fetch+keepalive with the current access token.
 	#flushOnUnload = (): void => {
+		// If the participant is mid-study, record an explicit dropout marker.
+		if (this.#inProgress) {
+			this.#buffer.push({
+				event_type: 'session_abandoned',
+				current_task_id: this.#currentTaskId,
+				payload: { reason: 'unload' },
+				client_ts: new Date().toISOString()
+			});
+		}
 		if (this.#buffer.length === 0) return;
 		const batch = this.#buffer;
 		this.#buffer = [];

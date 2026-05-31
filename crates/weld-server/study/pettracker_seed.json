@@ -71,7 +71,6 @@
       "assignee_id": "user_sarah",
       "priority": "High",
       "position": 1.0,
-      "github_issue": 14,
       "created_offset": -4320
     },
     {
@@ -88,13 +87,13 @@
     },
     {
       "id": "card_feeding_schedule_ui",
-      "column_id": "col_inprogress",
+      "column_id": "col_backlog",
       "title": "Feeding schedule editor UI",
       "description": "Build the screen where owners set daily feeding times and portion sizes. Priya is on this.",
       "labels": ["lbl_feature", "lbl_frontend"],
       "assignee_id": "user_priya",
       "priority": "Medium",
-      "position": 2.0,
+      "position": 7.0,
       "github_pr": 22,
       "created_offset": -5760
     },
@@ -398,6 +397,17 @@
         "labels": ["backend"],
         "linked_card": "card_api_refactor",
         "created_offset": -2880
+      },
+      {
+        "number": 34,
+        "task_anchor": "p1_github",
+        "title": "Add advance vaccination reminders (7-day lead)",
+        "state": "open",
+        "author": "user_priya",
+        "body": "Implements advance vaccination reminders so owners get a heads-up a week before the due date, per issue #14. Adds the reminder scheduling and notification wiring for the 'Add vaccination reminders' board card. Ready for review.",
+        "labels": ["feature", "backend"],
+        "linked_card": "card_vaccination_reminders",
+        "created_offset": -1440
       }
     ],
     "commits": [

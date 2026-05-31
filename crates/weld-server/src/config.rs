@@ -15,6 +15,9 @@ pub struct Config {
     /// Pinned, dated model snapshot — a mid-study change is a confound, so this
     /// is held constant for the whole study (CLAUDE_AGENT_BUILD.md §6).
     pub openai_model: String,
+    /// Bearer token guarding the study data-export endpoint. When unset the
+    /// endpoint is disabled (404), so exports are off unless explicitly enabled.
+    pub study_export_token: Option<String>,
     pub master_encryption_key: Option<String>,
     // GitHub App integration (all optional; set in .env to enable)
     pub github_app_id: Option<String>,
@@ -48,6 +51,7 @@ impl Config {
             openai_api_key: std::env::var("OPENAI_API_KEY").ok(),
             openai_model: std::env::var("OPENAI_MODEL")
                 .unwrap_or_else(|_| "gpt-4o-mini-2024-07-18".to_string()),
+            study_export_token: std::env::var("STUDY_EXPORT_TOKEN").ok(),
             master_encryption_key: std::env::var("MASTER_ENCRYPTION_KEY").ok(),
             github_app_id: std::env::var("GITHUB_APP_ID").ok(),
             github_app_private_key: std::env::var("GITHUB_APP_PRIVATE_KEY").ok(),

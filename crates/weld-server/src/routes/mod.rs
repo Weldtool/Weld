@@ -26,6 +26,9 @@ pub fn router() -> Router<AppState> {
         // Study participant provisioning — public (no account yet), but the
         // handler 404s unless STUDY_MODE is on.
         .route("/api/v1/study/provision", post(study::provision))
+        // Study data export — guarded by STUDY_EXPORT_TOKEN, not participant JWT,
+        // so it lives here (public router) and 404s unless STUDY_MODE + token set.
+        .route("/api/v1/study/export", get(study::export_data))
         .route("/api/v1/auth/register", post(auth::register))
         .route("/api/v1/auth/login", post(auth::login))
         .route("/api/v1/auth/logout", post(auth::logout))

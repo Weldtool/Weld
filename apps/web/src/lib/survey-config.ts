@@ -3,7 +3,7 @@
  * from WELD_AGENT_TASK_SCRIPTS.md §3). Config-driven so wording/scales change
  * without touching the renderer. Stored keyed by `item_id`, never question text.
  */
-export type SurveyItemType = 'scale21' | 'likert5' | 'likert7' | 'text' | 'single' | 'multi';
+export type SurveyItemType = 'slider100' | 'likert5' | 'likert7' | 'text' | 'single' | 'multi';
 
 export interface SurveyItem {
 	id: string;
@@ -31,7 +31,7 @@ export const SURVEY: SurveySection[] = [
 		items: [
 			{
 				id: 'tlx_mental',
-				type: 'scale21',
+				type: 'slider100',
 				label: 'How mentally demanding were the tasks?',
 				lowAnchor: 'Very low',
 				highAnchor: 'Very high',
@@ -39,7 +39,7 @@ export const SURVEY: SurveySection[] = [
 			},
 			{
 				id: 'tlx_physical',
-				type: 'scale21',
+				type: 'slider100',
 				label: 'How physically demanding were the tasks?',
 				lowAnchor: 'Very low',
 				highAnchor: 'Very high',
@@ -47,7 +47,7 @@ export const SURVEY: SurveySection[] = [
 			},
 			{
 				id: 'tlx_temporal',
-				type: 'scale21',
+				type: 'slider100',
 				label: 'How hurried or rushed was the pace of the tasks?',
 				lowAnchor: 'Very low',
 				highAnchor: 'Very high',
@@ -55,7 +55,7 @@ export const SURVEY: SurveySection[] = [
 			},
 			{
 				id: 'tlx_performance',
-				type: 'scale21',
+				type: 'slider100',
 				label: 'How successful were you in accomplishing what you were asked to do?',
 				lowAnchor: 'Perfect',
 				highAnchor: 'Failure',
@@ -63,7 +63,7 @@ export const SURVEY: SurveySection[] = [
 			},
 			{
 				id: 'tlx_effort',
-				type: 'scale21',
+				type: 'slider100',
 				label: 'How hard did you have to work to accomplish your level of performance?',
 				lowAnchor: 'Very low',
 				highAnchor: 'Very high',
@@ -71,7 +71,7 @@ export const SURVEY: SurveySection[] = [
 			},
 			{
 				id: 'tlx_frustration',
-				type: 'scale21',
+				type: 'slider100',
 				label: 'How insecure, discouraged, irritated, stressed, and annoyed were you?',
 				lowAnchor: 'Very low',
 				highAnchor: 'Very high',

@@ -2,16 +2,28 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import type { Label, Task } from '$lib/api/types';
+	import type { Label, Task, TeamMember } from '$lib/api/types';
+	import { telemetry } from '$lib/telemetry.svelte';
 
 	interface Props {
 		task: Task;
 		labelMap: Map<string, Label>;
+		memberMap: Map<string, TeamMember>;
 	}
 
-	const { task, labelMap }: Props = $props();
+	const { task, labelMap, memberMap }: Props = $props();
+
+	const assignee = $derived(task.assignee_id ? (memberMap.get(task.assignee_id) ?? null) : null);
+
+	function initials(name: string): string {
+		const parts = name.trim().split(/\s+/);
+		const first = parts[0]?.[0] ?? '';
+		const last = parts.length > 1 ? (parts[parts.length - 1][0] ?? '') : '';
+		return (first + last).toUpperCase();
+	}
 
 	function open() {
+		telemetry.log('card_opened', { task_id: task.id, short_id: task.short_id, title: task.title });
 		const url = new URL(page.url);
 		url.searchParams.set('task', task.id);
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- resolve('/board') is the base; query string is appended dynamically
@@ -134,6 +146,44 @@
 			{/if}
 			{#if dueLabel}
 				<span>Due {dueLabel}</span>
+			{/if}
+			{#if assignee}
+				<span
+					title="Assigned to {assignee.display_name}"
+					aria-label="Assigned to {assignee.display_name}"
+				>
+					{#if assignee.avatar_url}
+						<img
+							src={assignee.avatar_url}
+							alt={assignee.display_name}
+							class="h-5 w-5 rounded-full object-cover"
+						/>
+					{:else}
+						<span
+							class="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--muted)] text-[9px] font-semibold text-[var(--foreground)]"
+						>
+							{initials(assignee.display_name)}
+						</span>
+					{/if}
+				</span>
+			{:else}
+				<span
+					title="Unassigned"
+					aria-label="Unassigned"
+					class="flex h-5 w-5 items-center justify-center rounded-full border border-dashed border-[var(--border)] text-[var(--muted-foreground)]"
+				>
+					<svg
+						class="h-3 w-3"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						aria-hidden="true"
+					>
+						<circle cx="12" cy="8" r="4" />
+						<path d="M4 20c0-4 4-6 8-6s8 2 8 6" />
+					</svg>
+				</span>
 			{/if}
 		</div>
 	</div>

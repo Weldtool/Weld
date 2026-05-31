@@ -41,42 +41,42 @@ export const STUDY_TASKS: StudyTask[] = [
 		phase: 'agent',
 		title: 'Task 1',
 		instruction:
-			'Ask the agent what the team most needs done next, based on the recent discussion. Then act on its suggestion.'
+			'Figure out what the team most needs done next, based on the recent discussion, and act on it. Use the assistant to help you decide.'
 	},
 	{
 		id: 'T2',
 		phase: 'agent',
 		title: 'Task 2',
 		instruction:
-			'You’re returning after being away. Ask the agent to summarize what’s happened recently and what’s waiting on you.'
+			'You’re returning after being away. Get caught up on what’s happened recently and what’s waiting on you. Use the assistant to help.'
 	},
 	{
 		id: 'T3',
 		phase: 'agent',
 		title: 'Task 3',
 		instruction:
-			'Ask the agent to draft a short status update for #pettracker summarizing where the vaccination reminders work stands, then post it.'
+			'A short status update on where the vaccination reminders work stands needs to be posted in #pettracker. Use the assistant to help draft and post it.'
 	},
 	{
 		id: 'T4',
 		phase: 'agent',
 		title: 'Task 4',
 		instruction:
-			'Three new-issue cards are in the Backlog. Ask the agent to help you set their priorities sensibly, then make sure the priorities are set.'
+			'Three new-issue cards in the Backlog need sensible priorities set. Use the assistant to help, then make sure the priorities are set.'
 	},
 	{
 		id: 'T5',
 		phase: 'agent',
 		title: 'Task 5',
 		instruction:
-			'Sarah reported a bug in #pettracker. Ask the agent to find it, open the related card, and move it to In Progress. Confirm it’s done.'
+			'A bug Sarah reported in #pettracker needs to be moved to In Progress. Use the assistant to help find the right card and get it moved, then confirm it’s done.'
 	},
 	{
 		id: 'T6',
 		phase: 'agent',
 		title: 'Task 6',
 		instruction:
-			'The team needs the vaccination reminders work connected to its code. Ask the agent to find the open pull request related to the vaccination/feeding work, link it to the right board card, and post a note in #pettracker that they’re linked.'
+			'The vaccination reminders work needs to be connected to its code: find the related open pull request, link it to the right board card, and post a note in #pettracker that they’re linked. Use the assistant to help with whatever it can.'
 	}
 ];
 

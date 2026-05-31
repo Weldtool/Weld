@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT p.participant_code, p.agent_condition,\n                  s.item_id, s.value, s.answered_at\n           FROM study_survey_responses s\n           JOIN study_participants p ON p.id = s.participant_id\n           ORDER BY p.participant_code, s.item_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "participant_code",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "agent_condition",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "item_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "value",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "answered_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "32c29ec73002ef7ff588f1827b59ab7ad1025a5e1f62fe89664f505e2ce52a7d"
+}
