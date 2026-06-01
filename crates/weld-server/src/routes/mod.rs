@@ -29,6 +29,8 @@ pub fn router() -> Router<AppState> {
         // Study data export — guarded by STUDY_EXPORT_TOKEN, not participant JWT,
         // so it lives here (public router) and 404s unless STUDY_MODE + token set.
         .route("/api/v1/study/export", get(study::export_data))
+        // Mint single-use access codes — same researcher token as export.
+        .route("/api/v1/study/codes", post(study::generate_codes))
         .route("/api/v1/auth/register", post(auth::register))
         .route("/api/v1/auth/login", post(auth::login))
         .route("/api/v1/auth/logout", post(auth::logout))
@@ -43,6 +45,7 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/users/me", get(users::me))
         // Study telemetry ingest (auth'd participant; 404s unless STUDY_MODE).
         .route("/api/v1/study/events", post(study::ingest_events))
+        .route("/api/v1/study/progress", post(study::save_progress))
         .route("/api/v1/study/survey", post(study::submit_survey))
         .route("/api/v1/study/agent", post(study::agent_turn))
         .route("/api/v1/teams", get(teams::list).post(teams::create))
@@ -189,5 +192,8 @@ async fn health_check(State(_state): State<AppState>) -> impl IntoResponse {
 /// Public, unauthenticated runtime config the frontend reads on load to decide
 /// which behavior to render. Intentionally exposes only non-sensitive flags.
 async fn public_config(State(state): State<AppState>) -> impl IntoResponse {
-    Json(json!({ "study_mode": state.study_mode }))
+    Json(json!({
+        "study_mode": state.study_mode,
+        "study_require_access_code": state.study_require_access_code,
+    }))
 }

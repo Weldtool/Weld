@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO study_access_codes (code, note) VALUES ($1, $2)\n             ON CONFLICT (code) DO NOTHING RETURNING code",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "code",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "db8cee7071fa44a456cb4260ea08d050c43de3623a2ffc7fe4d63c06c4b7eebf"
+}

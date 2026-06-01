@@ -19,6 +19,7 @@ pub enum Dataset {
     Participants,
     Events,
     Survey,
+    AccessCodes,
 }
 
 impl Dataset {
@@ -27,8 +28,9 @@ impl Dataset {
             "participants" => Ok(Self::Participants),
             "events" => Ok(Self::Events),
             "survey" => Ok(Self::Survey),
+            "access_codes" => Ok(Self::AccessCodes),
             other => Err(ApiError::Validation(format!(
-                "unknown dataset '{other}' (expected participants|events|survey)"
+                "unknown dataset '{other}' (expected participants|events|survey|access_codes)"
             ))),
         }
     }
@@ -39,6 +41,7 @@ impl Dataset {
             Self::Participants => "study_participants.csv",
             Self::Events => "study_events.csv",
             Self::Survey => "study_survey.csv",
+            Self::AccessCodes => "study_access_codes.csv",
         }
     }
 }
@@ -49,7 +52,42 @@ pub async fn export_csv(pool: &PgPool, dataset: Dataset) -> Result<String, ApiEr
         Dataset::Participants => participants_csv(pool).await,
         Dataset::Events => events_csv(pool).await,
         Dataset::Survey => survey_csv(pool).await,
+        Dataset::AccessCodes => access_codes_csv(pool).await,
     }
+}
+
+/// Access-code roster: which codes exist, whether spent, and by whom. Lets the
+/// researcher track redemption and spot unused codes. No participant PII.
+async fn access_codes_csv(pool: &PgPool) -> Result<String, ApiError> {
+    let rows = sqlx::query!(
+        r#"SELECT c.code, c.note, c.created_at, c.used_at,
+                  p.participant_code AS "participant_code?"
+           FROM study_access_codes c
+           LEFT JOIN study_participants p ON p.id = c.participant_id
+           ORDER BY c.created_at, c.code"#
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| ApiError::Internal(format!("export query failed: {e}")))?;
+
+    let mut out = String::new();
+    write_row(
+        &mut out,
+        &["code", "note", "created_at", "used_at", "participant_code"],
+    );
+    for r in rows {
+        write_row(
+            &mut out,
+            &[
+                &r.code,
+                &opt(r.note),
+                &r.created_at.to_rfc3339(),
+                &ts(r.used_at),
+                &opt(r.participant_code),
+            ],
+        );
+    }
+    Ok(out)
 }
 
 async fn participants_csv(pool: &PgPool) -> Result<String, ApiError> {

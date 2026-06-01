@@ -46,6 +46,7 @@ async fn main() {
         study_mode: config.study_mode,
         agent,
         study_export_token: config.study_export_token,
+        study_require_access_code: config.study_require_access_code,
     };
 
     if state.study_mode {

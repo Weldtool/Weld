@@ -17,7 +17,7 @@ async fn pool() -> sqlx::PgPool {
 
 /// Provision a participant and return a ParticipantCtx loaded from the DB.
 async fn provision_ctx(pool: &sqlx::PgPool) -> ParticipantCtx {
-    let res = provision_participant(pool, "test-jwt-secret-0123456789abcdef", Some("v1.0"))
+    let res = provision_participant(pool, "test-jwt-secret-0123456789abcdef", Some("v1.0"), None)
         .await
         .expect("provision participant");
     load_participant(pool, res.user_id)

@@ -1,11 +1,16 @@
 <script lang="ts">
 	import { study, CONSENT_VERSION } from '$lib/study.svelte';
+	import { appConfig } from '$lib/config.svelte';
 
 	// Pre-provisioning steps. Copy adapted from WELD_PARTICIPANT_FLOW.md.
 	type Step = 'welcome' | 'consent' | 'screening';
 	let step = $state<Step>('welcome');
 
 	let consentAffirmed = $state(false);
+
+	// Single-use access code (only when the backend requires one).
+	let accessCode = $state('');
+	const codeRequired = $derived(appConfig.requireAccessCode);
 
 	// Screening answers (eligibility gate; not stored — demographics come later).
 	let age18 = $state<string | null>(null);
@@ -14,7 +19,11 @@
 	let priorWeld = $state<string | null>(null);
 
 	const screeningComplete = $derived(
-		age18 !== null && experience !== null && familiarity !== null && priorWeld !== null
+		age18 !== null &&
+			experience !== null &&
+			familiarity !== null &&
+			priorWeld !== null &&
+			(!codeRequired || accessCode.trim().length > 0)
 	);
 
 	function submitScreening() {
@@ -23,7 +32,7 @@
 		if (ineligible) {
 			study.markIneligible();
 		} else {
-			void study.begin();
+			void study.begin(codeRequired ? accessCode : undefined);
 		}
 	}
 </script>
@@ -163,6 +172,24 @@
 				</div>
 			</fieldset>
 		</div>
+
+		{#if codeRequired}
+			<div class="mt-6">
+				<label for="access-code" class="text-sm font-medium">Access code</label>
+				<p class="mt-1 text-xs text-[var(--muted-foreground)]">
+					Enter the code you were given to take part. Each code works once.
+				</p>
+				<input
+					id="access-code"
+					type="text"
+					bind:value={accessCode}
+					autocomplete="off"
+					spellcheck="false"
+					placeholder="WELD-XXXX-XXXX"
+					class="mt-2 w-full max-w-xs rounded-md border border-[var(--input)] bg-[var(--background)] px-3 py-2 font-mono text-sm tracking-wide uppercase outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+				/>
+			</div>
+		{/if}
 
 		{#if study.error}
 			<p class="mt-4 text-sm text-red-500">{study.error}</p>

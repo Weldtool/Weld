@@ -57,11 +57,18 @@ export interface ProvisionResponse {
 	project_id: string;
 	access_token: string;
 	token_type: string;
+	/** True when an existing participant resumed via their code (vs. fresh start). */
+	resumed: boolean;
+	resume_stage: string | null;
+	resume_task_index: number;
 }
 
 export const study = {
 	/** Create a participant with an isolated seed + session. Public (no token). */
-	provision: (body: { consent_version?: string } = {}, opts?: RequestOptions) =>
+	provision: (
+		body: { consent_version?: string; access_code?: string } = {},
+		opts?: RequestOptions
+	) =>
 		apiRequest<ProvisionResponse>('/api/v1/study/provision', {
 			...opts,
 			method: 'POST',
@@ -71,6 +78,14 @@ export const study = {
 	/** Batch-ingest behavioral telemetry for the authenticated participant. */
 	events: (body: { events: TelemetryEvent[] }, opts?: RequestOptions) =>
 		authStore.fetch<{ stored: number }>('/api/v1/study/events', {
+			...opts,
+			method: 'POST',
+			body
+		}),
+
+	/** Persist the participant's place in the flow so they can resume by code. */
+	progress: (body: { stage: string; task_index: number }, opts?: RequestOptions) =>
+		authStore.fetch<void>('/api/v1/study/progress', {
 			...opts,
 			method: 'POST',
 			body

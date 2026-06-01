@@ -8,6 +8,8 @@ import { config as configApi } from '$lib/api';
  */
 class AppConfigStore {
 	studyMode = $state(false);
+	/** When true, the study intro requires a single-use access code to begin. */
+	requireAccessCode = $state(false);
 	loaded = $state(false);
 	#loading: Promise<void> | null = null;
 
@@ -20,6 +22,7 @@ class AppConfigStore {
 			try {
 				const cfg = await configApi.get();
 				this.studyMode = cfg.study_mode;
+				this.requireAccessCode = cfg.study_require_access_code;
 				this.loaded = true;
 			} finally {
 				this.#loading = null;

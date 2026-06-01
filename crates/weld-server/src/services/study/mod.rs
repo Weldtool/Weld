@@ -1,6 +1,7 @@
 //! Research-study services (see `research-paper/`). Active only under
 //! `STUDY_MODE`; gated at the route layer.
 
+pub mod access_code;
 pub mod agent;
 pub mod export;
 pub mod github_fixtures;

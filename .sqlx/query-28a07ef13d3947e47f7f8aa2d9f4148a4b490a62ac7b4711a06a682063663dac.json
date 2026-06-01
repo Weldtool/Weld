@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE study_access_codes SET used_at = NOW(), participant_id = $2 WHERE code = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "28a07ef13d3947e47f7f8aa2d9f4148a4b490a62ac7b4711a06a682063663dac"
+}

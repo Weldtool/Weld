@@ -9,6 +9,7 @@ use chrono::{DateTime, Duration, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use super::access_code;
 use super::seed::{self, Seed};
 use crate::errors::ApiError;
 use crate::services::auth::helpers as auth_helpers;
@@ -21,6 +22,13 @@ pub struct ProvisionResult {
     pub project_id: Uuid,
     pub access_token: String,
     pub refresh_token: String,
+    /// True when this is a resume of an existing participant (re-entered code)
+    /// rather than a fresh provision.
+    pub resumed: bool,
+    /// Saved stage to resume into (e.g. "tasks"), when resuming.
+    pub resume_stage: Option<String>,
+    /// Saved task index to resume at, when resuming.
+    pub resume_task_index: i32,
 }
 
 /// Provision a brand-new participant: allocate a code, assign an agent
@@ -30,6 +38,7 @@ pub async fn provision_participant(
     pool: &PgPool,
     jwt_secret: &str,
     consent_version: Option<&str>,
+    access_code: Option<&str>,
 ) -> Result<ProvisionResult, ApiError> {
     let seed =
         Seed::load().map_err(|e| ApiError::Internal(format!("Invalid study seed fixture: {e}")))?;
@@ -37,6 +46,12 @@ pub async fn provision_participant(
     let condition = pick_agent_condition(pool).await?;
 
     let mut tx = pool.begin().await?;
+
+    // Validate + lock the access code before doing any work, so an invalid or
+    // spent code fails fast and a concurrent duplicate blocks until we commit.
+    if let Some(code) = access_code {
+        access_code::lock_unused(&mut tx, code).await?;
+    }
 
     // --- Participant code + user ---
     let code_num = sqlx::query_scalar!("SELECT nextval('study_participant_code_seq')")
@@ -266,12 +281,13 @@ pub async fn provision_participant(
         Some(_) => (Some(Utc::now()), "consented"),
         None => (None, "provisioned"),
     };
-    sqlx::query!(
+    let study_participant_id = sqlx::query_scalar!(
         r#"
         INSERT INTO study_participants
           (participant_code, user_id, team_id, project_id, agent_condition,
            consent_version, consent_given_at, status)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING id
         "#,
         code,
         participant_id,
@@ -282,8 +298,15 @@ pub async fn provision_participant(
         consent_at,
         status,
     )
-    .execute(&mut *tx)
+    .fetch_one(&mut *tx)
     .await?;
+
+    // Spend the (already-locked) access code now that the participant exists.
+    // Linked to the study_participants row (which the FK references), not the
+    // throwaway user account.
+    if let Some(code) = access_code {
+        access_code::mark_used(&mut tx, code, study_participant_id).await?;
+    }
 
     tx.commit().await?;
 
@@ -299,7 +322,80 @@ pub async fn provision_participant(
         project_id,
         access_token,
         refresh_token,
+        resumed: false,
+        resume_stage: None,
+        resume_task_index: 0,
     })
+}
+
+/// Resume an existing participant by re-issuing a session for their account.
+/// Used when a participant re-enters their (already-spent) access code, e.g. on
+/// a new device or after clearing their browser. Creates nothing new — it hands
+/// back the saved stage + task index so the frontend picks up where they left
+/// off. The participant's work was never lost (it lives in their DB project).
+pub async fn resume_participant(
+    pool: &PgPool,
+    jwt_secret: &str,
+    user_id: Uuid,
+) -> Result<ProvisionResult, ApiError> {
+    let p = sqlx::query!(
+        r#"SELECT participant_code, agent_condition, team_id, project_id,
+                  resume_stage, resume_task_index
+           FROM study_participants WHERE user_id = $1"#,
+        user_id,
+    )
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| ApiError::Internal("Access code has no participant to resume".into()))?;
+
+    let access_token = auth_helpers::generate_access_token(user_id, "member", jwt_secret)?;
+    let refresh_token = auth_helpers::create_refresh_token(pool, user_id).await?;
+
+    Ok(ProvisionResult {
+        participant_code: p.participant_code,
+        agent_condition: p.agent_condition,
+        user_id,
+        team_id: p.team_id,
+        project_id: p.project_id,
+        access_token,
+        refresh_token,
+        resumed: true,
+        resume_stage: p.resume_stage,
+        resume_task_index: p.resume_task_index,
+    })
+}
+
+/// Persist a participant's current place in the flow so they can resume on
+/// another device. `stage` "done" marks completion (idempotent on completed_at).
+pub async fn update_progress(
+    pool: &PgPool,
+    user_id: Uuid,
+    stage: &str,
+    task_index: i32,
+) -> Result<(), ApiError> {
+    let status = if stage == "done" {
+        "completed"
+    } else {
+        "in_progress"
+    };
+    sqlx::query!(
+        r#"UPDATE study_participants
+           SET resume_stage = $2,
+               resume_task_index = $3,
+               status = $4,
+               completed_at = CASE
+                   WHEN $2 = 'done' THEN COALESCE(completed_at, NOW())
+                   ELSE completed_at
+               END
+           WHERE user_id = $1"#,
+        user_id,
+        stage,
+        task_index,
+        status,
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
 }
 
 /// Convert a fixture minute-offset (negative = past) to an absolute timestamp.

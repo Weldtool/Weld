@@ -21,6 +21,7 @@ const ALLOWED_EVENT_TYPES: &[&str] = &[
     "session_start",
     "session_end",
     "session_abandoned",
+    "session_resumed",
     "phase_started",
     "phase_ended",
     "consent_given",

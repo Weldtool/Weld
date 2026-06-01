@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT c.code, c.note, c.created_at, c.used_at,\n                  p.participant_code AS \"participant_code?\"\n           FROM study_access_codes c\n           LEFT JOIN study_participants p ON p.id = c.participant_id\n           ORDER BY c.created_at, c.code",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "code",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "note",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "used_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "participant_code?",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "81520cf14a8d5a3ef66eb84bf283e79a063687b54feb9d14ac023aeb94e71bce"
+}

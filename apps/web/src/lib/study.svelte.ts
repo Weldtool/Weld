@@ -60,21 +60,31 @@ class StudyStore {
 	}
 
 	/** After consent + screening: provision the isolated workspace and start. */
-	async begin(): Promise<void> {
+	async begin(accessCode?: string): Promise<void> {
 		if (this.provisioning) return;
 		this.provisioning = true;
 		this.error = null;
 		try {
-			const res = await studyApi.provision({ consent_version: CONSENT_VERSION });
+			const res = await studyApi.provision({
+				consent_version: CONSENT_VERSION,
+				access_code: accessCode?.trim() || undefined
+			});
 			await auth.adoptSession(res.access_token);
 			this.participantCode = res.participant_code;
 			this.agentCondition = res.agent_condition;
-			this.taskIndex = 0;
-			this.stage = 'tasks';
-			this.#persist();
-			telemetry.markInProgress(true);
-			telemetry.log('consent_given', { consent_version: CONSENT_VERSION });
-			this.#enterTask(0);
+
+			if (res.resumed) {
+				// Returning participant re-entered their code (new device or cleared
+				// storage): restore their saved place instead of starting over.
+				this.#resumeFrom(res.resume_stage, res.resume_task_index);
+			} else {
+				this.taskIndex = 0;
+				this.stage = 'tasks';
+				this.#persist();
+				telemetry.markInProgress(true);
+				telemetry.log('consent_given', { consent_version: CONSENT_VERSION });
+				this.#enterTask(0);
+			}
 		} catch (e) {
 			this.error = e instanceof Error ? e.message : 'Could not start the study. Please retry.';
 		} finally {
@@ -146,6 +156,24 @@ class StudyStore {
 		telemetry.log('task_shown', { task_id: task.id });
 	}
 
+	/** Restore a resumed participant into their saved stage/task. */
+	#resumeFrom(stage: string | null, taskIndex: number): void {
+		const validStages: StudyStage[] = ['tasks', 'survey', 'done'];
+		const resumed = (validStages as string[]).includes(stage ?? '')
+			? (stage as StudyStage)
+			: 'tasks';
+		this.stage = resumed;
+		this.taskIndex = Math.min(Math.max(taskIndex, 0), STUDY_TASKS.length - 1);
+		this.#persist();
+		telemetry.log('session_resumed', { stage: resumed, task_index: this.taskIndex });
+		if (resumed === 'tasks' && this.currentTask) {
+			telemetry.setTask(this.currentTask.id);
+		}
+		if (resumed === 'tasks' || resumed === 'survey') {
+			telemetry.markInProgress(true);
+		}
+	}
+
 	#persist(): void {
 		if (!browser) return;
 		const data: PersistedState = {
@@ -155,6 +183,16 @@ class StudyStore {
 			agentCondition: this.agentCondition
 		};
 		localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+		this.#syncProgress();
+	}
+
+	/** Mirror progress to the backend (fire-and-forget) so it survives a cleared
+	 * browser / new device. Only meaningful once a session exists (post-provision
+	 * stages); failures are non-fatal — localStorage remains the fast path. */
+	#syncProgress(): void {
+		if (!browser) return;
+		if (this.stage !== 'tasks' && this.stage !== 'survey' && this.stage !== 'done') return;
+		void studyApi.progress({ stage: this.stage, task_index: this.taskIndex }).catch(() => {});
 	}
 
 	#restore(): void {

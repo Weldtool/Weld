@@ -40,4 +40,6 @@ pub struct AppState {
     pub agent: Option<Arc<AgentConfig>>,
     /// Bearer token guarding the study data-export endpoint; `None` disables it.
     pub study_export_token: Option<String>,
+    /// When true, provisioning requires a valid single-use access code.
+    pub study_require_access_code: bool,
 }

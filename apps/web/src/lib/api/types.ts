@@ -234,4 +234,6 @@ export interface ThreadView {
 /** Public, unauthenticated runtime config served from `GET /api/v1/config`. */
 export interface PublicConfig {
 	study_mode: boolean;
+	/** When true, the study intro requires a single-use access code to begin. */
+	study_require_access_code: boolean;
 }

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT c.used_at, p.user_id AS \"user_id?\"\n           FROM study_access_codes c\n           LEFT JOIN study_participants p ON p.id = c.participant_id\n           WHERE c.code = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "used_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id?",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      true,
+      false
+    ]
+  },
+  "hash": "f097d4fe31567a967873b21a6ba929d7dca4c4a97ba0a114547df467eddff8cc"
+}

@@ -18,6 +18,10 @@ pub struct Config {
     /// Bearer token guarding the study data-export endpoint. When unset the
     /// endpoint is disabled (404), so exports are off unless explicitly enabled.
     pub study_export_token: Option<String>,
+    /// When true, provisioning requires a valid, unused single-use access code,
+    /// capping participation to one run per recruited person. Off (default) lets
+    /// provisioning run without a code, which keeps local testing frictionless.
+    pub study_require_access_code: bool,
     pub master_encryption_key: Option<String>,
     // GitHub App integration (all optional; set in .env to enable)
     pub github_app_id: Option<String>,
@@ -52,6 +56,10 @@ impl Config {
             openai_model: std::env::var("OPENAI_MODEL")
                 .unwrap_or_else(|_| "gpt-4o-mini-2024-07-18".to_string()),
             study_export_token: std::env::var("STUDY_EXPORT_TOKEN").ok(),
+            study_require_access_code: std::env::var("STUDY_REQUIRE_ACCESS_CODE")
+                .unwrap_or_else(|_| "false".to_string())
+                .parse::<bool>()
+                .unwrap_or(false),
             master_encryption_key: std::env::var("MASTER_ENCRYPTION_KEY").ok(),
             github_app_id: std::env::var("GITHUB_APP_ID").ok(),
             github_app_private_key: std::env::var("GITHUB_APP_PRIVATE_KEY").ok(),
