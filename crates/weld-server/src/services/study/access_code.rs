@@ -86,10 +86,7 @@ pub async fn status(pool: &sqlx::PgPool, code: &str) -> Result<CodeStatus, ApiEr
 /// the code is unknown (`Validation`) or already spent (`Conflict`). The lock is
 /// held until commit/rollback, so a concurrent provision with the same code
 /// blocks here and then sees it spent — closing the double-use race.
-pub async fn lock_unused(
-    tx: &mut Transaction<'_, Postgres>,
-    code: &str,
-) -> Result<(), ApiError> {
+pub async fn lock_unused(tx: &mut Transaction<'_, Postgres>, code: &str) -> Result<(), ApiError> {
     let row = sqlx::query!(
         "SELECT used_at FROM study_access_codes WHERE code = $1 FOR UPDATE",
         code,

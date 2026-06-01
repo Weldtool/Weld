@@ -319,7 +319,9 @@ pub async fn generate_codes(
     }
 
     if body.count == 0 || body.count > 500 {
-        return Err(ApiError::Validation("count must be between 1 and 500".into()));
+        return Err(ApiError::Validation(
+            "count must be between 1 and 500".into(),
+        ));
     }
 
     let codes = study::access_code::generate(&state.db, body.count, body.note.as_deref()).await?;

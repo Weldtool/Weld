@@ -75,11 +75,12 @@ async fn spent_code_resumes_existing_participant_at_saved_place() {
         CodeStatus::Used { user_id } => user_id,
         _ => panic!("expected Used status for a spent code"),
     };
-    assert_eq!(owner, first.user_id, "code must point at the same participant");
+    assert_eq!(
+        owner, first.user_id,
+        "code must point at the same participant"
+    );
 
-    let resumed = resume_participant(&pool, JWT, owner)
-        .await
-        .expect("resume");
+    let resumed = resume_participant(&pool, JWT, owner).await.expect("resume");
     assert!(resumed.resumed, "must be flagged as a resume");
     assert_eq!(resumed.team_id, first.team_id, "same isolated team");
     assert_eq!(resumed.project_id, first.project_id, "same project");
