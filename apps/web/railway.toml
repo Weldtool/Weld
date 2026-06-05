@@ -6,3 +6,4 @@ startCommand = "node build"
 healthcheckPath = "/"
 healthcheckTimeout = 60
 restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3

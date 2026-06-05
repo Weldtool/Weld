@@ -34,7 +34,6 @@ FROM debian:bookworm-slim AS runtime
 RUN apt-get update && apt-get install -y ca-certificates libssl3 && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/target/release/weld-server /usr/local/bin/weld-server
-COPY --from=builder /app/crates/weld-server/migrations /app/migrations
 
 EXPOSE 3000
 
