@@ -6,6 +6,7 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Duration, Utc};
+use rand::Rng;
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -416,9 +417,13 @@ fn rewrite_card_refs(content: &str, card_map: &HashMap<String, Uuid>) -> String 
     out
 }
 
-/// Balanced between-subjects assignment: pick the condition with the fewest
-/// participants so far (ties broken C1 < C2 < C3). Keeps cell sizes even, which
-/// matters more for a small-N study than pure randomness.
+/// Balanced *randomized* between-subjects assignment: pick the condition with
+/// the fewest participants so far, breaking ties **at random**. With three
+/// equal-target cells this is permuted-block randomization (block size 3) — each
+/// run of 3 participants gets one of each condition, but the order within a
+/// block is random. This keeps cell sizes even (which matters for a small-N
+/// study) while avoiding the deterministic C1→C2→C3 cycle a fixed tie-break
+/// produced, which would otherwise confound condition with enrollment order.
 async fn pick_agent_condition(pool: &PgPool) -> Result<String, ApiError> {
     let rows = sqlx::query!(
         r#"SELECT agent_condition, COUNT(*) as "count!" FROM study_participants GROUP BY agent_condition"#
@@ -433,9 +438,18 @@ async fn pick_agent_condition(pool: &PgPool) -> Result<String, ApiError> {
         }
     }
 
-    let chosen = ["C1", "C2", "C3"]
+    let min = ["C1", "C2", "C3"]
         .into_iter()
-        .min_by_key(|c| counts[c])
+        .map(|c| counts[c])
+        .min()
+        .unwrap_or(0);
+    let tied: Vec<&str> = ["C1", "C2", "C3"]
+        .into_iter()
+        .filter(|c| counts[c] == min)
+        .collect();
+    let chosen = tied
+        .get(rand::thread_rng().gen_range(0..tied.len()))
+        .copied()
         .unwrap_or("C1");
     Ok(chosen.to_string())
 }
