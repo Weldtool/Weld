@@ -315,8 +315,8 @@
 			<h2 class="text-base font-semibold">GitHub App</h2>
 		</div>
 		<p class="text-sm text-[var(--muted-foreground)]">
-			Connect a GitHub App installation to your workspace to receive webhook events and sync issues and
-			pull requests.
+			Connect a GitHub App installation to your workspace to receive webhook events and sync issues
+			and pull requests.
 		</p>
 
 		{#if connectionError}
