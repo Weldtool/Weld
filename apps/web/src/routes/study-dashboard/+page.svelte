@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { env } from '$env/dynamic/public';
+
+	const API_BASE = (env.PUBLIC_API_BASE_URL ?? '').replace(/\/$/, '');
 
 	// ── Types ────────────────────────────────────────────────────────────────
 
@@ -68,7 +71,7 @@
 	// ── API helpers ──────────────────────────────────────────────────────────
 
 	async function apiGet<T>(path: string, tok: string): Promise<T> {
-		const res = await fetch(path, {
+		const res = await fetch(`${API_BASE}${path}`, {
 			headers: { Authorization: `Bearer ${tok}` }
 		});
 		if (!res.ok) {
@@ -109,7 +112,7 @@
 	async function downloadDataset(dataset: string) {
 		downloadingDataset = dataset;
 		try {
-			const res = await fetch(`/api/v1/study/export?dataset=${dataset}`, {
+			const res = await fetch(`${API_BASE}/api/v1/study/export?dataset=${dataset}`, {
 				headers: { Authorization: `Bearer ${savedToken}` }
 			});
 			if (!res.ok) throw new Error(`${res.status}`);
