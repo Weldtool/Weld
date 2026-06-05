@@ -7,8 +7,8 @@
 	import {
 		Kanban,
 		MessageSquare,
-		Clock,
-		KeyRound,
+		//Clock,
+		//KeyRound,
 		Settings,
 		Moon,
 		Sun,
@@ -38,9 +38,9 @@
 
 	const navItems = [
 		{ href: '/board', label: 'Board', icon: Kanban },
-		{ href: '/chat', label: 'Chat', icon: MessageSquare },
-		{ href: '/time', label: 'Time', icon: Clock },
-		{ href: '/secrets', label: 'Secrets', icon: KeyRound }
+		{ href: '/chat', label: 'Chat', icon: MessageSquare }
+		//{ href: '/time', label: 'Time', icon: Clock },
+		//{ href: '/secrets', label: 'Secrets', icon: KeyRound }
 	] as const;
 
 	function isActive(href: string): boolean {

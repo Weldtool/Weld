@@ -29,6 +29,8 @@ pub fn router() -> Router<AppState> {
         // Study data export — guarded by STUDY_EXPORT_TOKEN, not participant JWT,
         // so it lives here (public router) and 404s unless STUDY_MODE + token set.
         .route("/api/v1/study/export", get(study::export_data))
+        // Aggregate summary for the researcher dashboard (same token guard).
+        .route("/api/v1/study/summary", get(study::get_summary))
         // Mint single-use access codes — same researcher token as export.
         .route("/api/v1/study/codes", post(study::generate_codes))
         .route("/api/v1/auth/register", post(auth::register))
@@ -170,7 +172,7 @@ pub fn router() -> Router<AppState> {
         );
 
     let frontend_origin =
-        std::env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
+        std::env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:3000".to_string());
 
     let cors = CorsLayer::new()
         .allow_origin(

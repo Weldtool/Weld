@@ -1,7 +1,7 @@
 use crate::errors::ApiError;
 use crate::middleware::auth::AuthUser;
 use crate::services::study;
-use crate::services::study::export::{self, Dataset};
+use crate::services::study::export::{self, Dataset, StudySummary};
 use crate::services::study::telemetry::EventInput;
 use crate::state::AppState;
 use axum::Json;
@@ -332,6 +332,27 @@ pub async fn generate_codes(
         HeaderValue::from_static("text/plain; charset=utf-8"),
     );
     Ok((StatusCode::CREATED, out, codes.join("\n")).into_response())
+}
+
+/// Aggregate statistics for the researcher dashboard. Guarded by the same
+/// `STUDY_EXPORT_TOKEN` as CSV export; 404 when unset, 401 on mismatch.
+pub async fn get_summary(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<StudySummary>, ApiError> {
+    if !state.study_mode {
+        return Err(ApiError::NotFound("Not found".into()));
+    }
+    let configured = state
+        .study_export_token
+        .as_deref()
+        .ok_or_else(|| ApiError::NotFound("Not found".into()))?;
+    if bearer_token(&headers).as_deref() != Some(configured) {
+        return Err(ApiError::Unauthorized("Invalid export token".into()));
+    }
+
+    let summary = export::summary(&state.db).await?;
+    Ok(Json(summary))
 }
 
 /// Extract a bearer token from the Authorization header, if present.

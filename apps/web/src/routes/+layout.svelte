@@ -33,7 +33,7 @@
 
 	let { children } = $props();
 
-	const PUBLIC_ROUTES = new Set(['/login', '/register']);
+	const PUBLIC_ROUTES = new Set(['/login', '/register', '/study-dashboard']);
 	const isPublicRoute = $derived(PUBLIC_ROUTES.has(page.url.pathname));
 
 	$effect(() => {
@@ -104,7 +104,10 @@
 
 <ModeWatcher />
 
-{#if appConfig.studyMode}
+{#if isPublicRoute && page.url.pathname === '/study-dashboard'}
+	<!-- Researcher dashboard bypasses all auth and study-mode overlays. -->
+	{@render children()}
+{:else if appConfig.studyMode}
 	<!-- Research-study flow: the stage machine decides what the participant sees,
 	     layered over the normal app so it never fights the route guard. -->
 	{#if study.stage === 'intro'}

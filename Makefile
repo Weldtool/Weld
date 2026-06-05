@@ -8,7 +8,7 @@ setup:
 start:
 	docker compose -f $(CURDIR)/docker/docker-compose.yml up -d
 	./scripts/migrate.sh
-	@echo "Ready! Run 'make server' to start the backend."
+	@echo "Ready! Run 'make server' (backend :3001) and 'make web' (frontend :3000) in separate terminals."
 
 # Start the backend server (after running 'make start')
 server:
@@ -22,7 +22,7 @@ stop:
 clean:
 	docker compose -f $(CURDIR)/docker/docker-compose.yml down -v
 
-# Start the SvelteKit dev server (for frontend development)
+# Start the SvelteKit dev server at localhost:3000 (proxies /api to backend at :3001)
 web:
 	cd $(CURDIR)/apps/web && pnpm run dev
 

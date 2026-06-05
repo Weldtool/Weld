@@ -30,6 +30,6 @@
 	<div
 		class="rounded-lg border border-dashed border-[var(--border)] bg-[var(--card)] p-10 text-center text-sm text-[var(--muted-foreground)]"
 	>
-		No channels in this team yet. Create one from the sidebar.
+		No channels in this workspace yet. Create one from the sidebar.
 	</div>
 {/if}

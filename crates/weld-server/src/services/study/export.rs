@@ -1,7 +1,7 @@
-//! CSV export of the research dataset for offline analysis (R/pandas/Excel).
+//! CSV export and JSON summary of the research dataset.
 //!
-//! Three datasets, each a flat CSV with `participant_code` + `agent_condition`
-//! denormalized in so a sheet stands alone:
+//! Three CSV datasets, each flat with `participant_code` + `agent_condition`
+//! denormalized so a sheet stands alone:
 //!   - `participants` — one row per participant (roster + lifecycle).
 //!   - `events`       — one row per behavioral telemetry event (the bulk).
 //!   - `survey`       — long format, one row per (participant, item).
@@ -9,8 +9,11 @@
 //! The follow-up contact table is deliberately NOT exportable here: it is
 //! access-restricted PII and excluded from the analysis dataset by design
 //! (WELD_EXIT_SURVEY.md §6).
+//!
+//! `summary()` returns aggregate statistics for the researcher dashboard.
 
 use crate::errors::ApiError;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::PgPool;
 
@@ -219,6 +222,181 @@ async fn survey_csv(pool: &PgPool) -> Result<String, ApiError> {
         );
     }
     Ok(out)
+}
+
+// ── JSON summary for the researcher dashboard ───────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ConditionCount {
+    pub condition: String,
+    pub total: i64,
+    pub completed: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StatusCount {
+    pub status: String,
+    pub count: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EventTypeCount {
+    pub event_type: String,
+    pub count: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ParticipantRow {
+    pub participant_code: String,
+    pub agent_condition: String,
+    pub status: String,
+    pub provisioned_at: String,
+    pub completed_at: Option<String>,
+    /// Session duration in seconds, if completed.
+    pub duration_seconds: Option<i64>,
+    pub event_count: i64,
+    pub survey_items_answered: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AccessCodeStats {
+    pub total: i64,
+    pub used: i64,
+    pub unused: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StudySummary {
+    pub total_participants: i64,
+    pub by_condition: Vec<ConditionCount>,
+    pub by_status: Vec<StatusCount>,
+    pub top_event_types: Vec<EventTypeCount>,
+    pub access_codes: AccessCodeStats,
+    pub participants: Vec<ParticipantRow>,
+}
+
+/// Aggregate statistics for the researcher dashboard UI.
+pub async fn summary(pool: &PgPool) -> Result<StudySummary, ApiError> {
+    let err = |e: sqlx::Error| ApiError::Internal(format!("summary query failed: {e}"));
+
+    let total_participants = sqlx::query_scalar!(
+        "SELECT COUNT(*)::bigint FROM study_participants"
+    )
+    .fetch_one(pool)
+    .await
+    .map_err(err)?
+    .unwrap_or(0);
+
+    let by_condition_rows = sqlx::query!(
+        r#"SELECT agent_condition,
+                  COUNT(*)::bigint AS "total!",
+                  COUNT(*) FILTER (WHERE status = 'completed')::bigint AS "completed!"
+           FROM study_participants
+           GROUP BY agent_condition
+           ORDER BY agent_condition"#
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(err)?;
+
+    let by_condition = by_condition_rows
+        .into_iter()
+        .map(|r| ConditionCount {
+            condition: r.agent_condition,
+            total: r.total,
+            completed: r.completed,
+        })
+        .collect();
+
+    let by_status_rows = sqlx::query!(
+        r#"SELECT status, COUNT(*)::bigint AS "n!"
+           FROM study_participants
+           GROUP BY status
+           ORDER BY 2 DESC"#
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(err)?;
+
+    let by_status = by_status_rows
+        .into_iter()
+        .map(|r| StatusCount {
+            status: r.status,
+            count: r.n,
+        })
+        .collect();
+
+    let top_event_types = sqlx::query!(
+        r#"SELECT event_type, COUNT(*)::bigint AS "n!"
+           FROM study_events
+           GROUP BY event_type
+           ORDER BY 2 DESC
+           LIMIT 20"#
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(err)?
+    .into_iter()
+    .map(|r| EventTypeCount {
+        event_type: r.event_type,
+        count: r.n,
+    })
+    .collect();
+
+    let access_code_row = sqlx::query!(
+        r#"SELECT COUNT(*)::bigint AS "total!",
+                  COUNT(*) FILTER (WHERE used_at IS NOT NULL)::bigint AS "used!",
+                  COUNT(*) FILTER (WHERE used_at IS NULL)::bigint AS "unused!"
+           FROM study_access_codes"#
+    )
+    .fetch_one(pool)
+    .await
+    .map_err(err)?;
+
+    let access_codes = AccessCodeStats {
+        total: access_code_row.total,
+        used: access_code_row.used,
+        unused: access_code_row.unused,
+    };
+
+    let participant_rows = sqlx::query!(
+        r#"SELECT p.participant_code, p.agent_condition, p.status,
+                  p.provisioned_at, p.completed_at,
+                  EXTRACT(EPOCH FROM (p.completed_at - p.provisioned_at))::bigint AS duration_seconds,
+                  COUNT(DISTINCT e.id)::bigint AS "event_count!",
+                  COUNT(DISTINCT s.item_id)::bigint AS "survey_items!"
+           FROM study_participants p
+           LEFT JOIN study_events e ON e.participant_id = p.id
+           LEFT JOIN study_survey_responses s ON s.participant_id = p.id
+           GROUP BY p.id
+           ORDER BY p.participant_code"#
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(err)?;
+
+    let participants = participant_rows
+        .into_iter()
+        .map(|r| ParticipantRow {
+            participant_code: r.participant_code,
+            agent_condition: r.agent_condition,
+            status: r.status,
+            provisioned_at: r.provisioned_at.to_rfc3339(),
+            completed_at: r.completed_at.map(|t| t.to_rfc3339()),
+            duration_seconds: r.duration_seconds,
+            event_count: r.event_count,
+            survey_items_answered: r.survey_items,
+        })
+        .collect();
+
+    Ok(StudySummary {
+        total_participants,
+        by_condition,
+        by_status,
+        top_event_types,
+        access_codes,
+        participants,
+    })
 }
 
 // ── CSV helpers ─────────────────────────────────────────────────────────────

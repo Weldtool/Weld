@@ -179,7 +179,7 @@
 			deleteError =
 				err instanceof ApiError
 					? err.status === 403
-						? 'Only the team owner can delete this project.'
+						? 'Only the workspace owner can delete this project.'
 						: err.message
 					: 'Failed to delete the project. Please try again.';
 			confirming = false;
@@ -356,7 +356,7 @@
 			<div>
 				<h2 class="text-base font-semibold">Members</h2>
 				<p class="text-sm text-[var(--muted-foreground)]">
-					Team owners and admins always have access. Add members and viewers here to give them
+					Workspace owners and admins always have access. Add members and viewers here to give them
 					access to this project.
 				</p>
 			</div>
@@ -395,7 +395,7 @@
 				<p class="text-sm text-[var(--muted-foreground)]">Loading members…</p>
 			{:else if members.length === 0}
 				<p class="text-sm text-[var(--muted-foreground)]">
-					No members added yet. Team admins and owners still have access.
+					No members added yet. Workspace admins and owners still have access.
 				</p>
 			{:else}
 				<ul class="flex flex-col divide-y divide-[var(--border)]">
@@ -426,7 +426,7 @@
 			<div>
 				<h2 class="text-base font-semibold text-red-600 dark:text-red-400">Danger zone</h2>
 				<p class="text-sm text-[var(--muted-foreground)]">
-					Deleting a project hides it from the team. This cannot be undone from the UI.
+					Deleting a project hides it from the workspace. This cannot be undone from the UI.
 				</p>
 			</div>
 

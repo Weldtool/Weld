@@ -152,7 +152,7 @@
 
 				{#if otherMembers.length === 0}
 					<p class="px-5 pb-3 text-sm text-[var(--muted-foreground)]">
-						No other team members to add.
+						No other workspace members to add.
 					</p>
 				{:else}
 					<!-- Search -->

@@ -47,7 +47,7 @@ impl Config {
                 .parse::<bool>()
                 .unwrap_or(false),
             frontend_url: std::env::var("FRONTEND_URL")
-                .unwrap_or_else(|_| "http://localhost:5173".to_string()),
+                .unwrap_or_else(|_| "http://localhost:3000".to_string()),
             study_mode: std::env::var("STUDY_MODE")
                 .unwrap_or_else(|_| "false".to_string())
                 .parse::<bool>()

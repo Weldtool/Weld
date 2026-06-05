@@ -138,7 +138,7 @@
 
 <header class="mb-6">
 	<h1 class="text-2xl font-semibold tracking-tight">Settings</h1>
-	<p class="text-sm text-[var(--muted-foreground)]">Profile, team, and workspace preferences.</p>
+	<p class="text-sm text-[var(--muted-foreground)]">Profile and workspace preferences.</p>
 </header>
 
 {#if githubConnected}
@@ -199,7 +199,7 @@
 	>
 		<div class="flex items-center gap-2">
 			<Users class="h-4 w-4 text-[var(--muted-foreground)]" />
-			<h2 class="text-base font-semibold">Team members</h2>
+			<h2 class="text-base font-semibold">Workspace members</h2>
 			{#if projects.team}
 				<span class="ml-1 text-xs text-[var(--muted-foreground)]">· {projects.team.name}</span>
 			{/if}
@@ -215,7 +215,7 @@
 
 		{#if !teamId}
 			<p class="text-sm text-[var(--muted-foreground)]">
-				No active team. Create or pick one to manage members.
+				No active workspace. Create or pick one to manage members.
 			</p>
 		{:else if membersLoading}
 			<p class="text-sm text-[var(--muted-foreground)]">Loading…</p>
@@ -315,7 +315,7 @@
 			<h2 class="text-base font-semibold">GitHub App</h2>
 		</div>
 		<p class="text-sm text-[var(--muted-foreground)]">
-			Connect a GitHub App installation to your team to receive webhook events and sync issues and
+			Connect a GitHub App installation to your workspace to receive webhook events and sync issues and
 			pull requests.
 		</p>
 
