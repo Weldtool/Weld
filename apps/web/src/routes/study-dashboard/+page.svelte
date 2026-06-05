@@ -307,16 +307,11 @@
 						{#each summary.top_event_types as ev}
 							{@const pct = Math.round((ev.count / maxN) * 100)}
 							<div class="flex items-center gap-3">
-								<span class="w-44 truncate text-right text-xs text-slate-400"
-									>{ev.event_type}</span
-								>
+								<span class="w-44 truncate text-right text-xs text-slate-400">{ev.event_type}</span>
 								<div class="flex-1 overflow-hidden rounded-full bg-slate-800">
-									<div
-										class="h-2 rounded-full bg-violet-500"
-										style="width: {pct}%"
-									></div>
+									<div class="h-2 rounded-full bg-violet-500" style="width: {pct}%"></div>
 								</div>
-								<span class="w-10 text-right text-xs tabular-nums text-slate-300"
+								<span class="w-10 text-right text-xs text-slate-300 tabular-nums"
 									>{ev.count.toLocaleString()}</span
 								>
 							</div>
@@ -336,13 +331,13 @@
 					<table class="w-full text-xs">
 						<thead>
 							<tr class="border-b border-slate-800 text-left text-slate-500">
-								<th class="pb-2 pr-4 font-medium">Code</th>
-								<th class="pb-2 pr-4 font-medium">Condition</th>
-								<th class="pb-2 pr-4 font-medium">Status</th>
-								<th class="pb-2 pr-4 font-medium">Started</th>
-								<th class="pb-2 pr-4 font-medium">Completed</th>
-								<th class="pb-2 pr-4 font-medium">Duration</th>
-								<th class="pb-2 pr-4 font-medium">Events</th>
+								<th class="pr-4 pb-2 font-medium">Code</th>
+								<th class="pr-4 pb-2 font-medium">Condition</th>
+								<th class="pr-4 pb-2 font-medium">Status</th>
+								<th class="pr-4 pb-2 font-medium">Started</th>
+								<th class="pr-4 pb-2 font-medium">Completed</th>
+								<th class="pr-4 pb-2 font-medium">Duration</th>
+								<th class="pr-4 pb-2 font-medium">Events</th>
 								<th class="pb-2 font-medium">Survey items</th>
 							</tr>
 						</thead>
@@ -358,10 +353,8 @@
 											class:text-green-300={p.status === 'completed'}
 											class:bg-blue-900={p.status === 'in_progress'}
 											class:text-blue-300={p.status === 'in_progress'}
-											class:bg-slate-800={p.status === 'provisioned' ||
-												p.status === 'consented'}
-											class:text-slate-300={p.status === 'provisioned' ||
-												p.status === 'consented'}
+											class:bg-slate-800={p.status === 'provisioned' || p.status === 'consented'}
+											class:text-slate-300={p.status === 'provisioned' || p.status === 'consented'}
 											class:bg-red-900={p.status === 'abandoned'}
 											class:text-red-300={p.status === 'abandoned'}
 										>
@@ -399,7 +392,9 @@
 							class="flex items-center gap-2 rounded-md border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-medium text-slate-200 hover:border-slate-500 hover:bg-slate-700 disabled:opacity-50"
 						>
 							{#if downloadingDataset === dataset}
-								<span class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-500 border-t-white"></span>
+								<span
+									class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-500 border-t-white"
+								></span>
 							{:else}
 								↓
 							{/if}

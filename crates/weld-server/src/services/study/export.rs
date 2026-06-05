@@ -279,13 +279,11 @@ pub struct StudySummary {
 pub async fn summary(pool: &PgPool) -> Result<StudySummary, ApiError> {
     let err = |e: sqlx::Error| ApiError::Internal(format!("summary query failed: {e}"));
 
-    let total_participants = sqlx::query_scalar!(
-        "SELECT COUNT(*)::bigint FROM study_participants"
-    )
-    .fetch_one(pool)
-    .await
-    .map_err(err)?
-    .unwrap_or(0);
+    let total_participants = sqlx::query_scalar!("SELECT COUNT(*)::bigint FROM study_participants")
+        .fetch_one(pool)
+        .await
+        .map_err(err)?
+        .unwrap_or(0);
 
     let by_condition_rows = sqlx::query!(
         r#"SELECT agent_condition,
