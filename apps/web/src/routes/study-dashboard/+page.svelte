@@ -233,20 +233,21 @@
 		<main class="mx-auto max-w-7xl space-y-8 px-6 py-8">
 			<!-- ── Top stat cards ──────────────────────────────────────────────── -->
 			<div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
-				<StatCard label="Total participants" value={summary.total_participants} />
-				<StatCard
-					label="Completed"
-					value={summary.by_status.find((s) => s.status === 'completed')?.count ?? 0}
-					sub={summary.total_participants > 0
-						? `${Math.round(((summary.by_status.find((s) => s.status === 'completed')?.count ?? 0) / summary.total_participants) * 100)}%`
-						: '0%'}
-				/>
-				<StatCard label="Access codes issued" value={summary.access_codes.total} />
-				<StatCard
-					label="Codes remaining"
-					value={summary.access_codes.unused}
-					sub={`${summary.access_codes.used} used`}
-				/>
+				{@render StatCard({ label: 'Total participants', value: summary.total_participants })}
+				{@render StatCard({
+					label: 'Completed',
+					value: summary.by_status.find((s) => s.status === 'completed')?.count ?? 0,
+					sub:
+						summary.total_participants > 0
+							? `${Math.round(((summary.by_status.find((s) => s.status === 'completed')?.count ?? 0) / summary.total_participants) * 100)}%`
+							: '0%'
+				})}
+				{@render StatCard({ label: 'Access codes issued', value: summary.access_codes.total })}
+				{@render StatCard({
+					label: 'Codes remaining',
+					value: summary.access_codes.unused,
+					sub: `${summary.access_codes.used} used`
+				})}
 			</div>
 
 			<!-- ── Condition breakdown + Status breakdown ──────────────────────── -->
@@ -255,7 +256,7 @@
 				<section class="rounded-lg border border-slate-800 bg-slate-900 p-5">
 					<h2 class="mb-4 text-sm font-medium text-slate-300">Participants by condition</h2>
 					<div class="space-y-4">
-						{#each summary.by_condition as c}
+						{#each summary.by_condition as c (c.condition)}
 							{@const pct = completionPct(c)}
 							<div class="space-y-1">
 								<div class="flex items-center justify-between text-xs">
@@ -281,7 +282,7 @@
 				<section class="rounded-lg border border-slate-800 bg-slate-900 p-5">
 					<h2 class="mb-4 text-sm font-medium text-slate-300">Status breakdown</h2>
 					<div class="space-y-2">
-						{#each summary.by_status as s}
+						{#each summary.by_status as s (s.status)}
 							<div class="flex items-center gap-3">
 								<span
 									class="inline-block h-2.5 w-2.5 rounded-full {statusColor[s.status] ??
@@ -304,7 +305,7 @@
 				{#if summary.top_event_types.length > 0}
 					{@const maxN = maxEventCount(summary.top_event_types)}
 					<div class="space-y-1.5">
-						{#each summary.top_event_types as ev}
+						{#each summary.top_event_types as ev (ev.event_type)}
 							{@const pct = Math.round((ev.count / maxN) * 100)}
 							<div class="flex items-center gap-3">
 								<span class="w-44 truncate text-right text-xs text-slate-400">{ev.event_type}</span>
@@ -342,7 +343,7 @@
 							</tr>
 						</thead>
 						<tbody>
-							{#each summary.participants as p}
+							{#each summary.participants as p (p.participant_code)}
 								<tr class="border-b border-slate-800/50 hover:bg-slate-800/30">
 									<td class="py-2 pr-4 font-mono">{p.participant_code}</td>
 									<td class="py-2 pr-4">{p.agent_condition}</td>
@@ -385,7 +386,7 @@
 					CSV files ready for R / pandas / Excel. Follow-up contact PII is never exported.
 				</p>
 				<div class="flex flex-wrap gap-3">
-					{#each ['participants', 'events', 'survey', 'access_codes'] as dataset}
+					{#each ['participants', 'events', 'survey', 'access_codes'] as dataset (dataset)}
 						<button
 							onclick={() => downloadDataset(dataset)}
 							disabled={!!downloadingDataset}
