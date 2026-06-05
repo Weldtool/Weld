@@ -50,6 +50,8 @@
 
 	$effect(() => {
 		if (!auth.ready) return;
+		// Researcher dashboard is always reachable regardless of auth or study mode.
+		if (page.url.pathname === '/study-dashboard') return;
 		// In study mode the stage machine owns navigation (see below) — skip the
 		// normal login/route guard entirely.
 		if (appConfig.studyMode) return;
