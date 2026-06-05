@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { study as studyApi } from '$lib/api';
 	import { study } from '$lib/study.svelte';
+	import { telemetry } from '$lib/telemetry.svelte';
 	import { cn } from '$lib/utils';
 	import { Bot, Send, PanelRightClose, PanelRightOpen } from 'lucide-svelte';
 
@@ -22,6 +23,12 @@
 
 	$effect(() => {
 		collapsed = localStorage.getItem(COLLAPSED_KEY) === '1';
+		// Log the initial visibility so we can tell whether a participant ever saw
+		// the panel expanded vs started collapsed from a prior session.
+		telemetry.log(collapsed ? 'agent_panel_collapsed' : 'agent_panel_opened', {
+			task_id: study.currentTask?.id ?? null,
+			trigger: 'mount'
+		});
 	});
 
 	// Each task is independent — clear the conversation when the task changes so
@@ -54,6 +61,10 @@
 	function toggleCollapsed() {
 		collapsed = !collapsed;
 		localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : '0');
+		telemetry.log(collapsed ? 'agent_panel_collapsed' : 'agent_panel_opened', {
+			task_id: study.currentTask?.id ?? null,
+			trigger: 'toggle'
+		});
 	}
 
 	async function send() {

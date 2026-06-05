@@ -3,6 +3,7 @@
 	import { boardStore } from '$lib/board.svelte';
 	import { projects } from '$lib/projects.svelte';
 	import { createPrDialog } from '$lib/create-pr-dialog.svelte';
+	import { telemetry } from '$lib/telemetry.svelte';
 	import { X, GitPullRequest } from 'lucide-svelte';
 
 	const task = $derived(createPrDialog.task);
@@ -76,6 +77,13 @@
 				draft
 			});
 			boardStore.applyTaskUpdate(updated);
+			telemetry.log('pr_opened', {
+				task_id: t.id,
+				pr_number: updated.github_pr_id,
+				head: head.trim(),
+				base: base.trim(),
+				is_draft: draft
+			});
 			createPrDialog.confirm();
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to create pull request.';

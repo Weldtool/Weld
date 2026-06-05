@@ -139,6 +139,15 @@
 		return c.total === 0 ? 0 : Math.round((c.completed / c.total) * 100);
 	}
 
+	function avgCompletionTime(participants: ParticipantRow[]): string {
+		const times = participants
+			.filter((p) => p.duration_seconds !== null)
+			.map((p) => p.duration_seconds as number);
+		if (times.length === 0) return '—';
+		const avg = Math.round(times.reduce((a, b) => a + b, 0) / times.length);
+		return formatDuration(avg);
+	}
+
 	function maxEventCount(rows: EventTypeCount[]) {
 		return rows.reduce((m, r) => Math.max(m, r.count), 1);
 	}
@@ -245,11 +254,15 @@
 							? `${Math.round(((summary.by_status.find((s) => s.status === 'completed')?.count ?? 0) / summary.total_participants) * 100)}%`
 							: '0%'
 				})}
-				{@render StatCard({ label: 'Access codes issued', value: summary.access_codes.total })}
 				{@render StatCard({
-					label: 'Codes remaining',
-					value: summary.access_codes.unused,
-					sub: `${summary.access_codes.used} used`
+					label: 'In progress',
+					value: summary.by_status.find((s) => s.status === 'in_progress')?.count ?? 0,
+					sub: 'currently active'
+				})}
+				{@render StatCard({
+					label: 'Avg. completion time',
+					value: avgCompletionTime(summary.participants),
+					sub: 'completed sessions only'
 				})}
 			</div>
 
@@ -389,7 +402,7 @@
 					CSV files ready for R / pandas / Excel. Follow-up contact PII is never exported.
 				</p>
 				<div class="flex flex-wrap gap-3">
-					{#each ['participants', 'events', 'survey', 'access_codes'] as dataset (dataset)}
+					{#each ['participants', 'events', 'survey'] as dataset (dataset)}
 						<button
 							onclick={() => downloadDataset(dataset)}
 							disabled={!!downloadingDataset}
@@ -412,10 +425,12 @@
 {/if}
 
 <!-- ── Reusable stat card snippet ─────────────────────────────────────────── -->
-{#snippet StatCard(props: { label: string; value: number; sub?: string })}
+{#snippet StatCard(props: { label: string; value: number | string; sub?: string })}
 	<div class="rounded-lg border border-slate-800 bg-slate-900 p-4">
 		<p class="text-xs text-slate-400">{props.label}</p>
-		<p class="mt-1 text-2xl font-semibold tabular-nums">{props.value.toLocaleString()}</p>
+		<p class="mt-1 text-2xl font-semibold tabular-nums">
+			{typeof props.value === 'number' ? props.value.toLocaleString() : props.value}
+		</p>
 		{#if props.sub}
 			<p class="mt-0.5 text-xs text-slate-500">{props.sub}</p>
 		{/if}

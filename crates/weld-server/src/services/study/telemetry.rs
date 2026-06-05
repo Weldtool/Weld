@@ -66,7 +66,7 @@ const ALLOWED_EVENT_TYPES: &[&str] = &[
     // Navigation
     "view_changed",
     "search_used",
-    // Agent (future phase)
+    // Agent
     "agent_invoked",
     "agent_context_sent",
     "agent_response",
@@ -77,6 +77,10 @@ const ALLOWED_EVENT_TYPES: &[&str] = &[
     "agent_action_undone",
     "agent_output_edited",
     "agent_error",
+    "agent_panel_opened",
+    "agent_panel_collapsed",
+    // GitHub cross-reference (from card)
+    "issue_referenced_from_card",
 ];
 
 #[derive(Debug, Deserialize)]

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tasks as tasksApi, github as githubApi } from '$lib/api';
 	import type { IssueTemplate, Task } from '$lib/api/types';
+	import { telemetry } from '$lib/telemetry.svelte';
 	import { X, CircleDot } from 'lucide-svelte';
 
 	interface Props {
@@ -53,6 +54,10 @@
 		error = null;
 		try {
 			const updated = await tasksApi.pushToGithub(task.id, { title: title.trim(), body });
+			telemetry.log('issue_opened', {
+				task_id: task.id,
+				issue_number: updated.github_issue_id
+			});
 			onCreated(updated);
 			onClose();
 		} catch (err) {

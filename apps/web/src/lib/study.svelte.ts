@@ -36,6 +36,7 @@ class StudyStore {
 	agentCondition = $state<string | null>(null);
 	provisioning = $state(false);
 	error = $state<string | null>(null);
+	#taskStartedAt: number | null = null;
 
 	constructor() {
 		if (browser) this.#restore();
@@ -99,16 +100,20 @@ class StudyStore {
 	completeCurrentTask(): void {
 		const task = this.currentTask;
 		if (!task) return;
+		const taskTimeMs =
+			this.#taskStartedAt !== null ? Date.now() - this.#taskStartedAt : null;
 		telemetry.log('task_final_state', buildTaskSnapshot());
-		telemetry.log('task_completed', { task_id: task.id });
+		telemetry.log('task_completed', { task_id: task.id, task_time_ms: taskTimeMs });
 		this.#advance(task);
 	}
 
 	skipCurrentTask(): void {
 		const task = this.currentTask;
 		if (!task) return;
+		const taskTimeMs =
+			this.#taskStartedAt !== null ? Date.now() - this.#taskStartedAt : null;
 		telemetry.log('task_final_state', buildTaskSnapshot());
-		telemetry.log('task_skipped', { task_id: task.id });
+		telemetry.log('task_skipped', { task_id: task.id, task_time_ms: taskTimeMs });
 		this.#advance(task);
 	}
 
@@ -156,6 +161,7 @@ class StudyStore {
 		if (index === 0 || STUDY_TASKS[index - 1].phase !== task.phase) {
 			telemetry.log('phase_started', { phase: task.phase });
 		}
+		this.#taskStartedAt = Date.now();
 		telemetry.setTask(task.id);
 		telemetry.log('task_shown', { task_id: task.id });
 	}
@@ -171,6 +177,7 @@ class StudyStore {
 		this.#persist();
 		telemetry.log('session_resumed', { stage: resumed, task_index: this.taskIndex });
 		if (resumed === 'tasks' && this.currentTask) {
+			this.#taskStartedAt = Date.now();
 			telemetry.setTask(this.currentTask.id);
 		}
 		if (resumed === 'tasks' || resumed === 'survey') {

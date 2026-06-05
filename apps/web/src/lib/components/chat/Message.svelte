@@ -55,19 +55,46 @@
 	// can record a `card_referenced_from_chat` event (headline integration
 	// metric). Inert outside study mode. An action avoids a11y warnings that an
 	// inline click handler on the (non-interactive) body div would trigger.
-	function trackCardRefs(node: HTMLElement) {
+	function trackMessageInteractions(node: HTMLElement) {
 		const handler = (e: Event) => {
 			const target = e.target as HTMLElement;
-			const link = target.closest('.chat-cardref, .chat-taskref') as HTMLAnchorElement | null;
-			if (!link) return;
-			const taskId =
-				link.getAttribute('data-card-ref') ??
-				new URL(link.href, window.location.origin).searchParams.get('task');
-			telemetry.log('card_referenced_from_chat', {
-				task_id: taskId,
-				message_id: isPending(message) ? null : message.id,
-				channel_id: message.channel_id
-			});
+			const msgId = isPending(message) ? null : message.id;
+			const chanId = message.channel_id;
+
+			// Card / task cross-references → card_referenced_from_chat
+			const cardLink = target.closest('.chat-cardref, .chat-taskref') as HTMLAnchorElement | null;
+			if (cardLink) {
+				const taskId =
+					cardLink.getAttribute('data-card-ref') ??
+					new URL(cardLink.href, window.location.origin).searchParams.get('task');
+				telemetry.log('card_referenced_from_chat', {
+					task_id: taskId,
+					message_id: msgId,
+					channel_id: chanId
+				});
+				return;
+			}
+
+			// @mention badges → mention_clicked
+			const mention = target.closest('.chat-mention') as HTMLElement | null;
+			if (mention) {
+				telemetry.log('mention_clicked', {
+					user_id: mention.getAttribute('data-user-id'),
+					message_id: msgId,
+					channel_id: chanId
+				});
+				return;
+			}
+
+			// Plain external links → link_clicked
+			const anchor = target.closest('a') as HTMLAnchorElement | null;
+			if (anchor) {
+				telemetry.log('link_clicked', {
+					href: anchor.href,
+					message_id: msgId,
+					channel_id: chanId
+				});
+			}
 		};
 		node.addEventListener('click', handler);
 		return {
@@ -184,7 +211,7 @@
 					</div>
 				</div>
 			{:else}
-				<div class="chat-message-body text-sm leading-snug" use:trackCardRefs>
+				<div class="chat-message-body text-sm leading-snug" use:trackMessageInteractions>
 					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 					{@html html}
 				</div>

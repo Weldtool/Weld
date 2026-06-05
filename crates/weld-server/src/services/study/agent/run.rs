@@ -63,7 +63,12 @@ pub async fn run_turn(
         pid,
         "agent_invoked",
         current_task_id,
-        json!({ "trigger": "user_message", "condition": condition.as_str() }),
+        json!({
+            "trigger": "user_message",
+            "condition": condition.as_str(),
+            "message": user_message,
+            "message_length": user_message.len(),
+        }),
     )
     .await;
 
@@ -228,6 +233,7 @@ pub async fn run_turn(
             "model": agent.model,
             "temperature": agent.temperature,
             "prompt_version": agent.prompt_version,
+            "reply": reply,
         }),
     )
     .await;
