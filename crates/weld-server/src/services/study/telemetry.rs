@@ -32,6 +32,7 @@ const ALLOWED_EVENT_TYPES: &[&str] = &[
     "task_completed",
     "task_skipped",
     "task_final_state",
+    "task_rating",
     "instruction_reopened",
     // Board
     "card_created",

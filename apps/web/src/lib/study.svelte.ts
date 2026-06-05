@@ -36,6 +36,9 @@ class StudyStore {
 	agentCondition = $state<string | null>(null);
 	provisioning = $state(false);
 	error = $state<string | null>(null);
+	/** The just-completed task awaiting its quick per-task rating, or null. While
+	 * set, the task panel shows the rating step and advancement is gated on it. */
+	ratingFor = $state<StudyTask | null>(null);
 	#taskStartedAt: number | null = null;
 
 	constructor() {
@@ -72,9 +75,12 @@ class StudyStore {
 				access_code: accessCode?.trim() || undefined
 			});
 			await auth.adoptSession(res.access_token);
-			// Clear any stale project/team data from a previous session so the
-			// layout's ensureLoaded() reloads fresh for this participant's account.
+			// Clear any stale project/team data from a previous session then
+			// eagerly load the participant's freshly-provisioned workspace. This
+			// ensures projects.current is non-null before the board renders, so
+			// the participant doesn't see "No active project" on first load.
 			projects.reset();
+			await projects.ensureLoaded();
 			this.participantCode = res.participant_code;
 			this.agentCondition = res.agent_condition;
 
@@ -100,20 +106,44 @@ class StudyStore {
 	completeCurrentTask(): void {
 		const task = this.currentTask;
 		if (!task) return;
-		const taskTimeMs =
-			this.#taskStartedAt !== null ? Date.now() - this.#taskStartedAt : null;
+		const taskTimeMs = this.#taskStartedAt !== null ? Date.now() - this.#taskStartedAt : null;
 		telemetry.log('task_final_state', buildTaskSnapshot());
-		telemetry.log('task_completed', { task_id: task.id, task_time_ms: taskTimeMs });
+		telemetry.log('task_completed', {
+			task_id: task.id,
+			task_type: task.type,
+			task_time_ms: taskTimeMs
+		});
+		// Clock already stopped above — gate advancement on a quick per-task rating
+		// so it can never inflate the measured task time.
+		this.ratingFor = task;
+	}
+
+	/** Record the per-task rating (effort, and agent-help on agent tasks), then
+	 * advance. `agentHelp` is null for baseline tasks (no agent). */
+	submitTaskRating(effort: number, agentHelp: number | null): void {
+		const task = this.ratingFor;
+		if (!task) return;
+		telemetry.log('task_rating', {
+			task_id: task.id,
+			task_type: task.type,
+			phase: task.phase,
+			effort,
+			agent_help: agentHelp
+		});
+		this.ratingFor = null;
 		this.#advance(task);
 	}
 
 	skipCurrentTask(): void {
 		const task = this.currentTask;
 		if (!task) return;
-		const taskTimeMs =
-			this.#taskStartedAt !== null ? Date.now() - this.#taskStartedAt : null;
+		const taskTimeMs = this.#taskStartedAt !== null ? Date.now() - this.#taskStartedAt : null;
 		telemetry.log('task_final_state', buildTaskSnapshot());
-		telemetry.log('task_skipped', { task_id: task.id, task_time_ms: taskTimeMs });
+		telemetry.log('task_skipped', {
+			task_id: task.id,
+			task_type: task.type,
+			task_time_ms: taskTimeMs
+		});
 		this.#advance(task);
 	}
 
@@ -163,7 +193,7 @@ class StudyStore {
 		}
 		this.#taskStartedAt = Date.now();
 		telemetry.setTask(task.id);
-		telemetry.log('task_shown', { task_id: task.id });
+		telemetry.log('task_shown', { task_id: task.id, task_type: task.type });
 	}
 
 	/** Restore a resumed participant into their saved stage/task. */
