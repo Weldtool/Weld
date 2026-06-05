@@ -1,6 +1,7 @@
 import { browser } from '$app/environment';
 import { study as studyApi } from '$lib/api';
 import { auth } from '$lib/auth.svelte';
+import { projects } from '$lib/projects.svelte';
 import { STUDY_TASKS, type StudyTask } from '$lib/study-tasks';
 import { buildTaskSnapshot } from '$lib/study-snapshot';
 import { telemetry } from '$lib/telemetry.svelte';
@@ -70,6 +71,9 @@ class StudyStore {
 				access_code: accessCode?.trim() || undefined
 			});
 			await auth.adoptSession(res.access_token);
+			// Clear any stale project/team data from a previous session so the
+			// layout's ensureLoaded() reloads fresh for this participant's account.
+			projects.reset();
 			this.participantCode = res.participant_code;
 			this.agentCondition = res.agent_condition;
 
