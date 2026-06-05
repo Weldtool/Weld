@@ -10,6 +10,7 @@ import type { Column, Label, Priority, Task, TeamMember } from '$lib/api/types';
 import { realtime, type RealtimeEnvelope } from '$lib/realtime.svelte';
 import { projects } from '$lib/projects.svelte';
 import { telemetry } from '$lib/telemetry.svelte';
+import { agentActivity } from '$lib/agent-activity.svelte';
 
 /** Resolve a column id to its name for richer telemetry payloads. */
 function columnName(columns: Column[], id: string | null | undefined): string | null {
@@ -259,6 +260,17 @@ class BoardStore {
 				to_column_id: toColumnId,
 				to_column: columnName(this.columns, toColumnId)
 			});
+			// If the agent had touched this card during the task, the user moving
+			// it is a verification/repair action (overriding the agent's placement).
+			const agentAction = agentActivity.agentAction(taskId);
+			if (agentAction) {
+				telemetry.log('agent_action_undone', {
+					task_id: taskId,
+					user_action: 'card_moved',
+					agent_action: agentAction,
+					to_column: columnName(this.columns, toColumnId)
+				});
+			}
 			return true;
 		} catch (err) {
 			this.tasks = previous;
@@ -321,6 +333,16 @@ class BoardStore {
 		if ('title' in patch || 'description' in patch) {
 			telemetry.log('card_edited', { ...base, fields: Object.keys(patch) });
 		}
+		// A user edit to a card the agent created/changed this task is verification
+		// /repair behaviour (RQ1): the user checked the agent's work and fixed it.
+		const agentAction = agentActivity.agentAction(id);
+		if (agentAction) {
+			telemetry.log('agent_output_edited', {
+				...base,
+				agent_action: agentAction,
+				fields: Object.keys(patch)
+			});
+		}
 		return updated;
 	}
 
@@ -335,6 +357,15 @@ class BoardStore {
 				short_id: removed?.short_id,
 				title: removed?.title
 			});
+			// Deleting a card the agent touched this task undoes the agent's work.
+			const agentAction = agentActivity.agentAction(id);
+			if (agentAction) {
+				telemetry.log('agent_action_undone', {
+					task_id: id,
+					user_action: 'card_deleted',
+					agent_action: agentAction
+				});
+			}
 		} catch (err) {
 			this.tasks = previous;
 			throw err;

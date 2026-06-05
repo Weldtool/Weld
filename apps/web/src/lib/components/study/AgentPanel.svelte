@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { study as studyApi } from '$lib/api';
+	import { study as studyApi, messages as messagesApi } from '$lib/api';
+	import { agentActivity } from '$lib/agent-activity.svelte';
 	import { study } from '$lib/study.svelte';
 	import { telemetry } from '$lib/telemetry.svelte';
 	import { cn } from '$lib/utils';
@@ -11,10 +12,23 @@
 		actions?: string[];
 	}
 
+	/** A chat message the agent drafted, awaiting the participant's review/send. */
+	interface PendingDraft {
+		id: number;
+		channel: string;
+		channelId: string;
+		original: string;
+		content: string;
+		sending: boolean;
+		error: string | null;
+	}
+
 	const COLLAPSED_KEY = 'weld:agent-collapsed';
 
 	let collapsed = $state(false);
 	let turns = $state<Turn[]>([]);
+	let drafts = $state<PendingDraft[]>([]);
+	let draftSeq = 0;
 	let input = $state('');
 	let busy = $state(false);
 	let error = $state<string | null>(null);
@@ -40,9 +54,13 @@
 		if (id !== lastTaskId) {
 			lastTaskId = id;
 			turns = [];
+			drafts = [];
 			input = '';
 			error = null;
 			busy = false;
+			// Drop any prior task's agent-touched cards so verification/repair
+			// signals never bleed across tasks.
+			agentActivity.reset();
 			resizeSoon();
 		}
 	});
@@ -81,13 +99,80 @@
 				message,
 				current_task_id: study.currentTask?.id ?? null
 			});
+			// Remember the cards the agent touched so a later user edit to them is
+			// logged as verification/repair (RQ1).
+			agentActivity.note(study.currentTask?.id ?? null, res.entities);
 			turns.push({ role: 'agent', text: res.reply, actions: res.actions });
+			// Surface any drafted chat messages for the participant to review,
+			// edit, and send themselves (edit-before-send).
+			for (const d of res.drafts) {
+				drafts.push({
+					id: draftSeq++,
+					channel: d.channel,
+					channelId: d.channel_id,
+					original: d.content,
+					content: d.content,
+					sending: false,
+					error: null
+				});
+			}
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'The assistant is unavailable. Please try again.';
 		} finally {
 			busy = false;
 			scrollSoon();
 		}
+	}
+
+	/** Send a reviewed/edited draft as the participant's own message, logging
+	 *  whether they accepted it verbatim or edited it first (RQ1). */
+	async function sendDraft(id: number) {
+		const d = drafts.find((x) => x.id === id);
+		if (!d || d.sending) return;
+		const content = d.content.trim();
+		if (!content) {
+			d.error = 'Message is empty.';
+			return;
+		}
+		d.sending = true;
+		d.error = null;
+		try {
+			await messagesApi.post(d.channelId, { content });
+			const edited = content !== d.original.trim();
+			const taskId = study.currentTask?.id ?? null;
+			telemetry.log('message_sent', {
+				channel: d.channel,
+				length: content.length,
+				contains_mention: /@\w/.test(content),
+				contains_link: /https?:\/\//.test(content),
+				agent_drafted: true
+			});
+			telemetry.log(edited ? 'agent_output_edited' : 'agent_suggestion_accepted', {
+				task_id: taskId,
+				surface: 'chat',
+				channel: d.channel,
+				edited,
+				original_length: d.original.trim().length,
+				sent_length: content.length
+			});
+			drafts = drafts.filter((x) => x.id !== id);
+		} catch (e) {
+			d.error = e instanceof Error ? e.message : 'Could not send. Please try again.';
+		} finally {
+			d.sending = false;
+		}
+	}
+
+	/** Discard a draft without sending — an explicit rejection of agent output. */
+	function discardDraft(id: number) {
+		const d = drafts.find((x) => x.id === id);
+		if (!d) return;
+		telemetry.log('agent_suggestion_rejected', {
+			task_id: study.currentTask?.id ?? null,
+			surface: 'chat',
+			channel: d.channel
+		});
+		drafts = drafts.filter((x) => x.id !== id);
 	}
 
 	function scrollSoon() {
@@ -170,6 +255,39 @@
 					Thinking…
 				</div>
 			{/if}
+			{#each drafts as draft (draft.id)}
+				<div class="rounded-lg border border-[var(--border)] bg-[var(--background)] p-2 text-xs">
+					<p class="mb-1 font-medium text-[var(--muted-foreground)]">
+						Draft for #{draft.channel} — review &amp; send
+					</p>
+					<textarea
+						bind:value={draft.content}
+						rows="3"
+						class="w-full resize-y rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-1.5 text-xs leading-snug outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+					></textarea>
+					{#if draft.error}
+						<p class="mt-1 text-red-500">{draft.error}</p>
+					{/if}
+					<div class="mt-1.5 flex gap-2">
+						<button
+							type="button"
+							onclick={() => sendDraft(draft.id)}
+							disabled={draft.sending || draft.content.trim().length === 0}
+							class="rounded-md bg-[var(--primary)] px-2.5 py-1 font-medium text-[var(--primary-foreground)] hover:opacity-90 disabled:opacity-50"
+						>
+							{draft.sending ? 'Sending…' : 'Send'}
+						</button>
+						<button
+							type="button"
+							onclick={() => discardDraft(draft.id)}
+							disabled={draft.sending}
+							class="rounded-md border border-[var(--border)] px-2.5 py-1 hover:bg-[var(--accent)]"
+						>
+							Discard
+						</button>
+					</div>
+				</div>
+			{/each}
 			{#if error}
 				<p class="text-xs text-red-500">{error}</p>
 			{/if}

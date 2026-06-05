@@ -17,8 +17,7 @@ use super::ParticipantCtx;
 use super::gate::{AgentCondition, ToolCategory, allowed_tool_categories};
 use crate::errors::ApiError;
 use crate::realtime::Hub;
-use crate::realtime::broadcast::{publish_channel_event, publish_project_event};
-use crate::services::chat::{PostMessageInput, post_message};
+use crate::realtime::broadcast::publish_project_event;
 use crate::services::github::sync::link_task;
 use crate::services::task::{
     CreateTaskInput, TaskWithLabels, UpdateTaskInput, create_task, move_task, update_task,
@@ -106,7 +105,9 @@ fn all_defs() -> Vec<(ToolCategory, Value)> {
             ToolCategory::ChatPost,
             function_def(
                 POST_MESSAGE,
-                "Post a message to a team chat channel as the assistant.",
+                "Draft a chat message for a team channel. This does NOT post it: the message is \
+                 shown to the user to review, edit, and send themselves. Use it whenever the user \
+                 wants something said in a channel.",
                 json!({
                     "type": "object",
                     "properties": {
@@ -150,6 +151,37 @@ pub struct ToolOutcome {
     /// Human-readable, attributable summary for the UI/telemetry
     /// ("Moved card X to In Progress").
     pub summary: String,
+    /// The Weld entity this call touched, surfaced to the client so it can
+    /// detect the participant later editing/undoing the agent's work
+    /// (RQ1 verification/repair telemetry). `None` for actions that touch no
+    /// trackable entity.
+    pub entity: Option<EntityRef>,
+    /// A chat message the agent proposes but does NOT post: the participant
+    /// reviews/edits and sends it themselves (edit-before-send). `None` for any
+    /// tool that isn't a chat draft.
+    pub draft: Option<ChatDraft>,
+}
+
+/// A chat message the agent has drafted for the participant to review and send.
+pub struct ChatDraft {
+    /// Channel name without the leading '#'.
+    pub channel: String,
+    /// Resolved channel UUID (as a string) the client posts to on send.
+    pub channel_id: String,
+    /// The proposed message body, pre-filled into an editable box.
+    pub content: String,
+}
+
+/// A reference to the entity an agent action created or modified. Threaded back
+/// to the client (and logged on `agent_tool_call`) so user follow-up edits to
+/// the same entity can be attributed as verification/repair behavior.
+pub struct EntityRef {
+    /// "card" or "message".
+    pub kind: &'static str,
+    /// The entity's UUID as a string.
+    pub id: String,
+    /// What the agent did: "created" | "moved" | "updated" | "linked" | "posted".
+    pub action: &'static str,
 }
 
 /// Execute a tool call. Second gate: re-checks the category against the
@@ -214,6 +246,12 @@ async fn create_card(
     Ok(ToolOutcome {
         result: format!("Created card \"{title}\" in {column}."),
         summary: format!("Created card “{title}” in {column}"),
+        entity: Some(EntityRef {
+            kind: "card",
+            id: created.task.id.to_string(),
+            action: "created",
+        }),
+        draft: None,
     })
 }
 
@@ -239,6 +277,12 @@ async fn move_card(
     Ok(ToolOutcome {
         result: format!("Moved card to {to_column}."),
         summary: format!("Moved “{}” to {to_column}", moved.task.title),
+        entity: Some(EntityRef {
+            kind: "card",
+            id: card_id.to_string(),
+            action: "moved",
+        }),
+        draft: None,
     })
 }
 
@@ -273,32 +317,42 @@ async fn update_card(
     Ok(ToolOutcome {
         result: format!("Updated card “{}”.", updated.task.title),
         summary: format!("Updated card “{}”", updated.task.title),
+        entity: Some(EntityRef {
+            kind: "card",
+            id: card_id.to_string(),
+            action: "updated",
+        }),
+        draft: None,
     })
 }
 
+/// Draft (do NOT post) a chat message. Edit-before-send: the proposed message
+/// is surfaced to the participant, who reviews/edits and sends it themselves
+/// under their own name. This keeps chat attribution honest and produces the
+/// accept/edit/reject signal for RQ1. We validate the channel exists so the
+/// agent can't draft into a nonexistent channel, but we never write here.
 async fn post_chat(
     pool: &PgPool,
-    hub: &Arc<Hub>,
+    _hub: &Arc<Hub>,
     ctx: &ParticipantCtx,
     args: &Value,
 ) -> Result<ToolOutcome, ApiError> {
     let channel = str_arg(args, "channel")?;
     let content = str_arg(args, "content")?;
     let channel_id = resolve_channel(pool, ctx.team_id, &channel).await?;
-    let message = post_message(
-        pool,
-        channel_id,
-        ctx.user_id,
-        PostMessageInput {
-            content: content.clone(),
-            thread_parent_id: None,
-        },
-    )
-    .await?;
-    publish_channel_event(hub, channel_id, "chat.message.new", &message);
+    let clean = channel.trim().trim_start_matches('#').to_string();
     Ok(ToolOutcome {
-        result: format!("Posted to #{channel}."),
-        summary: format!("Posted a message in #{channel}"),
+        result: format!(
+            "Drafted a message for #{clean}. It is shown to the user to review and send — it has \
+             NOT been posted yet."
+        ),
+        summary: format!("Drafted a message for #{clean} (awaiting your review)"),
+        entity: None,
+        draft: Some(ChatDraft {
+            channel: clean,
+            channel_id: channel_id.to_string(),
+            content,
+        }),
     })
 }
 
@@ -327,6 +381,12 @@ async fn link_github(
     Ok(ToolOutcome {
         result: format!("Linked card to {what}."),
         summary: format!("Linked “{}” to {what}", linked.task.title),
+        entity: Some(EntityRef {
+            kind: "card",
+            id: card_id.to_string(),
+            action: "linked",
+        }),
+        draft: None,
     })
 }
 

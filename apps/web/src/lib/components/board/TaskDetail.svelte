@@ -378,7 +378,11 @@
 									target="_blank"
 									rel="noopener noreferrer"
 									class="inline-flex items-center gap-1 rounded border border-[var(--border)] px-2 py-0.5 text-xs hover:underline"
-									onclick={() => telemetry.log('issue_referenced_from_card', { task_id: task?.id, issue_number: task?.github_issue_id })}
+									onclick={() =>
+										telemetry.log('issue_referenced_from_card', {
+											task_id: task?.id,
+											issue_number: task?.github_issue_id
+										})}
 								>
 									<svg
 										class="h-3.5 w-3.5 shrink-0"
@@ -400,7 +404,11 @@
 									target="_blank"
 									rel="noopener noreferrer"
 									class="inline-flex items-center gap-1 rounded border border-[var(--border)] px-2 py-0.5 text-xs hover:underline"
-									onclick={() => telemetry.log('pr_referenced_from_card', { task_id: task?.id, pr_number: task?.github_pr_id })}
+									onclick={() =>
+										telemetry.log('pr_referenced_from_card', {
+											task_id: task?.id,
+											pr_number: task?.github_pr_id
+										})}
 								>
 									<svg
 										class="h-3.5 w-3.5 shrink-0"

@@ -29,7 +29,29 @@ pub struct AgentRunResult {
     pub reply: String,
     /// Attributable summaries of actions the agent performed (for the UI).
     pub actions: Vec<String>,
+    /// The entities the agent created/modified this turn, so the client can
+    /// attribute later user edits to them as verification/repair (RQ1).
+    pub entities: Vec<AgentEntity>,
+    /// Chat messages the agent drafted for the participant to review and send
+    /// (edit-before-send). Not yet posted.
+    pub drafts: Vec<AgentDraft>,
     pub condition: String,
+}
+
+/// A trackable entity an agent action touched, surfaced to the client.
+#[derive(serde::Serialize)]
+pub struct AgentEntity {
+    pub kind: String,
+    pub id: String,
+    pub action: String,
+}
+
+/// A chat message the agent proposed; the participant edits/sends it.
+#[derive(serde::Serialize)]
+pub struct AgentDraft {
+    pub channel: String,
+    pub channel_id: String,
+    pub content: String,
 }
 
 /// Run a single agent turn for a participant message.
@@ -95,6 +117,8 @@ pub async fn run_turn(
 
     let started = std::time::Instant::now();
     let mut actions: Vec<String> = Vec::new();
+    let mut entities: Vec<AgentEntity> = Vec::new();
+    let mut drafts: Vec<AgentDraft> = Vec::new();
     let mut total_tool_calls = 0usize;
     let mut reply = String::new();
 
@@ -177,6 +201,17 @@ pub async fn run_turn(
 
             match tools::execute(pool, hub, ctx, &call.function.name, &args).await {
                 Ok(outcome) => {
+                    // Surface the touched entity id on the tool-call event so a
+                    // later user edit to the same entity is joinable post-hoc
+                    // even if the live client signal is missed.
+                    let (entity_kind, entity_id, entity_action) = match &outcome.entity {
+                        Some(e) => (
+                            Value::from(e.kind),
+                            Value::from(e.id.as_str()),
+                            Value::from(e.action),
+                        ),
+                        None => (Value::Null, Value::Null, Value::Null),
+                    };
                     record_server_event(
                         pool,
                         pid,
@@ -186,10 +221,30 @@ pub async fn run_turn(
                             "tool": call.function.name,
                             "allowed": true,
                             "executed": true,
+                            // A chat draft is prepared but not posted — flag it so
+                            // analysis doesn't count it as a completed chat action.
+                            "drafted": outcome.draft.is_some(),
                             "args_summary": args,
+                            "entity_kind": entity_kind,
+                            "entity_id": entity_id,
+                            "entity_action": entity_action,
                         }),
                     )
                     .await;
+                    if let Some(e) = outcome.entity {
+                        entities.push(AgentEntity {
+                            kind: e.kind.to_string(),
+                            id: e.id,
+                            action: e.action.to_string(),
+                        });
+                    }
+                    if let Some(d) = outcome.draft {
+                        drafts.push(AgentDraft {
+                            channel: d.channel,
+                            channel_id: d.channel_id,
+                            content: d.content,
+                        });
+                    }
                     actions.push(outcome.summary);
                     messages.push(tool_result_message(&call.id, &outcome.result));
                 }
@@ -245,21 +300,48 @@ pub async fn run_turn(
     Ok(AgentRunResult {
         reply,
         actions,
+        entities,
+        drafts,
         condition: condition.as_str().to_string(),
     })
 }
 
 fn system_prompt(condition: AgentCondition) -> String {
+    // Shared rules. The no-false-action rule is critical for study validity: the
+    // agent must never claim an action it cannot perform (e.g. a C2 agent has no
+    // GitHub-linking tool), because a fabricated "done" confounds what the agent
+    // actually did versus claimed.
     let base = "You are an AI assistant embedded in Weld, a developer workspace, helping a user \
         on the PetTracker project. Be concise and practical. Use only the project context provided; \
-        do not invent cards, messages, or pull requests that aren't shown.";
+        do not invent cards, messages, or pull requests that aren't shown. Only report an action \
+        as completed if you actually performed it by calling the matching tool — never claim or \
+        imply you did something you have no tool for. If the user asks for something outside your \
+        abilities, say plainly that you can't do it and tell them how to do it themselves.";
     let capability = match condition {
         AgentCondition::C1 => {
-            " You can only give advice — you have no ability to act. Tell the user clearly what to do."
+            " You have NO ability to act: you cannot change the board, post messages, or link \
+            anything. You can only give advice — clearly tell the user what to do and let them do \
+            it. Never say you have done something; you can only recommend."
         }
-        AgentCondition::C2 | AgentCondition::C3 => {
-            " When the user asks you to do something you have a tool for, call the tool rather than \
-            only describing it. After acting, briefly confirm what you did."
+        AgentCondition::C2 => {
+            " You can act on the BOARD (create, move, update, assign, label, and set priority on \
+            cards) and DRAFT chat messages — only by calling the provided tools. Drafting a \
+            message does NOT post it: it is shown to the user to review, edit, and send \
+            themselves, so phrase your confirmation as having drafted it for them (never say you \
+            posted it). You CANNOT touch GitHub in any way: you cannot link cards to issues or \
+            pull requests, and you cannot read GitHub. If the user asks anything involving GitHub \
+            (e.g. linking a PR), tell them plainly you can't and that they'll need to do it \
+            themselves — do not claim you did it. When you can act, call the tool rather than only \
+            describing it, then briefly confirm what you actually did."
+        }
+        AgentCondition::C3 => {
+            " You can act on the BOARD (create, move, update, assign, label, and set priority on \
+            cards), DRAFT chat messages, and LINK cards to existing GitHub issues or pull requests \
+            — only by calling the provided tools. Drafting a message does NOT post it: it is shown \
+            to the user to review, edit, and send themselves, so say you drafted it for them \
+            (never say you posted it). You cannot create or modify anything on GitHub itself, only \
+            link cards to items that already exist. When you can act, call the tool rather than \
+            only describing it, then briefly confirm what you actually did."
         }
     };
     format!("{base}{capability}")

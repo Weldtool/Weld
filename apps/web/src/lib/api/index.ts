@@ -104,11 +104,28 @@ export const study = {
 
 	/** One agent turn, scoped to the participant's condition server-side. */
 	agent: (body: { message: string; current_task_id?: string | null }, opts?: RequestOptions) =>
-		authStore.fetch<{ reply: string; actions: string[]; agent_condition: string }>(
-			'/api/v1/study/agent',
-			{ ...opts, method: 'POST', body }
-		)
+		authStore.fetch<{
+			reply: string;
+			actions: string[];
+			entities: AgentEntity[];
+			drafts: AgentDraft[];
+			agent_condition: string;
+		}>('/api/v1/study/agent', { ...opts, method: 'POST', body })
 };
+
+/** An entity the study agent created or modified during a turn. */
+export interface AgentEntity {
+	kind: 'card' | 'message';
+	id: string;
+	action: 'created' | 'moved' | 'updated' | 'linked' | 'posted';
+}
+
+/** A chat message the agent drafted for the participant to review and send. */
+export interface AgentDraft {
+	channel: string;
+	channel_id: string;
+	content: string;
+}
 
 export const auth = {
 	register: (

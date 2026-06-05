@@ -31,7 +31,10 @@ async fn main() {
             api_key,
             model: config.openai_model.clone(),
             temperature: 0.2,
-            prompt_version: "v1".to_string(),
+            // v3: per-condition capability boundaries + no-false-action rule
+            // (stops a C2 agent claiming it linked a PR it has no tool for) +
+            // chat posts are drafted for the user to review/send, not auto-posted.
+            prompt_version: "v3".to_string(),
         })
     });
 

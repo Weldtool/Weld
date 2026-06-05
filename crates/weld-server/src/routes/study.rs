@@ -204,7 +204,26 @@ pub struct AgentRequest {
 pub struct AgentResponse {
     pub reply: String,
     pub actions: Vec<String>,
+    /// Entities the agent touched this turn, so the client can attribute later
+    /// user edits to them as verification/repair behavior (RQ1).
+    pub entities: Vec<AgentEntityDto>,
+    /// Chat messages the agent drafted for the participant to review and send.
+    pub drafts: Vec<AgentDraftDto>,
     pub agent_condition: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AgentEntityDto {
+    pub kind: String,
+    pub id: String,
+    pub action: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AgentDraftDto {
+    pub channel: String,
+    pub channel_id: String,
+    pub content: String,
 }
 
 /// One agent turn for the authenticated participant. Scoped to their condition
@@ -239,6 +258,24 @@ pub async fn agent_turn(
     Ok(Json(AgentResponse {
         reply: result.reply,
         actions: result.actions,
+        entities: result
+            .entities
+            .into_iter()
+            .map(|e| AgentEntityDto {
+                kind: e.kind,
+                id: e.id,
+                action: e.action,
+            })
+            .collect(),
+        drafts: result
+            .drafts
+            .into_iter()
+            .map(|d| AgentDraftDto {
+                channel: d.channel,
+                channel_id: d.channel_id,
+                content: d.content,
+            })
+            .collect(),
         agent_condition: result.condition,
     }))
 }
