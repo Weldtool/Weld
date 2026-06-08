@@ -105,13 +105,30 @@ pub async fn run_turn(
     )
     .await;
 
-    // 2. Build the message stack stable-content-first (system → context → user)
-    //    so OpenAI prompt caching applies to the repeated prefix.
+    // 2. Load prior turns for this task from the DB (server-owned; the client
+    //    never controls what enters the LLM context).
+    let task_key = current_task_id.unwrap_or("__notask__");
+    let prior_turns = sqlx::query!(
+        r#"SELECT role, content FROM study_agent_turns
+           WHERE participant_id = $1 AND task_id = $2
+           ORDER BY created_at ASC"#,
+        ctx.participant_id,
+        task_key,
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| ApiError::Internal(format!("failed to load conversation history: {e}")))?;
+
+    // 3. Build the message stack stable-content-first (system → context →
+    //    history → user) so OpenAI prompt caching applies to the repeated prefix.
     let mut messages: Vec<Value> = vec![
         json!({ "role": "system", "content": system_prompt(condition) }),
         json!({ "role": "system", "content": format!("Current project context:\n{}", scoped.render_for_prompt()) }),
-        json!({ "role": "user", "content": user_message }),
     ];
+    for turn in &prior_turns {
+        messages.push(json!({ "role": turn.role, "content": turn.content }));
+    }
+    messages.push(json!({ "role": "user", "content": user_message }));
 
     let tool_defs = tools::openai_tool_defs(condition);
 
@@ -296,6 +313,21 @@ pub async fn run_turn(
     if reply.trim().is_empty() && !actions.is_empty() {
         reply = "Done.".to_string();
     }
+
+    // Persist both sides of this exchange so future turns have server-owned
+    // history to replay. Failures are non-fatal — a missed row means the next
+    // turn loses one round of context, which is better than surfacing a DB
+    // error to the participant.
+    let _ = sqlx::query!(
+        "INSERT INTO study_agent_turns (participant_id, task_id, role, content)
+         VALUES ($1, $2, 'user', $3), ($1, $2, 'assistant', $4)",
+        ctx.participant_id,
+        task_key,
+        user_message,
+        reply,
+    )
+    .execute(pool)
+    .await;
 
     Ok(AgentRunResult {
         reply,

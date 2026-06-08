@@ -55,22 +55,23 @@
 	<div class="flex min-w-0 flex-1 flex-col">
 		{#if channel}
 			<header
-				class="flex shrink-0 items-center gap-2 border-b border-[var(--border)] bg-[var(--background)] px-4 py-3"
+				class="flex shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--card)] px-5 py-3.5"
 			>
 				{#if channel.is_direct}
-					<MessageSquare class="h-4 w-4 text-[var(--muted-foreground)]" />
+					<MessageSquare class="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
 				{:else if channel.is_private}
-					<Lock class="h-4 w-4 text-[var(--muted-foreground)]" />
+					<Lock class="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
 				{:else}
-					<Hash class="h-4 w-4 text-[var(--muted-foreground)]" />
+					<Hash class="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
 				{/if}
-				<span class="font-semibold">{channel.name}</span>
+				<span class="text-base font-semibold tracking-tight">{channel.name}</span>
 				{#if channel.topic}
-					<span class="ml-3 truncate text-xs text-[var(--muted-foreground)]">{channel.topic}</span>
+					<span class="text-[var(--muted-foreground)]">·</span>
+					<span class="min-w-0 truncate text-sm text-[var(--muted-foreground)]">{channel.topic}</span>
 				{/if}
 				<button
 					type="button"
-					class="ml-auto rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+					class="ml-auto rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
 					title="Channel settings"
 					aria-label="Channel settings"
 					onclick={() => (showSettings = !showSettings)}

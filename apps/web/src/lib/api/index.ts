@@ -66,7 +66,12 @@ export interface ProvisionResponse {
 export const study = {
 	/** Create a participant with an isolated seed + session. Public (no token). */
 	provision: (
-		body: { consent_version?: string; access_code?: string } = {},
+		body: {
+			consent_version?: string;
+			access_code?: string;
+			participant_email?: string;
+			institution?: string;
+		} = {},
 		opts?: RequestOptions
 	) =>
 		apiRequest<ProvisionResponse>('/api/v1/study/provision', {

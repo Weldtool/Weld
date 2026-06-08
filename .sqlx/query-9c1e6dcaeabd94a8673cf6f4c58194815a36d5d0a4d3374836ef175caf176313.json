@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO tasks\n              (project_id, column_id, title, description, assignee_id, reporter_id,\n               priority, position, github_issue_id, github_pr_id, created_at)\n            VALUES ($1, $2, $3, $4, $5, $6, $7::priority, $8, $9, $10, $11)\n            RETURNING id\n            ",
+  "query": "\n            INSERT INTO tasks\n              (project_id, column_id, title, description, assignee_id, reporter_id,\n               priority, position, github_issue_id, github_pr_id, github_repo, created_at)\n            VALUES ($1, $2, $3, $4, $5, $6, $7::priority, $8, $9, $10, $11, $12)\n            RETURNING id\n            ",
   "describe": {
     "columns": [
       {
@@ -34,6 +34,7 @@
         "Float8",
         "Int8",
         "Int8",
+        "Text",
         "Timestamptz"
       ]
     },
@@ -41,5 +42,5 @@
       false
     ]
   },
-  "hash": "37238469e52bd66889ab4b9b5cf37e430db3635b75667d793458ec848706282e"
+  "hash": "9c1e6dcaeabd94a8673cf6f4c58194815a36d5d0a4d3374836ef175caf176313"
 }

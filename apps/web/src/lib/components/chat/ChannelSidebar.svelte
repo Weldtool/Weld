@@ -35,12 +35,12 @@
 	}
 </script>
 
-<aside class="flex h-full w-60 shrink-0 flex-col border-r border-[var(--border)] bg-[var(--card)]">
-	<div class="flex items-center justify-between border-b border-[var(--border)] px-3 py-2.5">
-		<span class="text-sm font-semibold">Channels</span>
+<aside class="flex h-full w-64 shrink-0 flex-col border-r border-[var(--border)] bg-[var(--muted)]">
+	<div class="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
+		<span class="text-sm font-semibold tracking-tight">Channels</span>
 		<button
 			type="button"
-			class="rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+			class="rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
 			onclick={onCreateChannel}
 			title="New channel"
 			aria-label="New channel"
@@ -49,16 +49,14 @@
 		</button>
 	</div>
 
-	<div class="flex-1 overflow-y-auto px-2 py-2 text-sm">
+	<div class="flex-1 overflow-y-auto px-2 py-3 text-sm">
 		{#snippet section(label: string, list: Channel[])}
 			{#if list.length > 0}
-				<div class="mb-3">
-					<div
-						class="px-2 text-[10px] font-semibold tracking-wide text-[var(--muted-foreground)] uppercase"
-					>
+				<div class="mb-4">
+					<div class="px-2.5 pb-1 text-xs font-semibold uppercase tracking-wide text-[var(--foreground)]/60">
 						{label}
 					</div>
-					<ul class="mt-1 space-y-0.5">
+					<ul class="space-y-0.5">
 						{#each list as c (c.id)}
 							{@const u = unread(c.id)}
 							<li>
@@ -66,19 +64,19 @@
 									type="button"
 									onclick={() => go(c.id)}
 									class={cn(
-										'flex w-full items-center justify-between gap-2 rounded px-2 py-1 text-left',
+										'flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left transition-colors',
 										c.id === activeChannelId
-											? 'bg-[var(--accent)] text-[var(--accent-foreground)]'
-											: 'text-[var(--muted-foreground)] hover:bg-[var(--accent)]/50 hover:text-[var(--foreground)]'
+											? 'bg-[var(--accent)] font-medium text-[var(--foreground)]'
+											: 'text-[var(--foreground)]/70 hover:bg-[var(--accent)]/60 hover:text-[var(--foreground)]'
 									)}
 								>
-									<span class="flex min-w-0 items-center gap-1.5 truncate">
+									<span class="flex min-w-0 items-center gap-2 truncate">
 										{#if c.is_direct}
-											<MessageSquare class="h-3.5 w-3.5 shrink-0" />
+											<MessageSquare class="h-3.5 w-3.5 shrink-0 opacity-60" />
 										{:else if c.is_private}
-											<Lock class="h-3.5 w-3.5 shrink-0" />
+											<Lock class="h-3.5 w-3.5 shrink-0 opacity-60" />
 										{:else}
-											<Hash class="h-3.5 w-3.5 shrink-0" />
+											<Hash class="h-3.5 w-3.5 shrink-0 opacity-60" />
 										{/if}
 										<span class="truncate {u > 0 ? 'font-semibold text-[var(--foreground)]' : ''}">
 											{c.name}
@@ -86,7 +84,7 @@
 									</span>
 									{#if u > 0}
 										<span
-											class="rounded-full bg-[var(--primary)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--primary-foreground)]"
+											class="shrink-0 rounded-full bg-[var(--primary)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--primary-foreground)]"
 										>
 											{u}
 										</span>

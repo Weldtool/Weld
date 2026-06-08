@@ -152,17 +152,17 @@
 	}
 </script>
 
-<div class="relative border-t border-[var(--border)] bg-[var(--background)] p-3">
+<div class="relative border-t border-[var(--border)] bg-[var(--card)] px-4 py-3">
 	{#if trigger === '@' && memberMatches.length > 0}
 		<ul
-			class="absolute bottom-full left-3 mb-1 w-64 rounded-md border border-[var(--border)] bg-[var(--card)] p-1 shadow-lg"
+			class="absolute bottom-full left-4 mb-1.5 w-64 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--card)] p-1 shadow-xl"
 			role="listbox"
 		>
 			{#each memberMatches as m, i (m.user_id)}
 				<li>
 					<button
 						type="button"
-						class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm {i ===
+						class="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm transition-colors {i ===
 						highlight
 							? 'bg-[var(--accent)] text-[var(--accent-foreground)]'
 							: 'hover:bg-[var(--accent)]/60'}"
@@ -171,8 +171,13 @@
 							selectMember(m);
 						}}
 					>
+						<span
+							class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--muted)] text-[10px] font-semibold"
+						>
+							{m.display_name.charAt(0).toUpperCase()}
+						</span>
 						<span class="font-medium">{m.display_name}</span>
-						<span class="text-xs text-[var(--muted-foreground)]">
+						<span class="ml-auto text-xs text-[var(--muted-foreground)]">
 							@{m.email.split('@')[0]}
 						</span>
 					</button>
@@ -181,14 +186,14 @@
 		</ul>
 	{:else if trigger === '#' && taskMatches.length > 0}
 		<ul
-			class="absolute bottom-full left-3 mb-1 w-80 rounded-md border border-[var(--border)] bg-[var(--card)] p-1 shadow-lg"
+			class="absolute bottom-full left-4 mb-1.5 w-80 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--card)] p-1 shadow-xl"
 			role="listbox"
 		>
 			{#each taskMatches as t, i (t.id)}
 				<li>
 					<button
 						type="button"
-						class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm {i ===
+						class="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm transition-colors {i ===
 						highlight
 							? 'bg-[var(--accent)] text-[var(--accent-foreground)]'
 							: 'hover:bg-[var(--accent)]/60'}"
@@ -214,14 +219,16 @@
 		onkeydown={onKeydown}
 		{placeholder}
 		rows={1}
-		class="block w-full resize-none rounded-md border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+		class="block w-full resize-none rounded-lg border border-[var(--input)] bg-[var(--background)] px-3.5 py-2.5 text-sm outline-none transition-colors focus-visible:border-[var(--ring)]/60 focus-visible:ring-2 focus-visible:ring-[var(--ring)]/20"
 		aria-label="Message composer"
 	></textarea>
-	<div class="mt-1 flex justify-between text-[10px] text-[var(--muted-foreground)]">
-		<span>Enter to send · Shift+Enter for newline · @ to mention · # to link a task</span>
+	<div class="mt-2 flex items-center justify-between">
+		<span class="text-[11px] text-[var(--muted-foreground)]">
+			⏎ send &nbsp;·&nbsp; ⇧⏎ newline &nbsp;·&nbsp; @ mention &nbsp;·&nbsp; # task
+		</span>
 		<button
 			type="button"
-			class="rounded-md bg-[var(--primary)] px-3 py-1 text-xs font-medium text-[var(--primary-foreground)] hover:opacity-90 disabled:opacity-50"
+			class="rounded-md bg-[var(--primary)] px-3.5 py-1.5 text-xs font-semibold text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:opacity-40"
 			onclick={() => send()}
 			disabled={!value.trim()}
 		>

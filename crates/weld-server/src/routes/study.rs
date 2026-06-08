@@ -34,6 +34,10 @@ pub struct ProvisionRequest {
     /// Single-use access code. Required when `STUDY_REQUIRE_ACCESS_CODE` is set;
     /// ignored otherwise (so local testing needs no code).
     pub access_code: Option<String>,
+    /// Participant's email address, collected for result linkage.
+    pub participant_email: Option<String>,
+    /// Participant's institution (university / company).
+    pub institution: Option<String>,
 }
 
 /// Provision a fresh study participant with an isolated PetTracker clone and a
@@ -48,14 +52,27 @@ pub async fn provision(
         return Err(ApiError::NotFound("Not found".into()));
     }
 
-    let (consent_version, access_code) = body
-        .map(|Json(b)| (b.consent_version, b.access_code))
-        .unwrap_or((None, None));
+    let (consent_version, access_code, participant_email, institution) = body
+        .map(|Json(b)| {
+            (
+                b.consent_version,
+                b.access_code,
+                b.participant_email,
+                b.institution,
+            )
+        })
+        .unwrap_or((None, None, None, None));
 
     // Normalize: treat blank/whitespace as absent.
     let access_code = access_code
         .map(|c| c.trim().to_string())
         .filter(|c| !c.is_empty());
+    let participant_email = participant_email
+        .map(|e| e.trim().to_lowercase())
+        .filter(|e| !e.is_empty());
+    let institution = institution
+        .map(|i| i.trim().to_string())
+        .filter(|i| !i.is_empty());
 
     if state.study_require_access_code && access_code.is_none() {
         return Err(ApiError::Validation("An access code is required.".into()));
@@ -77,6 +94,8 @@ pub async fn provision(
                     &state.jwt_secret,
                     consent_version.as_deref(),
                     Some(code),
+                    participant_email.as_deref(),
+                    institution.as_deref(),
                 )
                 .await?
             }
@@ -87,6 +106,8 @@ pub async fn provision(
                 &state.jwt_secret,
                 consent_version.as_deref(),
                 None,
+                participant_email.as_deref(),
+                institution.as_deref(),
             )
             .await?
         }

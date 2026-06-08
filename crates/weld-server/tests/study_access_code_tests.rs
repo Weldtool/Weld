@@ -29,12 +29,12 @@ async fn unused_code_provisions_once_then_is_spent() {
         .expect("one code");
 
     // First use succeeds.
-    provision_participant(&pool, JWT, Some("v1.0"), Some(&code))
+    provision_participant(&pool, JWT, Some("v1.0"), Some(&code), None, None)
         .await
         .expect("first provision with valid code");
 
     // Second use of the same code is rejected as already-used.
-    match provision_participant(&pool, JWT, Some("v1.0"), Some(&code)).await {
+    match provision_participant(&pool, JWT, Some("v1.0"), Some(&code), None, None).await {
         Err(ApiError::Conflict(_)) => {}
         Ok(_) => panic!("spent code must not provision a second participant"),
         Err(e) => panic!("expected Conflict for a spent code, got {e:?}"),
@@ -44,7 +44,16 @@ async fn unused_code_provisions_once_then_is_spent() {
 #[tokio::test]
 async fn unknown_code_is_rejected() {
     let pool = pool().await;
-    match provision_participant(&pool, JWT, Some("v1.0"), Some("WELD-ZZZZ-ZZZZ-nope")).await {
+    match provision_participant(
+        &pool,
+        JWT,
+        Some("v1.0"),
+        Some("WELD-ZZZZ-ZZZZ-nope"),
+        None,
+        None,
+    )
+    .await
+    {
         Err(ApiError::Validation(_)) => {}
         Ok(_) => panic!("unknown code must not provision"),
         Err(e) => panic!("expected Validation for an unknown code, got {e:?}"),
@@ -60,7 +69,7 @@ async fn spent_code_resumes_existing_participant_at_saved_place() {
         .pop()
         .expect("one code");
 
-    let first = provision_participant(&pool, JWT, Some("v1.0"), Some(&code))
+    let first = provision_participant(&pool, JWT, Some("v1.0"), Some(&code), None, None)
         .await
         .expect("first provision");
 
@@ -93,7 +102,7 @@ async fn provision_without_code_still_works_for_testing() {
     // With STUDY_REQUIRE_ACCESS_CODE off, the route passes None and provisioning
     // proceeds — this path keeps local testing frictionless.
     let pool = pool().await;
-    provision_participant(&pool, JWT, Some("v1.0"), None)
+    provision_participant(&pool, JWT, Some("v1.0"), None, None, None)
         .await
         .expect("provision without a code");
 }

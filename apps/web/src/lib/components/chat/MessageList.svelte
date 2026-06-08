@@ -80,20 +80,18 @@
 <div
 	bind:this={scrollEl}
 	onscroll={onScroll}
-	class="flex-1 overflow-y-auto px-2 py-2"
+	class="flex-1 overflow-y-auto px-2 py-3"
 	role="log"
 	aria-live="polite"
 	aria-relevant="additions"
 >
 	{#if initialLoading}
-		<div
-			class="flex flex-1 items-center justify-center py-8 text-xs text-[var(--muted-foreground)]"
-		>
+		<div class="flex flex-1 items-center justify-center py-8 text-sm text-[var(--muted-foreground)]">
 			Loading messages…
 		</div>
 	{:else if loadError}
 		<div
-			class="flex flex-1 flex-col items-center justify-center gap-2 py-8 text-center text-xs text-red-500"
+			class="flex flex-1 flex-col items-center justify-center gap-2 py-8 text-center text-sm text-red-500"
 		>
 			<span>Failed to load messages: {loadError}</span>
 			<button
@@ -105,12 +103,10 @@
 			</button>
 		</div>
 	{:else if loadingOlder}
-		<div class="py-2 text-center text-xs text-[var(--muted-foreground)]">
-			Loading older messages…
-		</div>
+		<div class="py-2 text-center text-xs text-[var(--muted-foreground)]">Loading older messages…</div>
 	{:else if !hasMore && messages.length > 0}
-		<div class="py-2 text-center text-[10px] text-[var(--muted-foreground)]">
-			You've reached the start of the channel.
+		<div class="py-2 text-center text-xs text-[var(--muted-foreground)]">
+			Beginning of channel.
 		</div>
 	{/if}
 
@@ -118,9 +114,11 @@
 		{#each messages as m, i (m.id)}
 			{@const day = dayLabel(i)}
 			{#if day}
-				<div class="my-2 flex items-center gap-2 text-[10px] text-[var(--muted-foreground)]">
+				<div class="my-3 flex items-center gap-3">
 					<div class="h-px flex-1 bg-[var(--border)]"></div>
-					<span>{day}</span>
+					<span class="rounded-full border border-[var(--border)] bg-[var(--card)] px-3 py-0.5 text-xs font-medium text-[var(--muted-foreground)]">
+						{day}
+					</span>
 					<div class="h-px flex-1 bg-[var(--border)]"></div>
 				</div>
 			{/if}

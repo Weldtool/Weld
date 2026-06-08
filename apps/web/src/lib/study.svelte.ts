@@ -65,14 +65,20 @@ class StudyStore {
 	}
 
 	/** After consent + screening: provision the isolated workspace and start. */
-	async begin(accessCode?: string): Promise<void> {
+	async begin(opts: {
+		accessCode?: string;
+		participantEmail?: string;
+		institution?: string;
+	} = {}): Promise<void> {
 		if (this.provisioning) return;
 		this.provisioning = true;
 		this.error = null;
 		try {
 			const res = await studyApi.provision({
 				consent_version: CONSENT_VERSION,
-				access_code: accessCode?.trim() || undefined
+				access_code: opts.accessCode?.trim() || undefined,
+				participant_email: opts.participantEmail?.trim() || undefined,
+				institution: opts.institution?.trim() || undefined
 			});
 			await auth.adoptSession(res.access_token);
 			// Clear any stale project/team data from a previous session then

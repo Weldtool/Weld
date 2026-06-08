@@ -60,7 +60,7 @@
 	<button
 		type="button"
 		onclick={openModal}
-		class="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full bg-[var(--primary)] px-4 py-2.5 text-sm font-medium text-[var(--primary-foreground)] shadow-lg hover:opacity-90"
+		class="fixed top-4 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full bg-[var(--primary)] px-4 py-2.5 text-sm font-medium text-[var(--primary-foreground)] shadow-lg hover:opacity-90"
 		aria-label="Show current task"
 	>
 		<ClipboardList class="h-4 w-4" />

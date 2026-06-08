@@ -106,9 +106,6 @@
 <div class={fill ? 'flex min-h-0 flex-1 flex-col gap-1' : 'space-y-1'}>
 	<div class="flex items-center justify-between text-xs text-[var(--muted-foreground)]">
 		<span>Description</span>
-		{#if saving}
-			<span class="text-[10px] italic">Saving…</span>
-		{/if}
 	</div>
 	<div
 		bind:this={element}

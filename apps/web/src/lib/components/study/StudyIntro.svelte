@@ -12,14 +12,20 @@
 	let accessCode = $state('');
 	const codeRequired = $derived(appConfig.requireAccessCode);
 
+	// Identity fields (collected for result linkage).
+	let participantEmail = $state('');
+	let institution = $state('');
+
 	// Screening answers (eligibility gate; not stored — demographics come later).
-	let age18 = $state<string | null>(null);
 	let experience = $state<string | null>(null);
 	let familiarity = $state<string | null>(null);
 	let priorWeld = $state<string | null>(null);
 
+	const emailValid = $derived(participantEmail.trim().includes('@'));
+
 	const screeningComplete = $derived(
-		age18 !== null &&
+		emailValid &&
+			institution.trim().length > 0 &&
 			experience !== null &&
 			familiarity !== null &&
 			priorWeld !== null &&
@@ -27,12 +33,15 @@
 	);
 
 	function submitScreening() {
-		const ineligible =
-			age18 === 'no' || experience === 'lt1' || familiarity === 'none' || priorWeld === 'lots';
+		const ineligible = experience === 'lt1' || familiarity === 'none' || priorWeld === 'lots';
 		if (ineligible) {
 			study.markIneligible();
 		} else {
-			void study.begin(codeRequired ? accessCode : undefined);
+			void study.begin({
+				accessCode: codeRequired ? accessCode : undefined,
+				participantEmail: participantEmail.trim(),
+				institution: institution.trim()
+			});
 		}
 	}
 </script>
@@ -41,19 +50,19 @@
 	{#if step === 'welcome'}
 		<h1 class="text-2xl font-semibold">Welcome 👋</h1>
 		<p class="mt-4 text-[var(--muted-foreground)]">
-			Thanks for your interest in this research study. Here’s what to expect:
+			Thanks for your interest in this research study. Here's what to expect:
 		</p>
 		<ul class="mt-4 list-disc space-y-2 pl-6 text-sm text-[var(--muted-foreground)]">
 			<li><strong>About 40 minutes</strong>, done online at your own pace.</li>
 			<li>
-				You’ll work through realistic tasks in <strong>Weld</strong>, a developer workspace, using a
+				You'll work through realistic tasks in <strong>Weld</strong>, a developer workspace, using a
 				<strong>practice project</strong> — none of your real code or accounts are involved.
 			</li>
 			<li>Then a <strong>short survey</strong> about your experience.</li>
 		</ul>
 		<p class="mt-4 text-sm text-[var(--muted-foreground)]">
-			Everything is anonymous. Please read the consent information on the next page before you
-			begin.
+			You'll be asked for your email and institution so we can link your responses to you. Please
+			read the consent information on the next page before you begin.
 		</p>
 		<div class="mt-8">
 			<button
@@ -76,13 +85,13 @@
 			<p class="mt-3">
 				You will complete a set of tasks in a practice project and answer a short survey. We log
 				only your in-app actions (e.g. opening cards, sending messages, navigating) and your survey
-				answers. We do <strong>not</strong> record keystrokes, mouse movement, your screen, or any data
-				outside this study.
+				answers. We do <strong>not</strong> record keystrokes, mouse movement, your screen, or any
+				data outside this study.
 			</p>
 			<p class="mt-3">
-				Your responses are anonymous and identified only by a random participant code. You may stop
-				at any time by closing the tab. If you optionally provide an email for a follow-up
-				interview, it is stored separately from your study data and deleted afterward.
+				Your email and institution are collected so your results can be linked to you. This
+				information is stored securely and used only for research purposes. You may stop at any time
+				by closing the tab.
 			</p>
 			<p class="mt-3">By continuing, you confirm you are 18+ and consent to take part.</p>
 			<p class="mt-3 text-xs">Consent version {CONSENT_VERSION}</p>
@@ -111,22 +120,36 @@
 	{:else}
 		<h1 class="text-2xl font-semibold">A few quick questions</h1>
 		<p class="mt-2 text-sm text-[var(--muted-foreground)]">
-			This helps us confirm you’re eligible. (~1 minute.)
+			This helps us confirm you're eligible and link your results. (~1 minute.)
 		</p>
 
 		<div class="mt-6 space-y-6">
-			<fieldset>
-				<legend class="text-sm font-medium">Are you 18 or older?</legend>
-				<div class="mt-2 flex gap-4 text-sm">
-					<label class="flex items-center gap-2"
-						><input type="radio" bind:group={age18} value="yes" /> Yes</label
-					>
-					<label class="flex items-center gap-2"
-						><input type="radio" bind:group={age18} value="no" /> No</label
-					>
-				</div>
-			</fieldset>
+			<!-- Identity -->
+			<div class="space-y-1">
+				<label class="text-sm font-medium" for="participant-email">Email address</label>
+				<input
+					id="participant-email"
+					type="email"
+					bind:value={participantEmail}
+					placeholder="you@example.com"
+					class="mt-1 w-full rounded-md border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+				/>
+			</div>
 
+			<div class="space-y-1">
+				<label class="text-sm font-medium" for="participant-institution">
+					Institution (university or company)
+				</label>
+				<input
+					id="participant-institution"
+					type="text"
+					bind:value={institution}
+					placeholder="e.g. University of Example"
+					class="mt-1 w-full rounded-md border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+				/>
+			</div>
+
+			<!-- Eligibility -->
 			<fieldset>
 				<legend class="text-sm font-medium"
 					>How many years of programming experience do you have?</legend

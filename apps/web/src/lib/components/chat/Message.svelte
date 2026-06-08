@@ -145,7 +145,7 @@
 {:else}
 	<div
 		class={cn(
-			'group relative flex gap-3 rounded-md px-3 py-1.5 hover:bg-[var(--accent)]/40',
+			'group relative flex gap-3 rounded-lg px-4 py-2 hover:bg-[var(--accent)]/40',
 			pending && 'opacity-60'
 		)}
 	>
@@ -153,7 +153,7 @@
 			{#if showAvatar}
 				{#if isGitHubBot}
 					<div
-						class="flex h-8 w-8 items-center justify-center rounded-full bg-[#24292e] text-white"
+						class="flex h-8 w-8 items-center justify-center rounded-full bg-[#24292e] text-white shadow-sm"
 						aria-hidden="true"
 					>
 						<svg viewBox="0 0 16 16" class="h-5 w-5 fill-current" aria-hidden="true">
@@ -164,7 +164,7 @@
 					</div>
 				{:else}
 					<div
-						class="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--muted)] text-xs font-medium text-[var(--muted-foreground)]"
+						class="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent)] text-xs font-semibold text-[var(--foreground)]/70 shadow-sm"
 						aria-hidden="true"
 					>
 						{initials(senderName)}
@@ -175,11 +175,11 @@
 
 		<div class="min-w-0 flex-1">
 			{#if showAvatar}
-				<div class="flex items-baseline gap-2">
+				<div class="mb-0.5 flex items-baseline gap-2">
 					<span class="text-sm font-semibold">{senderName}</span>
-					<span class="text-[10px] text-[var(--muted-foreground)]">{time}</span>
+					<span class="text-xs text-[var(--muted-foreground)]">{time}</span>
 					{#if !isPending(message) && message.edited_at}
-						<span class="text-[10px] text-[var(--muted-foreground)] italic">(edited)</span>
+						<span class="text-xs text-[var(--muted-foreground)] italic">(edited)</span>
 					{/if}
 				</div>
 			{/if}
@@ -187,23 +187,23 @@
 			{#if githubMeta}
 				<GitHubCard meta={githubMeta} />
 			{:else if editing}
-				<div class="mt-1 space-y-1">
+				<div class="mt-1 space-y-1.5">
 					<textarea
 						bind:value={draft}
 						rows={3}
-						class="w-full resize-y rounded-md border border-[var(--input)] bg-[var(--background)] p-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+						class="w-full resize-y rounded-lg border border-[var(--input)] bg-[var(--background)] p-2.5 text-sm outline-none transition-colors focus-visible:border-[var(--ring)]/60 focus-visible:ring-2 focus-visible:ring-[var(--ring)]/20"
 					></textarea>
 					<div class="flex gap-2 text-xs">
 						<button
 							type="button"
-							class="rounded-md bg-[var(--primary)] px-2 py-1 text-[var(--primary-foreground)] hover:opacity-90"
+							class="rounded-md bg-[var(--primary)] px-2.5 py-1 font-medium text-[var(--primary-foreground)] hover:opacity-90"
 							onclick={saveEdit}
 						>
 							Save
 						</button>
 						<button
 							type="button"
-							class="rounded-md border border-[var(--border)] px-2 py-1 hover:bg-[var(--accent)]"
+							class="rounded-md border border-[var(--border)] px-2.5 py-1 hover:bg-[var(--accent)]"
 							onclick={cancelEdit}
 						>
 							Cancel
@@ -211,7 +211,7 @@
 					</div>
 				</div>
 			{:else}
-				<div class="chat-message-body text-sm leading-snug" use:trackMessageInteractions>
+				<div class="chat-message-body text-sm leading-relaxed" use:trackMessageInteractions>
 					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 					{@html html}
 				</div>
@@ -220,7 +220,7 @@
 			{#if !editing && replyCount > 0}
 				<button
 					type="button"
-					class="mt-1 inline-flex items-center gap-1 text-xs text-[var(--primary)] hover:underline"
+					class="mt-1.5 inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--accent)]/50 px-2 py-0.5 text-xs font-medium text-[var(--foreground)]/70 hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
 					onclick={() => onReply?.(message.id)}
 				>
 					<MessageSquare class="h-3 w-3" />
@@ -250,18 +250,18 @@
 					</button>
 				</div>
 			{:else if pending}
-				<div class="mt-1 text-[10px] text-[var(--muted-foreground)] italic">Sending…</div>
+				<div class="mt-1 text-xs text-[var(--muted-foreground)] italic">Sending…</div>
 			{/if}
 		</div>
 
 		{#if !pending && !editing && !githubMeta}
 			<div
-				class="absolute -top-3 right-3 hidden gap-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-1 py-0.5 shadow-sm group-hover:flex"
+				class="absolute -top-3 right-3 hidden gap-0.5 rounded-lg border border-[var(--border)] bg-[var(--card)] px-1 py-0.5 shadow-md group-hover:flex"
 			>
 				{#if onReply && !message.thread_parent_id}
 					<button
 						type="button"
-						class="rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+						class="rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
 						title="Reply in thread"
 						onclick={() => onReply?.(message.id)}
 					>
@@ -271,7 +271,7 @@
 				{#if message.sender_id === selfId}
 					<button
 						type="button"
-						class="rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+						class="rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
 						title="Edit"
 						onclick={startEdit}
 					>
@@ -281,7 +281,7 @@
 				{#if canDelete}
 					<button
 						type="button"
-						class="rounded p-1 text-[var(--muted-foreground)] hover:bg-red-500/20 hover:text-red-500"
+						class="rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-red-500/15 hover:text-red-500"
 						title="Delete"
 						onclick={() => chat.deleteMessage(message.id, message.channel_id)}
 					>

@@ -40,6 +40,8 @@ pub async fn provision_participant(
     jwt_secret: &str,
     consent_version: Option<&str>,
     access_code: Option<&str>,
+    participant_email: Option<&str>,
+    institution: Option<&str>,
 ) -> Result<ProvisionResult, ApiError> {
     let seed =
         Seed::load().map_err(|e| ApiError::Internal(format!("Invalid study seed fixture: {e}")))?;
@@ -180,8 +182,8 @@ pub async fn provision_participant(
             r#"
             INSERT INTO tasks
               (project_id, column_id, title, description, assignee_id, reporter_id,
-               priority, position, github_issue_id, github_pr_id, created_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7::priority, $8, $9, $10, $11)
+               priority, position, github_issue_id, github_pr_id, github_repo, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7::priority, $8, $9, $10, $11, $12)
             RETURNING id
             "#,
             project_id,
@@ -194,6 +196,13 @@ pub async fn provision_participant(
             card.position,
             card.github_issue,
             card.github_pr,
+            // Only set github_repo when a link exists so TaskDetail shows the
+            // badge (and Unlink) rather than the blank link form.
+            if card.github_issue.is_some() || card.github_pr.is_some() {
+                seed.project.github_repo.as_deref()
+            } else {
+                None
+            },
             created_at,
         )
         .fetch_one(&mut *tx)
@@ -286,8 +295,9 @@ pub async fn provision_participant(
         r#"
         INSERT INTO study_participants
           (participant_code, user_id, team_id, project_id, agent_condition,
-           consent_version, consent_given_at, status)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           consent_version, consent_given_at, status,
+           participant_email, institution)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING id
         "#,
         code,
@@ -298,6 +308,8 @@ pub async fn provision_participant(
         consent_version,
         consent_at,
         status,
+        participant_email,
+        institution,
     )
     .fetch_one(&mut *tx)
     .await?;
