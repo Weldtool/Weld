@@ -9,22 +9,13 @@
 	interface Props {
 		value: string;
 		disabled?: boolean;
-		saving?: boolean;
 		fill?: boolean;
 		onInput: (next: string) => void;
 		onFocus?: () => void;
 		onBlur?: () => void;
 	}
 
-	const {
-		value,
-		disabled = false,
-		saving = false,
-		fill = false,
-		onInput,
-		onFocus,
-		onBlur
-	}: Props = $props();
+	const { value, disabled = false, fill = false, onInput, onFocus, onBlur }: Props = $props();
 
 	let element = $state<HTMLDivElement | null>(null);
 	let editor: Editor | null = null;

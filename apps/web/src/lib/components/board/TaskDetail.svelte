@@ -6,11 +6,9 @@
 	import type { GitHubIssue, GitHubPR, Priority } from '$lib/api/types';
 	import { auth } from '$lib/auth.svelte';
 	import { boardStore } from '$lib/board.svelte';
-	import { appConfig } from '$lib/config.svelte';
 	import { projects } from '$lib/projects.svelte';
 	import { telemetry } from '$lib/telemetry.svelte';
 	import { canEditTask, TaskSaver } from '$lib/task-detail.svelte';
-	import { createPrDialog } from '$lib/create-pr-dialog.svelte';
 	import AssigneePicker from './AssigneePicker.svelte';
 	import DescriptionEditor from './DescriptionEditor.svelte';
 	import DueDatePicker from './DueDatePicker.svelte';
@@ -127,7 +125,8 @@
 		{
 			value: 'low',
 			label: 'Low',
-			activeClass: 'border-blue-500/40 bg-blue-500/15 text-blue-600 dark:text-blue-400 font-semibold',
+			activeClass:
+				'border-blue-500/40 bg-blue-500/15 text-blue-600 dark:text-blue-400 font-semibold',
 			inactiveClass:
 				'border-[var(--border)] bg-transparent text-[var(--muted-foreground)] hover:border-blue-500/30 hover:bg-blue-500/10 hover:text-blue-600 dark:hover:text-blue-400'
 		},
@@ -189,7 +188,10 @@
 	async function submitIssueLink() {
 		if (!task) return;
 		const repo = task.github_repo ?? linkRepo.trim();
-		if (!repo) { linkError = 'Repository is required (e.g. owner/repo).'; return; }
+		if (!repo) {
+			linkError = 'Repository is required (e.g. owner/repo).';
+			return;
+		}
 		const issueNum = addIssueValue ? parseInt(addIssueValue, 10) : null;
 		if (!issueNum) return;
 		linkError = '';
@@ -222,7 +224,10 @@
 	async function submitPRLink() {
 		if (!task) return;
 		const repo = task.github_repo ?? linkRepo.trim();
-		if (!repo) { linkError = 'Repository is required (e.g. owner/repo).'; return; }
+		if (!repo) {
+			linkError = 'Repository is required (e.g. owner/repo).';
+			return;
+		}
 		const prNum = addPRValue ? parseInt(addPRValue, 10) : null;
 		if (!prNum) return;
 		linkError = '';
@@ -342,8 +347,6 @@
 			// autofill is best-effort
 		}
 	}
-
-
 </script>
 
 <svelte:window onkeydown={onKey} />
@@ -366,7 +369,9 @@
 		<div class="flex shrink-0 items-start gap-3 border-b border-[var(--border)] px-6 py-4">
 			<div class="min-w-0 flex-1">
 				{#if task?.short_id}
-					<p class="mb-1 font-mono text-[10px] font-medium tracking-wider text-[var(--muted-foreground)]">
+					<p
+						class="mb-1 font-mono text-[10px] font-medium tracking-wider text-[var(--muted-foreground)]"
+					>
 						{task.short_id}
 					</p>
 				{/if}
@@ -422,7 +427,6 @@
 					<DescriptionEditor
 						value={task.description ?? ''}
 						disabled={!editable}
-						saving={saver.saving}
 						fill={true}
 						onInput={onDescriptionInput}
 						onBlur={() => saver.flush()}
@@ -438,9 +442,7 @@
 					<div class="space-y-5">
 						<!-- Assignee -->
 						<div class="space-y-1.5">
-							<p
-								class="text-xs font-semibold uppercase tracking-wide text-[var(--foreground)]/60"
-							>
+							<p class="text-xs font-semibold tracking-wide text-[var(--foreground)]/60 uppercase">
 								Assignee
 							</p>
 							<AssigneePicker
@@ -453,9 +455,7 @@
 
 						<!-- Priority -->
 						<div class="space-y-1.5">
-							<p
-								class="text-xs font-semibold uppercase tracking-wide text-[var(--foreground)]/60"
-							>
+							<p class="text-xs font-semibold tracking-wide text-[var(--foreground)]/60 uppercase">
 								Priority
 							</p>
 							<div class="flex flex-wrap gap-1.5">
@@ -477,23 +477,15 @@
 
 						<!-- Due Date -->
 						<div class="space-y-1.5">
-							<p
-								class="text-xs font-semibold uppercase tracking-wide text-[var(--foreground)]/60"
-							>
+							<p class="text-xs font-semibold tracking-wide text-[var(--foreground)]/60 uppercase">
 								Due date
 							</p>
-							<DueDatePicker
-								value={task.due_date}
-								disabled={!editable}
-								onChange={onDueChange}
-							/>
+							<DueDatePicker value={task.due_date} disabled={!editable} onChange={onDueChange} />
 						</div>
 
 						<!-- Estimate -->
 						<div class="space-y-1.5">
-							<p
-								class="text-xs font-semibold uppercase tracking-wide text-[var(--foreground)]/60"
-							>
+							<p class="text-xs font-semibold tracking-wide text-[var(--foreground)]/60 uppercase">
 								Estimate (hours)
 							</p>
 							<EstimateInput
@@ -505,9 +497,7 @@
 
 						<!-- Labels -->
 						<div class="space-y-1.5">
-							<p
-								class="text-xs font-semibold uppercase tracking-wide text-[var(--foreground)]/60"
-							>
+							<p class="text-xs font-semibold tracking-wide text-[var(--foreground)]/60 uppercase">
 								Labels
 							</p>
 							<LabelPicker value={task.labels} disabled={!editable} onChange={onLabelsChange} />
@@ -517,9 +507,7 @@
 
 						<!-- GitHub -->
 						<div class="space-y-2">
-							<p
-								class="text-xs font-semibold uppercase tracking-wide text-[var(--foreground)]/60"
-							>
+							<p class="text-xs font-semibold tracking-wide text-[var(--foreground)]/60 uppercase">
 								GitHub
 							</p>
 
@@ -537,9 +525,16 @@
 												issue_number: task?.github_issue_id
 											})}
 									>
-										<svg class="h-3.5 w-3.5 shrink-0 text-green-500" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+										<svg
+											class="h-3.5 w-3.5 shrink-0 text-green-500"
+											viewBox="0 0 16 16"
+											fill="currentColor"
+											aria-hidden="true"
+										>
 											<path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
-											<path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z" />
+											<path
+												d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z"
+											/>
 										</svg>
 										Issue #{task.github_issue_id}
 									</a>
@@ -550,15 +545,21 @@
 											onclick={removeIssueLink}
 											aria-label="Remove issue link"
 											class="rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-red-500 disabled:opacity-50"
-										><X class="h-3.5 w-3.5" /></button>
+											><X class="h-3.5 w-3.5" /></button
+										>
 									{/if}
 								</div>
 							{:else if editable}
 								{#if showIssueForm}
-									<div class="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--card)] p-2.5">
+									<div
+										class="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--card)] p-2.5"
+									>
 										{#if !task.github_repo}
 											<div class="space-y-1">
-												<label class="text-xs font-semibold uppercase tracking-wide text-[var(--foreground)]/60" for="gh-issue-repo">
+												<label
+													class="text-xs font-semibold tracking-wide text-[var(--foreground)]/60 uppercase"
+													for="gh-issue-repo"
+												>
 													Repository <span class="text-red-500">*</span>
 												</label>
 												<input
@@ -576,7 +577,9 @@
 										>
 											<option value="">— select issue —</option>
 											{#each openIssues as issue (issue.number)}
-												<option value={issue.number.toString()}>#{issue.number} — {issue.title}</option>
+												<option value={issue.number.toString()}
+													>#{issue.number} — {issue.title}</option
+												>
 											{/each}
 										</select>
 										<div class="flex items-center gap-2">
@@ -585,23 +588,42 @@
 												disabled={linkBusy || !addIssueValue}
 												onclick={submitIssueLink}
 												class="rounded-md bg-[var(--primary)] px-2.5 py-1 text-xs font-medium text-[var(--primary-foreground)] disabled:opacity-60"
-											>{linkBusy ? 'Linking…' : 'Link'}</button>
+												>{linkBusy ? 'Linking…' : 'Link'}</button
+											>
 											<button
 												type="button"
-												onclick={() => { showIssueForm = false; addIssueValue = ''; linkError = ''; }}
+												onclick={() => {
+													showIssueForm = false;
+													addIssueValue = '';
+													linkError = '';
+												}}
 												class="text-xs text-[var(--muted-foreground)] hover:underline"
-											>Cancel</button>
+												>Cancel</button
+											>
 										</div>
 									</div>
 								{:else}
 									<button
 										type="button"
-										onclick={() => { showIssueForm = true; telemetry.log('github_view_opened', { task_id: task?.id, context: 'link_issue_form' }); }}
+										onclick={() => {
+											showIssueForm = true;
+											telemetry.log('github_view_opened', {
+												task_id: task?.id,
+												context: 'link_issue_form'
+											});
+										}}
 										class="flex w-full items-center gap-2 rounded-md border border-dashed border-[var(--border)] px-2.5 py-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--ring)]/50 hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
 									>
-										<svg class="h-3.5 w-3.5 shrink-0 text-green-500/60" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+										<svg
+											class="h-3.5 w-3.5 shrink-0 text-green-500/60"
+											viewBox="0 0 16 16"
+											fill="currentColor"
+											aria-hidden="true"
+										>
 											<path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
-											<path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z" />
+											<path
+												d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z"
+											/>
 										</svg>
 										Link an issue
 									</button>
@@ -622,8 +644,15 @@
 												pr_number: task?.github_pr_id
 											})}
 									>
-										<svg class="h-3.5 w-3.5 shrink-0 text-purple-500" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-											<path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354Z" />
+										<svg
+											class="h-3.5 w-3.5 shrink-0 text-purple-500"
+											viewBox="0 0 16 16"
+											fill="currentColor"
+											aria-hidden="true"
+										>
+											<path
+												d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354Z"
+											/>
 										</svg>
 										PR #{task.github_pr_id}
 									</a>
@@ -634,15 +663,21 @@
 											onclick={removePRLink}
 											aria-label="Remove PR link"
 											class="rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-red-500 disabled:opacity-50"
-										><X class="h-3.5 w-3.5" /></button>
+											><X class="h-3.5 w-3.5" /></button
+										>
 									{/if}
 								</div>
 							{:else if editable}
 								{#if showPRForm}
-									<div class="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--card)] p-2.5">
+									<div
+										class="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--card)] p-2.5"
+									>
 										{#if !task.github_repo}
 											<div class="space-y-1">
-												<label class="text-xs font-semibold uppercase tracking-wide text-[var(--foreground)]/60" for="gh-pr-repo">
+												<label
+													class="text-xs font-semibold tracking-wide text-[var(--foreground)]/60 uppercase"
+													for="gh-pr-repo"
+												>
 													Repository <span class="text-red-500">*</span>
 												</label>
 												<input
@@ -669,22 +704,41 @@
 												disabled={linkBusy || !addPRValue}
 												onclick={submitPRLink}
 												class="rounded-md bg-[var(--primary)] px-2.5 py-1 text-xs font-medium text-[var(--primary-foreground)] disabled:opacity-60"
-											>{linkBusy ? 'Linking…' : 'Link'}</button>
+												>{linkBusy ? 'Linking…' : 'Link'}</button
+											>
 											<button
 												type="button"
-												onclick={() => { showPRForm = false; addPRValue = ''; linkError = ''; }}
+												onclick={() => {
+													showPRForm = false;
+													addPRValue = '';
+													linkError = '';
+												}}
 												class="text-xs text-[var(--muted-foreground)] hover:underline"
-											>Cancel</button>
+												>Cancel</button
+											>
 										</div>
 									</div>
 								{:else}
 									<button
 										type="button"
-										onclick={() => { showPRForm = true; telemetry.log('github_view_opened', { task_id: task?.id, context: 'link_pr_form' }); }}
+										onclick={() => {
+											showPRForm = true;
+											telemetry.log('github_view_opened', {
+												task_id: task?.id,
+												context: 'link_pr_form'
+											});
+										}}
 										class="flex w-full items-center gap-2 rounded-md border border-dashed border-[var(--border)] px-2.5 py-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--ring)]/50 hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
 									>
-										<svg class="h-3.5 w-3.5 shrink-0 text-purple-500/60" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-											<path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354Z" />
+										<svg
+											class="h-3.5 w-3.5 shrink-0 text-purple-500/60"
+											viewBox="0 0 16 16"
+											fill="currentColor"
+											aria-hidden="true"
+										>
+											<path
+												d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354Z"
+											/>
 										</svg>
 										Link a PR
 									</button>
@@ -702,7 +756,7 @@
 						<div class="space-y-3.5">
 							<div class="space-y-0.5">
 								<p
-									class="text-xs font-semibold uppercase tracking-wide text-[var(--foreground)]/60"
+									class="text-xs font-semibold tracking-wide text-[var(--foreground)]/60 uppercase"
 								>
 									Reporter
 								</p>
@@ -712,7 +766,7 @@
 							</div>
 							<div class="space-y-0.5">
 								<p
-									class="text-xs font-semibold uppercase tracking-wide text-[var(--foreground)]/60"
+									class="text-xs font-semibold tracking-wide text-[var(--foreground)]/60 uppercase"
 								>
 									Created
 								</p>
