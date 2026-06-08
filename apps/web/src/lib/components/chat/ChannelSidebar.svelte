@@ -53,7 +53,9 @@
 		{#snippet section(label: string, list: Channel[])}
 			{#if list.length > 0}
 				<div class="mb-4">
-					<div class="px-2.5 pb-1 text-xs font-semibold uppercase tracking-wide text-[var(--foreground)]/60">
+					<div
+						class="px-2.5 pb-1 text-xs font-semibold tracking-wide text-[var(--foreground)]/60 uppercase"
+					>
 						{label}
 					</div>
 					<ul class="space-y-0.5">

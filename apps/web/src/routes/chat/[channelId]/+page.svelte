@@ -67,7 +67,9 @@
 				<span class="text-base font-semibold tracking-tight">{channel.name}</span>
 				{#if channel.topic}
 					<span class="text-[var(--muted-foreground)]">·</span>
-					<span class="min-w-0 truncate text-sm text-[var(--muted-foreground)]">{channel.topic}</span>
+					<span class="min-w-0 truncate text-sm text-[var(--muted-foreground)]"
+						>{channel.topic}</span
+					>
 				{/if}
 				<button
 					type="button"

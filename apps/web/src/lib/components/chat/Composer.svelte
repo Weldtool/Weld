@@ -219,7 +219,7 @@
 		onkeydown={onKeydown}
 		{placeholder}
 		rows={1}
-		class="block w-full resize-none rounded-lg border border-[var(--input)] bg-[var(--background)] px-3.5 py-2.5 text-sm outline-none transition-colors focus-visible:border-[var(--ring)]/60 focus-visible:ring-2 focus-visible:ring-[var(--ring)]/20"
+		class="block w-full resize-none rounded-lg border border-[var(--input)] bg-[var(--background)] px-3.5 py-2.5 text-sm transition-colors outline-none focus-visible:border-[var(--ring)]/60 focus-visible:ring-2 focus-visible:ring-[var(--ring)]/20"
 		aria-label="Message composer"
 	></textarea>
 	<div class="mt-2 flex items-center justify-between">

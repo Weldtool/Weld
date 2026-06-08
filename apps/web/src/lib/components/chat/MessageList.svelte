@@ -86,7 +86,9 @@
 	aria-relevant="additions"
 >
 	{#if initialLoading}
-		<div class="flex flex-1 items-center justify-center py-8 text-sm text-[var(--muted-foreground)]">
+		<div
+			class="flex flex-1 items-center justify-center py-8 text-sm text-[var(--muted-foreground)]"
+		>
 			Loading messages…
 		</div>
 	{:else if loadError}
@@ -103,11 +105,11 @@
 			</button>
 		</div>
 	{:else if loadingOlder}
-		<div class="py-2 text-center text-xs text-[var(--muted-foreground)]">Loading older messages…</div>
-	{:else if !hasMore && messages.length > 0}
 		<div class="py-2 text-center text-xs text-[var(--muted-foreground)]">
-			Beginning of channel.
+			Loading older messages…
 		</div>
+	{:else if !hasMore && messages.length > 0}
+		<div class="py-2 text-center text-xs text-[var(--muted-foreground)]">Beginning of channel.</div>
 	{/if}
 
 	{#if !initialLoading && !loadError}
@@ -116,7 +118,9 @@
 			{#if day}
 				<div class="my-3 flex items-center gap-3">
 					<div class="h-px flex-1 bg-[var(--border)]"></div>
-					<span class="rounded-full border border-[var(--border)] bg-[var(--card)] px-3 py-0.5 text-xs font-medium text-[var(--muted-foreground)]">
+					<span
+						class="rounded-full border border-[var(--border)] bg-[var(--card)] px-3 py-0.5 text-xs font-medium text-[var(--muted-foreground)]"
+					>
 						{day}
 					</span>
 					<div class="h-px flex-1 bg-[var(--border)]"></div>

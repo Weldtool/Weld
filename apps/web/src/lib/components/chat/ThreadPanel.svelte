@@ -53,7 +53,7 @@
 			<Message message={state.parent} {members} {selfId} />
 			<div class="my-3 flex items-center gap-3">
 				<div class="h-px flex-1 bg-[var(--border)]"></div>
-				<span class="text-xs font-semibold uppercase tracking-wide text-[var(--foreground)]/60">
+				<span class="text-xs font-semibold tracking-wide text-[var(--foreground)]/60 uppercase">
 					{state.replies.length}
 					{state.replies.length === 1 ? 'reply' : 'replies'}
 				</span>

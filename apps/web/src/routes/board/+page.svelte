@@ -49,7 +49,9 @@
 		<button
 			type="button"
 			onclick={() => (showGitHub = !showGitHub)}
-			class="flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-xs text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] {showGitHub ? 'bg-[var(--accent)] text-[var(--foreground)]' : ''}"
+			class="flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-xs text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] {showGitHub
+				? 'bg-[var(--accent)] text-[var(--foreground)]'
+				: ''}"
 		>
 			<GitPullRequest class="h-3.5 w-3.5" />
 			GitHub

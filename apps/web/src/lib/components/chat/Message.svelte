@@ -191,7 +191,7 @@
 					<textarea
 						bind:value={draft}
 						rows={3}
-						class="w-full resize-y rounded-lg border border-[var(--input)] bg-[var(--background)] p-2.5 text-sm outline-none transition-colors focus-visible:border-[var(--ring)]/60 focus-visible:ring-2 focus-visible:ring-[var(--ring)]/20"
+						class="w-full resize-y rounded-lg border border-[var(--input)] bg-[var(--background)] p-2.5 text-sm transition-colors outline-none focus-visible:border-[var(--ring)]/60 focus-visible:ring-2 focus-visible:ring-[var(--ring)]/20"
 					></textarea>
 					<div class="flex gap-2 text-xs">
 						<button

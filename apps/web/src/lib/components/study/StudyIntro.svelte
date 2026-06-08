@@ -85,8 +85,8 @@
 			<p class="mt-3">
 				You will complete a set of tasks in a practice project and answer a short survey. We log
 				only your in-app actions (e.g. opening cards, sending messages, navigating) and your survey
-				answers. We do <strong>not</strong> record keystrokes, mouse movement, your screen, or any
-				data outside this study.
+				answers. We do <strong>not</strong> record keystrokes, mouse movement, your screen, or any data
+				outside this study.
 			</p>
 			<p class="mt-3">
 				Your email and institution are collected so your results can be linked to you. This

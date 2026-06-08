@@ -65,11 +65,13 @@ class StudyStore {
 	}
 
 	/** After consent + screening: provision the isolated workspace and start. */
-	async begin(opts: {
-		accessCode?: string;
-		participantEmail?: string;
-		institution?: string;
-	} = {}): Promise<void> {
+	async begin(
+		opts: {
+			accessCode?: string;
+			participantEmail?: string;
+			institution?: string;
+		} = {}
+	): Promise<void> {
 		if (this.provisioning) return;
 		this.provisioning = true;
 		this.error = null;
