@@ -53,7 +53,12 @@ const ALLOWED_EVENT_TYPES: &[&str] = &[
     "thread_opened",
     "mention_clicked",
     "link_clicked",
-    // Cross-reference (headline integration metric)
+    // Cross-reference (headline integration metric). Three of the four
+    // directions have a UI affordance and are emitted: chat→card, card→PR,
+    // PR→card (plus card→issue below). `chat_referenced_from_card` has no
+    // affordance in the current app (cards don't surface clickable chat refs),
+    // so it is reserved but never emitted — treat its absence as N/A in
+    // analysis, not as missing data.
     "card_referenced_from_chat",
     "chat_referenced_from_card",
     "pr_referenced_from_card",

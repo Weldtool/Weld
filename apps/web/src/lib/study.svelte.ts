@@ -4,6 +4,7 @@ import { auth } from '$lib/auth.svelte';
 import { projects } from '$lib/projects.svelte';
 import { STUDY_TASKS, type StudyTask } from '$lib/study-tasks';
 import { buildTaskSnapshot } from '$lib/study-snapshot';
+import { taskClock } from '$lib/study-task-clock';
 import { telemetry } from '$lib/telemetry.svelte';
 
 /**
@@ -27,6 +28,10 @@ interface PersistedState {
 	taskIndex: number;
 	participantCode: string | null;
 	agentCondition: string | null;
+	/** Id of the just-completed task awaiting its per-task rating, if any. Lets a
+	 * reload during the rating step resume at the rating instead of re-running an
+	 * already-completed (and already-logged) task. */
+	awaitingRatingTaskId: string | null;
 }
 
 class StudyStore {
@@ -39,7 +44,6 @@ class StudyStore {
 	/** The just-completed task awaiting its quick per-task rating, or null. While
 	 * set, the task panel shows the rating step and advancement is gated on it. */
 	ratingFor = $state<StudyTask | null>(null);
-	#taskStartedAt: number | null = null;
 
 	constructor() {
 		if (browser) this.#restore();
@@ -114,16 +118,23 @@ class StudyStore {
 	completeCurrentTask(): void {
 		const task = this.currentTask;
 		if (!task) return;
-		const taskTimeMs = this.#taskStartedAt !== null ? Date.now() - this.#taskStartedAt : null;
+		const timing = taskClock.stop();
 		telemetry.log('task_final_state', buildTaskSnapshot());
 		telemetry.log('task_completed', {
 			task_id: task.id,
 			task_type: task.type,
-			task_time_ms: taskTimeMs
+			// Primary outcome: active (engaged) time, excluding any away periods.
+			task_time_ms: timing?.active_ms ?? null,
+			wall_ms: timing?.wall_ms ?? null,
+			away_ms: timing?.away_ms ?? null,
+			pause_count: timing?.pause_count ?? null,
+			was_interrupted: timing?.was_interrupted ?? null
 		});
 		// Clock already stopped above — gate advancement on a quick per-task rating
-		// so it can never inflate the measured task time.
+		// so it can never inflate the measured task time. Persist the awaiting-rating
+		// state so a reload here resumes at the rating, not a redo of the task.
 		this.ratingFor = task;
+		this.#persist();
 	}
 
 	/** Record the per-task rating (effort, and agent-help on agent tasks), then
@@ -145,12 +156,16 @@ class StudyStore {
 	skipCurrentTask(): void {
 		const task = this.currentTask;
 		if (!task) return;
-		const taskTimeMs = this.#taskStartedAt !== null ? Date.now() - this.#taskStartedAt : null;
+		const timing = taskClock.stop();
 		telemetry.log('task_final_state', buildTaskSnapshot());
 		telemetry.log('task_skipped', {
 			task_id: task.id,
 			task_type: task.type,
-			task_time_ms: taskTimeMs
+			task_time_ms: timing?.active_ms ?? null,
+			wall_ms: timing?.wall_ms ?? null,
+			away_ms: timing?.away_ms ?? null,
+			pause_count: timing?.pause_count ?? null,
+			was_interrupted: timing?.was_interrupted ?? null
 		});
 		this.#advance(task);
 	}
@@ -199,7 +214,7 @@ class StudyStore {
 		if (index === 0 || STUDY_TASKS[index - 1].phase !== task.phase) {
 			telemetry.log('phase_started', { phase: task.phase });
 		}
-		this.#taskStartedAt = Date.now();
+		taskClock.start(task.id);
 		telemetry.setTask(task.id);
 		telemetry.log('task_shown', { task_id: task.id, task_type: task.type });
 	}
@@ -215,7 +230,11 @@ class StudyStore {
 		this.#persist();
 		telemetry.log('session_resumed', { stage: resumed, task_index: this.taskIndex });
 		if (resumed === 'tasks' && this.currentTask) {
-			this.#taskStartedAt = Date.now();
+			// Cross-device / cleared-storage resume: no local clock snapshot exists,
+			// so time already spent on this task elsewhere is unrecoverable. Start
+			// fresh but flag the task as interrupted so its (truncated) time can be
+			// excluded in analysis.
+			taskClock.start(this.currentTask.id, { resumedMidTask: true });
 			telemetry.setTask(this.currentTask.id);
 		}
 		if (resumed === 'tasks' || resumed === 'survey') {
@@ -229,7 +248,8 @@ class StudyStore {
 			stage: this.stage,
 			taskIndex: this.taskIndex,
 			participantCode: this.participantCode,
-			agentCondition: this.agentCondition
+			agentCondition: this.agentCondition,
+			awaitingRatingTaskId: this.ratingFor?.id ?? null
 		};
 		localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 		this.#syncProgress();
@@ -256,6 +276,17 @@ class StudyStore {
 			// Re-tag telemetry with the resumed task so events stay attributed, and
 			// re-arm the dropout marker while mid-study (tasks/survey).
 			if (this.stage === 'tasks' && this.currentTask) {
+				if (data.awaitingRatingTaskId === this.currentTask.id) {
+					// Reload during the per-task rating step: the task is already
+					// completed and logged (and its clock cleared), so resume at the
+					// rating rather than restarting the task or its timer.
+					this.ratingFor = this.currentTask;
+				} else {
+					// Same-browser reload mid-task: restart the clock, which restores the
+					// banked active time from its own localStorage snapshot and excludes
+					// the time the tab was gone (counted as one interruption).
+					taskClock.start(this.currentTask.id);
+				}
 				telemetry.setTask(this.currentTask.id);
 			}
 			if (this.stage === 'tasks' || this.stage === 'survey') {
