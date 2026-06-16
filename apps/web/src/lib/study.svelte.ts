@@ -16,7 +16,7 @@ import { telemetry } from '$lib/telemetry.svelte';
  * participant left off (their session itself is recovered via the refresh
  * cookie by auth.bootstrap). Only meaningful when the backend is in study mode.
  */
-export const CONSENT_VERSION = 'v1.0';
+export const CONSENT_VERSION = 'v1.1';
 
 export type StudyStage = 'intro' | 'tasks' | 'survey' | 'done' | 'ineligible';
 

@@ -364,7 +364,7 @@ export const SURVEY: SurveySection[] = [
 			{
 				id: 'followup_ok',
 				type: 'single',
-				label: 'Would you be willing to be contacted for a short (15-min) follow-up interview?',
+				label: 'Would you be willing to be contacted about future research related to this study?',
 				options: opts(['Yes', 'No'])
 			},
 			{
