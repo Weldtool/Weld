@@ -23,16 +23,50 @@
     perception scores?
 \end{description}
 
+\subsection{Hypotheses}
+\label{sec:study:hypotheses}
+
+Based on the research questions and prior work on AI-assisted workflows, we
+state four directional hypotheses:
+
+\begin{description}
+  \item[H1~(Context breadth and speed).]
+    Broader agent context reduces time-on-task: participants in \CIII\ will
+    complete agent tasks faster than those in \CII, who will in turn be faster
+    than those in \CI.
+
+  \item[H2~(Task-type moderation).]
+    The effect of context breadth is moderated by task type. The advantage of
+    \CIII\ over \CI\ will be negligible for comprehension and single-surface
+    tasks (where cross-surface data is irrelevant) but substantial for
+    cross-surface tasks that require coordinating board, chat, and GitHub.
+
+  \item[H3~(Cognitive load).]
+    Broader context reduces perceived cognitive load (\NASATLX): \CIII\ $<$
+    \CII\ $<$ \CI, driven primarily by effort and mental-demand subscales.
+
+  \item[H4~(Perception--behavior gap).]
+    Trust and integration-perception scores will not fully track objective task
+    performance: participants may report high trust or high integration
+    perception even in conditions where telemetry shows limited cross-surface
+    coordination, and vice versa.
+\end{description}
+
 \subsection{Participants}
 \label{sec:study:participants}
 
 % TODO: Fill in once recruitment is complete.
 
-We recruited $N$~=~\emph{TBD} participants. Eligibility required at least six
-months of professional software development experience and self-reported
-familiarity with at least one task-management tool (e.g., Jira, Linear, GitHub
-Projects) and one team-chat tool (e.g., Slack, Teams, Discord). The study was
-conducted remotely. Participants were compensated \emph{[amount TBD]}.
+We target $N$~=~20--30 participants drawn from two complementary populations:
+\emph{university CS students} (undergraduate and graduate, recruited via
+course mailing lists) and \emph{professional software developers} ($\geq$1 year
+of industry experience, recruited via professional networks and online
+communities). Recruiting both groups allows us to examine whether the benefit of
+context breadth varies with prior experience. Eligibility further required
+self-reported familiarity with at least one task-management tool (e.g., Jira,
+Linear, GitHub Projects) and one team-chat tool (e.g., Slack, Teams, Discord).
+The study was conducted remotely. Participants were compensated
+\emph{[amount TBD]}.
 
 \subsection{Conditions}
 \label{sec:study:conditions}
@@ -58,10 +92,15 @@ size 3), to one of three between-subjects conditions:
 \subsection{Tasks}
 \label{sec:study:tasks}
 
-Each participant completed 12 tasks in fixed order: six manual baseline tasks
-(Warm-up phase, no agent) followed by six agent-assisted tasks (Main Tasks
-phase). Baseline and agent tasks are content-disjoint to prevent learning
-transfer. Task types span both phases:
+The study uses a hybrid design. Each participant completes 8 tasks in fixed
+order: two manual \emph{baseline tasks} (C0, no agent available) establishing a
+per-person speed and workload anchor, followed by six \emph{agent-assisted
+tasks} in their assigned condition. Baseline and agent tasks are
+content-disjoint to prevent learning transfer. The agent phase uses the
+\texttt{gpt-4o-mini-2024-07-18} model at temperature 0.2 with versioned
+condition-specific system prompts pinned for reproducibility.
+
+Task types span both phases:
 
 \begin{description}
   \item[Comprehension.] Synthesize information from one or more surfaces to
@@ -73,7 +112,7 @@ transfer. Task types span both phases:
 \end{description}
 
 \begin{table}[h]
-  \caption{Task design summary. B = Baseline (no agent), T = Agent task.
+  \caption{Task design summary. B = Baseline (no agent, C0), T = Agent task.
     Surfaces: Ch = Chat, Bo = Board, GH = GitHub.}
   \label{tab:tasks}
   \begin{tabular}{lllll}
@@ -82,10 +121,6 @@ transfer. Task types span both phases:
     \midrule
     B1 & Baseline & Single-surface & Ch, Bo & Find blocked card from chat; move to In Progress \\
     B2 & Baseline & Cross-surface  & Ch, Bo & Check card status; post reply in chat \\
-    B3 & Baseline & Cross-surface  & Ch, Bo & Open linked card from chat; set priority \\
-    B4 & Baseline & Cross-surface  & GH, Ch & Find PR number; post in \#general \\
-    B5 & Baseline & Cross-surface  & Ch, Bo & Record chat decision in card description \\
-    B6 & Baseline & Comprehension  & Bo, Ch & Find CI card; post confirmation in chat \\
     \midrule
     T1 & Agent & Comprehension  & Ch, Bo     & Determine next priority; update board \\
     T2 & Agent & Comprehension  & Ch, Bo, GH & Catch-up summary; post in chat \\
@@ -106,11 +141,14 @@ Each session proceeded as follows:
 \begin{enumerate}
   \item Informed consent and eligibility screening.
   \item Orientation to \Weld (un-timed, guided).
-  \item \textbf{Baseline phase} (6 tasks, no agent): tasks presented
-    sequentially; participants self-paced, rated each task before advancing.
+  \item \textbf{Baseline phase} (2 tasks, no agent, condition C0): tasks
+    presented sequentially; participants self-paced, rated each task before
+    advancing.
   \item Phase-transition interstitial: agent panel revealed; \CII/\CIII\
     participants received a brief explanation of available agent actions.
-  \item \textbf{Agent phase} (6 tasks): same structure with the agent available.
+  \item \textbf{Agent phase} (6 tasks): same structure with the agent
+    available under the participant's assigned condition (\CI, \CII, or
+    \CIII).
   \item Exit survey (\NASATLX, \SUS, integration-perception, AI trust scale,
     open-ended comments, demographics).
   \item Debrief.

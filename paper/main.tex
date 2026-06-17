@@ -34,33 +34,42 @@
 
 %% ── Abstract ────────────────────────────────────────────────────────────────
 \begin{abstract}
-Developers routinely switch between disconnected tools---task boards, team
-chat, and code-review platforms---incurring context-switching costs that reduce
-productivity and increase cognitive load. Integrated developer workspaces
-promise to alleviate this fragmentation, yet the additional benefit of
-embedding AI agents that can observe and act across multiple surfaces remains
-poorly understood, as does the question of how the \emph{breadth} of context
-made available to such agents shapes their effectiveness. We present \textsc{Weld},
-an all-in-one developer workspace that unifies a Kanban task board, team chat,
-and GitHub integration in a single product, and report a controlled
-between-subjects user study ($N$~=~\emph{TBD}, three conditions, balanced
-block-randomization) that manipulates how much workspace context an embedded AI
-agent can access. Participants completed 12 tasks spanning three
-categories---comprehension, single-surface, and cross-surface
-coordination---first in a no-agent baseline phase and then in their assigned
-agent condition: $C_1$ (chat context only, advisory), $C_2$ (chat and board,
-action-capable), or $C_3$ (chat, board, and GitHub, full action). We collected
-task completion rates, time-on-task, NASA Task Load Index (NASA-TLX, six
-subscales), System Usability Scale (SUS), a five-item integration-perception
-scale, an eight-item AI trust and effectiveness scale, and approximately 40
-categories of fine-grained in-product telemetry events. Context scoping was
-enforced at the server in code via a Context Gate module---not via prompt
-instructions---making the manipulation provable from audit logs. Results will
-be reported upon study completion. Our primary contribution is a code-enforced
-context-scoping mechanism as a replicable design principle for studying and
-deploying AI agents in multi-surface collaborative tools, together with an
-empirical characterisation of how context breadth interacts with task type to
-determine agent benefit in realistic developer workflows.
+Software development is fragmented across issue trackers, team chat, and code
+hosts, and AI assistants embedded in that workflow face an analogous
+fragmentation: they can only act on what they are allowed to see. We
+operationalise this as a \emph{context ladder}---a three-rung experimental
+manipulation of how much of a shared workspace an AI agent can observe and act
+on: chat only (\CI), chat and task board (\CII), or chat, board, and GitHub
+(\CIII)---and measure the downstream effect on user task performance, cognitive
+load, and trust across a population spanning both novice and experienced
+programmers.
+
+We present \Weld, an open-source integrated developer workspace
+(SvelteKit\,+\,Rust/Axum) combining a Kanban board, team chat, and mocked
+GitHub repository data in one product, and report a hybrid user study (target
+$N$~=~20--30) recruiting from two complementary populations: university CS
+students (undergraduate and graduate, representing less-experienced developers)
+and professional software developers ($\geq$1\,year of industry experience).
+Every participant first completes two manual no-agent baseline tasks---
+establishing a per-person speed and workload anchor that absorbs individual
+skill differences---then is randomly assigned to one agent condition for six
+agent-assisted tasks spanning comprehension, single-surface, and cross-surface
+coordination types. Including both populations allows us to examine whether the
+benefit of context breadth varies with developer experience, and whether novice
+and experienced programmers differ in their reliance on and trust of an AI agent
+with varying information access. Primary analysis uses baseline-normalised task
+time via a mixed-effects model testing the condition~$\times$ task-type
+interaction; secondary measures include \NASATLX, System Usability Scale, a
+five-item integration-perception scale, and an eight-item AI trust scale.
+
+Context scoping is enforced at the server in code---not in prompts---by the
+\ContextGate module, which records a per-turn \texttt{agent\_context\_sent}
+audit snapshot proving, from the log alone, exactly what information each agent
+invocation received. This architectural choice makes the experimental
+manipulation verifiable rather than merely assumed. We contribute the
+context-ladder study design, the mixed-experience participant protocol, and the
+\ContextGate mechanism as replicable instruments for empirical research on AI
+agents in multi-surface collaborative tools.
 \end{abstract}
 
 %% ── CCS Concepts ────────────────────────────────────────────────────────────
