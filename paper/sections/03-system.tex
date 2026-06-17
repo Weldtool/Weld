@@ -1,0 +1,100 @@
+\section{System: \Weld}
+\label{sec:system}
+
+\subsection{Weld Overview}
+\label{sec:system:overview}
+
+\Weld is an open-source, full-stack developer workspace built with SvelteKit
+(web frontend) and Rust/Axum (backend), using PostgreSQL for persistence and
+Redis for real-time pub/sub. It provides three primary collaboration surfaces
+that correspond directly to the agent-context conditions in the study:
+
+\begin{itemize}
+  \item \textbf{Kanban Board.} Drag-and-drop columns and cards with fractional
+    indexing, real-time cross-client synchronization, labels, priorities, and
+    assignees.
+
+  \item \textbf{Team Chat.} Channel-based messaging with threading, Markdown
+    support, @mentions, and \texttt{[[card:id]]} cross-reference tokens that
+    link directly to board cards.
+
+  \item \textbf{GitHub Integration.} GitHub App installation with two-way
+    synchronization between board cards and GitHub issues/pull requests,
+    webhook-driven updates, and per-participant fixture data for study isolation.
+\end{itemize}
+
+\subsection{Study Mode and Workspace Isolation}
+\label{sec:system:study}
+
+\Weld includes a \emph{study mode} that provisions each participant with a
+fully isolated workspace cloned from a seeded ``PetTracker'' project containing
+realistic pre-seeded chat history, board cards, and GitHub fixtures. Isolation
+is enforced at the database level: every query in study mode is scoped to the
+participant's own \texttt{team\_id} and \texttt{project\_id}, preventing
+cross-participant data leakage.
+
+Participants authenticate via single-use access codes rather than account
+registration. A resume mechanism allows interrupted sessions to continue from
+their saved point across devices.
+
+\subsection{The Context Gate}
+\label{sec:system:gate}
+
+The central technical contribution enabling the study is the \ContextGate---a
+server-side Rust module that assembles the agent's context before each LLM
+call. The gate enforces a \emph{default-deny} policy: it maintains a
+per-condition allowlist of context sources, and only queries and includes
+sources on the allowlist.
+
+\begin{itemize}
+  \item \textbf{\CI} (chat only): the gate queries \emph{only} the team's
+    message history. Board and GitHub APIs are never called.
+  \item \textbf{\CII} (chat + board): the gate queries messages and board
+    cards. GitHub APIs are never called.
+  \item \textbf{\CIII} (chat + board + GitHub): the gate queries all three
+    sources.
+\end{itemize}
+
+Because scoping is a hard code boundary---not a prompt instruction---the
+manipulation cannot be subverted by the model and is verifiable from the
+\texttt{agent\_context\_sent} audit events logged on every turn. The agent
+additionally operates through a double-gated tool executor: tools are offered
+to the model only for the allowed condition (first gate), and the executor
+re-checks permissions before running any tool call (second gate), logging
+rejections as \texttt{agent\_tool\_rejected} events.
+
+\begin{figure}[h]
+  \centering
+  % TODO: Replace with architecture diagram
+  \fbox{\rule{0pt}{4cm}\rule{0.8\linewidth}{0pt}}
+  \caption{The \ContextGate architecture. Each LLM call passes through the gate,
+    which assembles context strictly from the condition's allowlist and emits a
+    \texttt{agent\_context\_sent} audit event. The double-gated tool executor
+    independently re-checks permissions before execution.}
+  \label{fig:gate}
+\end{figure}
+
+\subsection{Telemetry Infrastructure}
+\label{sec:system:telemetry}
+
+\Weld logs approximately 40 categories of behavioral events
+(Table~\ref{tab:events}), batched from the client and ingested server-side
+through an allowlist-only endpoint that rejects any event type not on a fixed
+enumeration. This prevents capture of keystrokes, mouse coordinates, or other
+data not required by the study protocol.
+
+\begin{table}[h]
+  \caption{Selected telemetry event categories.}
+  \label{tab:events}
+  \begin{tabular}{ll}
+    \toprule
+    Category & Example event types \\
+    \midrule
+    Task lifecycle  & \texttt{task\_shown}, \texttt{task\_completed}, \texttt{task\_skipped} \\
+    Board actions   & \texttt{card\_moved}, \texttt{card\_priority\_set}, \texttt{card\_edited} \\
+    Chat actions    & \texttt{message\_sent}, \texttt{channel\_switched} \\
+    Cross-surface   & \texttt{card\_referenced\_from\_chat}, \texttt{pr\_linked\_to\_card} \\
+    Agent           & \texttt{agent\_invoked}, \texttt{agent\_tool\_call}, \texttt{agent\_tool\_rejected} \\
+    \bottomrule
+  \end{tabular}
+\end{table}

@@ -1,0 +1,151 @@
+%% ACM Transactions on Software Engineering and Methodology (TOSEM) — manuscript submission
+%% Compile: latexmk -pdf main
+%% Or:      pdflatex main && bibtex main && pdflatex main && pdflatex main
+
+\documentclass[manuscript,screen,review]{acmart}
+
+%% Journal target
+\acmJournal{TOSEM}
+
+%% ── ACM Metadata ────────────────────────────────────────────────────────────
+\title{Context-Scoped AI Agents in Integrated Developer Workspaces: A Between-Subjects Study of Information Breadth and Task Performance}
+
+%% Authors — replace with real names, affiliations, ORCIDs
+\author{Author One}
+\authornote{Corresponding author.}
+\email{author1@institution.edu}
+\orcid{0000-0000-0000-0000}
+\affiliation{%
+  \institution{Institution Name}
+  \streetaddress{Street Address}
+  \city{City}
+  \state{State}
+  \country{Country}
+  \postcode{00000}
+}
+
+\author{Author Two}
+\email{author2@institution.edu}
+\affiliation{%
+  \institution{Institution Name}
+  \city{City}
+  \country{Country}
+}
+
+%% ── Abstract ────────────────────────────────────────────────────────────────
+\begin{abstract}
+Developers routinely switch between disconnected tools---task boards, team
+chat, and code-review platforms---incurring context-switching costs that reduce
+productivity and increase cognitive load. Integrated developer workspaces
+promise to alleviate this fragmentation, yet the additional benefit of
+embedding AI agents that can observe and act across multiple surfaces remains
+poorly understood, as does the question of how the \emph{breadth} of context
+made available to such agents shapes their effectiveness. We present \textsc{Weld},
+an all-in-one developer workspace that unifies a Kanban task board, team chat,
+and GitHub integration in a single product, and report a controlled
+between-subjects user study ($N$~=~\emph{TBD}, three conditions, balanced
+block-randomization) that manipulates how much workspace context an embedded AI
+agent can access. Participants completed 12 tasks spanning three
+categories---comprehension, single-surface, and cross-surface
+coordination---first in a no-agent baseline phase and then in their assigned
+agent condition: $C_1$ (chat context only, advisory), $C_2$ (chat and board,
+action-capable), or $C_3$ (chat, board, and GitHub, full action). We collected
+task completion rates, time-on-task, NASA Task Load Index (NASA-TLX, six
+subscales), System Usability Scale (SUS), a five-item integration-perception
+scale, an eight-item AI trust and effectiveness scale, and approximately 40
+categories of fine-grained in-product telemetry events. Context scoping was
+enforced at the server in code via a Context Gate module---not via prompt
+instructions---making the manipulation provable from audit logs. Results will
+be reported upon study completion. Our primary contribution is a code-enforced
+context-scoping mechanism as a replicable design principle for studying and
+deploying AI agents in multi-surface collaborative tools, together with an
+empirical characterisation of how context breadth interacts with task type to
+determine agent benefit in realistic developer workflows.
+\end{abstract}
+
+%% ── CCS Concepts ────────────────────────────────────────────────────────────
+%% Generate from https://dl.acm.org/ccs
+\begin{CCSXML}
+<ccs2012>
+  <concept>
+    <concept_id>10011007.10011006.10011073</concept_id>
+    <concept_desc>Software and its engineering~Software development techniques</concept_desc>
+    <concept_significance>500</concept_significance>
+  </concept>
+  <concept>
+    <concept_id>10003120.10003121.10003122</concept_id>
+    <concept_desc>Human-centered computing~HCI theory, concepts and models</concept_desc>
+    <concept_significance>500</concept_significance>
+  </concept>
+  <concept>
+    <concept_id>10003120.10003121.10003124</concept_id>
+    <concept_desc>Human-centered computing~Empirical studies in HCI</concept_desc>
+    <concept_significance>500</concept_significance>
+  </concept>
+  <concept>
+    <concept_id>10010147.10010178</concept_id>
+    <concept_desc>Computing methodologies~Artificial intelligence</concept_desc>
+    <concept_significance>300</concept_significance>
+  </concept>
+</ccs2012>
+\end{CCSXML}
+
+\ccsdesc[500]{Software and its engineering~Software development techniques}
+\ccsdesc[500]{Human-centered computing~HCI theory, concepts and models}
+\ccsdesc[500]{Human-centered computing~Empirical studies in HCI}
+\ccsdesc[300]{Computing methodologies~Artificial intelligence}
+
+%% ── Keywords ────────────────────────────────────────────────────────────────
+\keywords{AI agents, developer tools, integrated workspaces, context scoping,
+  user study, NASA TLX, cognitive load, task coordination, human-AI interaction,
+  software engineering}
+
+%% ── Copyright / DOI stubs (filled in by ACM at acceptance) ─────────────────
+%% \acmDOI{10.1145/XXXXXXX.XXXXXXX}
+%% \acmISBN{978-x-xxxx-xxxx-x/YY/MM}
+%% \acmYear{2026}
+%% \copyrightyear{2026}
+%% \acmSubmissionID{TOSEM-XXXX-XXXX}
+
+%% ── Additional packages ─────────────────────────────────────────────────────
+\usepackage{booktabs}      % professional table rules
+\usepackage{multirow}      % multi-row table cells
+\usepackage{graphicx}      % figures
+\usepackage{microtype}     % improved justification
+\usepackage{xspace}        % smart spacing after macros
+\usepackage{listings}      % code listings
+\usepackage{subcaption}    % subfigures
+
+%% ── Custom macros ───────────────────────────────────────────────────────────
+\newcommand{\Weld}{\textsc{Weld}\xspace}
+\newcommand{\ContextGate}{\textsc{Context Gate}\xspace}
+\newcommand{\CI}{$C_1$\xspace}
+\newcommand{\CII}{$C_2$\xspace}
+\newcommand{\CIII}{$C_3$\xspace}
+\newcommand{\NASATLX}{NASA-TLX\xspace}
+\newcommand{\SUS}{SUS\xspace}
+
+%% ── Document body ───────────────────────────────────────────────────────────
+\begin{document}
+
+\maketitle
+
+\input{sections/01-intro}
+\input{sections/02-related}
+\input{sections/03-system}
+\input{sections/04-study}
+\input{sections/05-results}
+\input{sections/06-discussion}
+\input{sections/07-conclusion}
+
+%% ── Acknowledgements ────────────────────────────────────────────────────────
+\begin{acks}
+The authors thank the study participants for their time. [Additional
+acknowledgements to be added before submission.]
+\end{acks}
+
+%% ── Bibliography ────────────────────────────────────────────────────────────
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{refs}
+
+\end{document}

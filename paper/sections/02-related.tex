@@ -1,0 +1,40 @@
+\section{Related Work}
+\label{sec:related}
+
+\subsection{Integrated Developer Workspaces}
+\label{sec:related:integrated}
+
+The costs of tool fragmentation in knowledge work have been documented through
+diary studies and experience-sampling
+methods~\cite{mark2008cost,czerwinski2004diary}. Studies of software engineers
+specifically find that inter-tool navigation accounts for a measurable fraction
+of working time~\cite{ko2007information,latoza2006maintaining}. Commercial
+responses---Linear integrating chat and board, Notion combining docs and tasks,
+GitHub's own project boards---have not been systematically evaluated against
+single-surface baselines in controlled experiments. We contribute such a
+baseline via the \Weld pre-agent phase.
+
+\subsection{AI Agents in Productivity and Coordination Tools}
+\label{sec:related:agents}
+
+Large language model (LLM) assistants have demonstrated productivity gains in
+code completion~\cite{chen2021codex}, text drafting~\cite{noy2023}, and
+information retrieval tasks. Fewer studies have examined agents that both
+\emph{read} multi-surface context and \emph{act} on it---for example, moving a
+board card \emph{and} drafting a chat post as part of a single agent turn.
+Recent work on agentic systems~\cite{yao2023react,shinn2023reflexion} has
+largely been evaluated in synthetic benchmarks rather than realistic
+collaborative workspaces with human participants.
+
+\subsection{Context-Aware AI Systems}
+\label{sec:related:context}
+
+Context-aware systems have long been studied in ubiquitous
+computing~\cite{dey2001context} and, more recently, in the
+retrieval-augmented generation (RAG) paradigm~\cite{lewis2020rag}. The question
+of \emph{how much} context to surface to a language model---the context-breadth
+design variable manipulated in this study---has been discussed primarily from an
+accuracy perspective. The governance and auditability of context scoping has
+received less attention. Our \ContextGate mechanism contributes a design pattern
+for making context-scoping decisions both explicit and verifiable, building on
+principles of privacy-by-design~\cite{cavoukian2009privacybydesign}.

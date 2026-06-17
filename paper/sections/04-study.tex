@@ -1,0 +1,150 @@
+\section{Study Design}
+\label{sec:study}
+
+\subsection{Research Questions}
+\label{sec:study:rqs}
+
+\begin{description}
+  \item[RQ1] \emph{Integrated workspace value (baseline).}
+    Does using an integrated workspace (without an agent) reduce cognitive load
+    and time-on-task relative to reported experience with fragmented tooling?
+
+  \item[RQ2] \emph{Effect of context breadth on agent effectiveness.}
+    Does increasing the agent's context breadth (\CI $\to$ \CII $\to$ \CIII)
+    improve task performance and reduce cognitive load?
+
+  \item[RQ3] \emph{Task-type moderation.}
+    Does the effect of context breadth vary across task types (comprehension,
+    single-surface, cross-surface)?
+
+  \item[RQ4] \emph{Scaling of benefit with surface integration.}
+    Do participants in higher-context conditions show greater cross-surface
+    integration behavior (measured by telemetry) and higher integration
+    perception scores?
+\end{description}
+
+\subsection{Participants}
+\label{sec:study:participants}
+
+% TODO: Fill in once recruitment is complete.
+
+We recruited $N$~=~\emph{TBD} participants. Eligibility required at least six
+months of professional software development experience and self-reported
+familiarity with at least one task-management tool (e.g., Jira, Linear, GitHub
+Projects) and one team-chat tool (e.g., Slack, Teams, Discord). The study was
+conducted remotely. Participants were compensated \emph{[amount TBD]}.
+
+\subsection{Conditions}
+\label{sec:study:conditions}
+
+Participants were randomly assigned, with balanced block randomization (block
+size 3), to one of three between-subjects conditions:
+
+\begin{description}
+  \item[\CI~(Chat only, advisory).] The agent observes only team chat history.
+    No access to board state or GitHub. Advisory-only: no tools offered to the
+    model, so it cannot modify any surface.
+
+  \item[\CII~(Chat + Board, action-capable).] The agent observes chat and the
+    full board card state. Available tools: \texttt{create\_card},
+    \texttt{move\_card}, \texttt{update\_card}, and \texttt{post\_message}
+    (drafts a chat message for the participant to review before sending).
+
+  \item[\CIII~(Chat + Board + GitHub, full action).] The agent observes all
+    three surfaces. All \CII\ tools plus \texttt{link\_card\_to\_github},
+    enabling it to connect board cards to GitHub issues or pull requests.
+\end{description}
+
+\subsection{Tasks}
+\label{sec:study:tasks}
+
+Each participant completed 12 tasks in fixed order: six manual baseline tasks
+(Warm-up phase, no agent) followed by six agent-assisted tasks (Main Tasks
+phase). Baseline and agent tasks are content-disjoint to prevent learning
+transfer. Task types span both phases:
+
+\begin{description}
+  \item[Comprehension.] Synthesize information from one or more surfaces to
+    form a judgment (e.g., ``what does the team need most right now?'').
+  \item[Single-surface.] Can be completed by acting on a single surface, even
+    if cross-surface context helps.
+  \item[Cross-surface.] Explicitly requires coordinated action across two or
+    more surfaces.
+\end{description}
+
+\begin{table}[h]
+  \caption{Task design summary. B = Baseline (no agent), T = Agent task.
+    Surfaces: Ch = Chat, Bo = Board, GH = GitHub.}
+  \label{tab:tasks}
+  \begin{tabular}{lllll}
+    \toprule
+    ID & Phase & Type & Surfaces & Summary \\
+    \midrule
+    B1 & Baseline & Single-surface & Ch, Bo & Find blocked card from chat; move to In Progress \\
+    B2 & Baseline & Cross-surface  & Ch, Bo & Check card status; post reply in chat \\
+    B3 & Baseline & Cross-surface  & Ch, Bo & Open linked card from chat; set priority \\
+    B4 & Baseline & Cross-surface  & GH, Ch & Find PR number; post in \#general \\
+    B5 & Baseline & Cross-surface  & Ch, Bo & Record chat decision in card description \\
+    B6 & Baseline & Comprehension  & Bo, Ch & Find CI card; post confirmation in chat \\
+    \midrule
+    T1 & Agent & Comprehension  & Ch, Bo     & Determine next priority; update board \\
+    T2 & Agent & Comprehension  & Ch, Bo, GH & Catch-up summary; post in chat \\
+    T3 & Agent & Single-surface & Ch         & Draft and post status update in chat \\
+    T4 & Agent & Single-surface & Bo         & Set priorities on three backlog cards \\
+    T5 & Agent & Cross-surface  & Ch, Bo     & Find bug card from chat; move to In Progress \\
+    T6 & Agent & Cross-surface  & Ch, Bo, GH & Link PR to card; announce in chat \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Procedure}
+\label{sec:study:procedure}
+
+% TODO: Fill in IRB protocol details, session timing.
+
+Each session proceeded as follows:
+\begin{enumerate}
+  \item Informed consent and eligibility screening.
+  \item Orientation to \Weld (un-timed, guided).
+  \item \textbf{Baseline phase} (6 tasks, no agent): tasks presented
+    sequentially; participants self-paced, rated each task before advancing.
+  \item Phase-transition interstitial: agent panel revealed; \CII/\CIII\
+    participants received a brief explanation of available agent actions.
+  \item \textbf{Agent phase} (6 tasks): same structure with the agent available.
+  \item Exit survey (\NASATLX, \SUS, integration-perception, AI trust scale,
+    open-ended comments, demographics).
+  \item Debrief.
+\end{enumerate}
+
+Sessions were conducted remotely. Screen recording was \emph{not} collected;
+all behavioral data came from in-product telemetry.
+
+\subsection{Measures}
+\label{sec:study:measures}
+
+\paragraph{Task performance.}
+Task completion (binary, judged from \texttt{task\_final\_state} telemetry) and
+time-on-task (seconds between \texttt{task\_shown} and \texttt{task\_completed}
+or \texttt{task\_skipped}).
+
+\paragraph{Cognitive load.}
+\NASATLX~\cite{hart1988tlx}, six subscales (mental demand, physical demand,
+temporal demand, performance, effort, frustration), administered once per phase
+in the exit survey.
+
+\paragraph{Usability.}
+\SUS~\cite{brooke1996sus}, 10 items, 5-point Likert, yielding a 0--100 score.
+
+\paragraph{Integration perception.}
+A five-item scale measuring whether participants perceived workspace surfaces as
+connected (e.g., ``I could easily see how chat discussions connected to board
+tasks'').
+
+\paragraph{AI trust and effectiveness.}
+An eight-item scale (adapted from~\cite{madsen2000measuring}) measuring perceived
+agent accuracy, helpfulness, and appropriate scope.
+
+\paragraph{Behavioral telemetry.}
+Cross-surface reference events (\texttt{card\_referenced\_from\_chat},
+\texttt{pr\_linked\_to\_card}, etc.) as an objective measure of integration
+behavior; agent turn counts and tool-call distributions as agent-use indicators.

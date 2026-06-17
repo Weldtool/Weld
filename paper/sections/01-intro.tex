@@ -1,0 +1,54 @@
+\section{Introduction}
+\label{sec:intro}
+
+Modern software development demands constant movement across tools: a task
+management board to plan work, a chat platform to coordinate with teammates,
+and a code-hosting service to review pull requests and track issues. Each
+transition carries a context-switching cost---the cognitive overhead of
+re-establishing mental state in a new tool---that fragments attention and slows
+progress~\cite{mark2008cost,czerwinski2004diary}. This fragmentation is
+compounded when information lives in separate silos: a chat thread that
+references a board card requires the developer to manually open two applications
+and mentally merge their contents.
+
+Integrated developer workspaces attempt to reduce this overhead by co-locating
+surfaces. Yet the empirical record on whether integration alone suffices---and
+what further benefit is conferred by embedding an AI agent that can observe and
+act across those surfaces---remains thin. Prior work on AI-assisted programming
+has focused heavily on code generation~\cite{copilot2022,chen2021codex}, leaving
+the broader coordination and project-management layer largely unstudied.
+
+A second open question concerns the role of \emph{context breadth}: how much
+workspace state should an agent be allowed to observe? Giving an agent access
+to more surfaces may improve its relevance, but it raises concerns about
+information overuse, trust, and auditability. Designing studies to isolate this
+variable has proven difficult because prior systems enforce context boundaries
+in prompts---a mechanism that is opaque, brittle, and unverifiable after the
+fact.
+
+\textbf{This paper makes three contributions:}
+\begin{enumerate}
+  \item \textbf{\Weld system.} We describe \Weld, an open-source all-in-one
+    developer workspace (Kanban board, team chat, GitHub integration) augmented
+    with a study mode that provisions isolated per-participant workspaces and
+    logs fine-grained behavioral telemetry~(\S\ref{sec:system}).
+
+  \item \textbf{Code-enforced context scoping (\ContextGate).} We introduce the
+    \ContextGate, a server-side module that assembles agent context from a
+    condition-specific allowlist. Because scoping is enforced in code---not
+    prompts---the manipulation is mechanically verifiable from audit
+    logs~(\S\ref{sec:system}).
+
+  \item \textbf{Empirical study.} We report a between-subjects user study
+    ($N$~=~\emph{TBD}) crossing three agent-context conditions against three
+    task types, with measures spanning task performance, cognitive load
+    (\NASATLX), usability (\SUS), and cross-surface telemetry~(\S\ref{sec:results}).
+\end{enumerate}
+
+The remainder of the paper is structured as follows.
+Section~\ref{sec:related} surveys related work.
+Section~\ref{sec:system} describes \Weld and the study instrumentation.
+Section~\ref{sec:study} presents the study design.
+Section~\ref{sec:results} reports results.
+Section~\ref{sec:discussion} discusses implications, and
+Section~\ref{sec:conclusion} concludes.
