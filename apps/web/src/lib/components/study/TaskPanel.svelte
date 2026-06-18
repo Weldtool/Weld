@@ -62,7 +62,6 @@
 	<BaselineTlx />
 {/if}
 
-
 {#if task}
 	<!-- Launcher button (bottom-center), always available behind the workspace. -->
 	<button

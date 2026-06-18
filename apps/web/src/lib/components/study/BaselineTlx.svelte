@@ -50,7 +50,9 @@
 						class="mt-2 w-full accent-[var(--primary)]"
 						aria-label={item.label}
 					/>
-					<div class="mt-1 flex items-center justify-between text-[11px] text-[var(--muted-foreground)]">
+					<div
+						class="mt-1 flex items-center justify-between text-[11px] text-[var(--muted-foreground)]"
+					>
 						<span>{item.lowAnchor ?? ''}</span>
 						<span class="text-sm font-medium text-[var(--foreground)]">
 							{touched ? responses[item.id] : 'Drag to set'}
