@@ -4,7 +4,7 @@
 	import type { GithubConnection, TeamMember, TeamRole } from '$lib/api/types';
 	import { auth } from '$lib/auth.svelte';
 	import { projects } from '$lib/projects.svelte';
-	import { GitBranch, Link, LogOut, Unlink, User, Users, X } from 'lucide-svelte';
+	import { GitBranch, Link, LogOut, Unlink, User, Users, X } from '@lucide/svelte';
 
 	const teamId = $derived(projects.team?.id ?? null);
 

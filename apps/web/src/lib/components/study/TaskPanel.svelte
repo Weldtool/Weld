@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { study } from '$lib/study.svelte';
 	import { PHASE_LABELS } from '$lib/study-tasks';
-	import { ClipboardList, X } from 'lucide-svelte';
+	import { ClipboardList, X } from '@lucide/svelte';
 	import BaselineTlx from './BaselineTlx.svelte';
 
 	const task = $derived(study.currentTask);

@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  markdown-it@<14.2.0: '>=14.2.0'
+  brace-expansion@>=5.0.0 <5.0.6: '>=5.0.6'
+  cookie@<0.7.0: '>=0.7.0'
+
 importers:
 
   .:
@@ -36,6 +41,9 @@ importers:
       '@eslint/js':
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.2.1(jiti@2.6.1))
+      '@lucide/svelte':
+        specifier: ^1.21.0
+        version: 1.21.0(svelte@5.55.7(@typescript-eslint/types@8.59.1))
       '@sveltejs/adapter-auto':
         specifier: ^7.0.1
         version: 7.0.1(@sveltejs/kit@2.60.1(@sveltejs/vite-plugin-svelte@7.0.0(svelte@5.55.7(@typescript-eslint/types@8.59.1))(vite@8.0.16(@types/node@24.12.2)(jiti@2.6.1)))(svelte@5.55.7(@typescript-eslint/types@8.59.1))(typescript@6.0.3)(vite@8.0.16(@types/node@24.12.2)(jiti@2.6.1)))
@@ -72,9 +80,6 @@ importers:
       globals:
         specifier: ^17.4.0
         version: 17.5.0
-      lucide-svelte:
-        specifier: ^1.0.1
-        version: 1.0.1(svelte@5.55.7(@typescript-eslint/types@8.59.1))
       mode-watcher:
         specifier: ^1.1.0
         version: 1.1.0(svelte@5.55.7(@typescript-eslint/types@8.59.1))
@@ -221,6 +226,11 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
+
+  '@lucide/svelte@1.21.0':
+    resolution: {integrity: sha512-MEv//A7Jv3kHukZowv/DWp1MAtUzJKYwtJsmnQ7X98lCgtac3z3NbaToDl3Q6jO3gS9sougFpcD+t+YuxOkRMw==}
+    peerDependencies:
+      svelte: ^5
 
   '@napi-rs/wasm-runtime@1.1.5':
     resolution: {integrity: sha512-AWPoBRJ9tsnVhor4sjO7rkni+7p+2IAEFj6cx06UgP10jkQHqay/36uRV/bFkgrh18D9vb4cr8Q0Pthskgzy+Q==}
@@ -953,8 +963,8 @@ packages:
       '@internationalized/date': ^3.8.1
       svelte: ^5.33.0
 
-  brace-expansion@5.0.5:
-    resolution: {integrity: sha512-VZznLgtwhn+Mact9tfiwx64fA9erHH/MCXEUfB/0bX/6Fz6ny5EGTXYltMocqg4xFAQZtnO3DHWWXi8RiuN7cQ==}
+  brace-expansion@5.0.6:
+    resolution: {integrity: sha512-kLpxurY4Z4r9sgMsyG0Z9uzsBlgiU/EFKhj/h91/8yHu0edo7XuixOIH3VcJ8kkxs6/jPzoI6U9Vj3WqbMQ94g==}
     engines: {node: 18 || 20 || >=22}
 
   chai@6.2.2:
@@ -975,9 +985,9 @@ packages:
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
 
-  cookie@0.6.0:
-    resolution: {integrity: sha512-U71cyTamuh1CRNCfpGY6to28lxvNwPG4Guz/EVjgf3Jmzv0vlDp1atT9eS5dDjMYHucpHbWns6Lwf3BKz6svdw==}
-    engines: {node: '>= 0.6'}
+  cookie@1.1.1:
+    resolution: {integrity: sha512-ei8Aos7ja0weRpFzJnEA9UHJ/7XQmqglbRwnf2ATjcB9Wq874VKH9kfjjirM6UhU2/E5fFYadylyhFldcqSidQ==}
+    engines: {node: '>=18'}
 
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
@@ -1329,8 +1339,8 @@ packages:
     resolution: {integrity: sha512-utWOt/GHzuUxnLKxB6dk81RoOeoNeHgbrXiuGk4yyF5qlRz+iIVWu56E2fqGHFrXz0QNUhLB/8nKqvRH66JKGQ==}
     engines: {node: '>=10'}
 
-  linkify-it@5.0.0:
-    resolution: {integrity: sha512-5aHCbzQRADcdP+ATqnDuhhJ/MRIqDkZX5pyjFHRRysS8vZ5AbqGEoFIb6pYHPZ+L/OC2Lc+xT8uHVVR5CAK/wQ==}
+  linkify-it@5.0.1:
+    resolution: {integrity: sha512-wVoTjP4Q6R0NW5hiZkVJaFZPWgtXfoGF+6LucL3/FtiNjmcHhYjEr5f1Kqjirc1nBW07J/ZuRFumqr2oqccEWg==}
 
   linkifyjs@4.3.2:
     resolution: {integrity: sha512-NT1CJtq3hHIreOianA8aSXn6Cw0JzYOuDQbOrSPe7gqFnCpKP++MQe3ODgO3oh2GJFORkAAdqredOa60z63GbA==}
@@ -1342,12 +1352,6 @@ packages:
     resolution: {integrity: sha512-iPZK6eYjbxRu3uB4/WZ3EsEIMJFMqAoopl3R+zuq0UjcAm/MO6KCweDgPfP3elTztoKP3KtnVHxTn2NHBSDVUw==}
     engines: {node: '>=10'}
 
-  lucide-svelte@1.0.1:
-    resolution: {integrity: sha512-WvzZgk0pqzgda+AErLvgWxHkfg/+GgUwqKMRHvzt0IqyMdmyEDzDCk3Z+Wo/3y753oIgx8u9Q4eUbWkghFa8Jg==}
-    deprecated: Package deprecated. Please use @lucide/svelte instead.
-    peerDependencies:
-      svelte: ^3 || ^4 || ^5.0.0-next.42
-
   lz-string@1.5.0:
     resolution: {integrity: sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ==}
     hasBin: true
@@ -1358,8 +1362,8 @@ packages:
   markdown-it-task-lists@2.1.1:
     resolution: {integrity: sha512-TxFAc76Jnhb2OUu+n3yz9RMu4CwGfaT788br6HhEDlvWfdeJcLUsxk1Hgw2yJio0OXsxv7pyIPmvECY7bMbluA==}
 
-  markdown-it@14.1.1:
-    resolution: {integrity: sha512-BuU2qnTti9YKgK5N+IeMubp14ZUKUUw7yeJbkjtosvHiP0AZ5c8IAgEMk79D0eC8F23r4Ac/q8cAIFdm2FtyoA==}
+  markdown-it@14.2.0:
+    resolution: {integrity: sha512-1TGiQiJVRQ3NPmZH6sx5Cfnmg6GQm9jvC1ch4TK511NjSJvjzKLzn5pPfZRNZkRPZP0HqCioSndqH8v2nRaWVQ==}
     hasBin: true
 
   mdurl@2.0.0:
@@ -2024,6 +2028,10 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
+  '@lucide/svelte@1.21.0(svelte@5.55.7(@typescript-eslint/types@8.59.1))':
+    dependencies:
+      svelte: 5.55.7(@typescript-eslint/types@8.59.1)
+
   '@napi-rs/wasm-runtime@1.1.5(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)':
     dependencies:
       '@emnapi/core': 1.10.0
@@ -2222,7 +2230,7 @@ snapshots:
       '@sveltejs/vite-plugin-svelte': 7.0.0(svelte@5.55.7(@typescript-eslint/types@8.59.1))(vite@8.0.16(@types/node@24.12.2)(jiti@2.6.1))
       '@types/cookie': 0.6.0
       acorn: 8.16.0
-      cookie: 0.6.0
+      cookie: 1.1.1
       devalue: 5.8.1
       esm-env: 1.2.2
       kleur: 4.1.5
@@ -2676,7 +2684,7 @@ snapshots:
     transitivePeerDependencies:
       - '@sveltejs/kit'
 
-  brace-expansion@5.0.5:
+  brace-expansion@5.0.6:
     dependencies:
       balanced-match: 4.0.4
 
@@ -2692,7 +2700,7 @@ snapshots:
 
   convert-source-map@2.0.0: {}
 
-  cookie@0.6.0: {}
+  cookie@1.1.1: {}
 
   cross-spawn@7.0.6:
     dependencies:
@@ -2993,7 +3001,7 @@ snapshots:
 
   lilconfig@2.1.0: {}
 
-  linkify-it@5.0.0:
+  linkify-it@5.0.1:
     dependencies:
       uc.micro: 2.1.0
 
@@ -3005,10 +3013,6 @@ snapshots:
     dependencies:
       p-locate: 5.0.0
 
-  lucide-svelte@1.0.1(svelte@5.55.7(@typescript-eslint/types@8.59.1)):
-    dependencies:
-      svelte: 5.55.7(@typescript-eslint/types@8.59.1)
-
   lz-string@1.5.0: {}
 
   magic-string@0.30.21:
@@ -3017,11 +3021,11 @@ snapshots:
 
   markdown-it-task-lists@2.1.1: {}
 
-  markdown-it@14.1.1:
+  markdown-it@14.2.0:
     dependencies:
       argparse: 2.0.1
       entities: 4.5.0
-      linkify-it: 5.0.0
+      linkify-it: 5.0.1
       mdurl: 2.0.0
       punycode.js: 2.3.1
       uc.micro: 2.1.0
@@ -3030,7 +3034,7 @@ snapshots:
 
   minimatch@10.2.5:
     dependencies:
-      brace-expansion: 5.0.5
+      brace-expansion: 5.0.6
 
   mode-watcher@1.1.0(svelte@5.55.7(@typescript-eslint/types@8.59.1)):
     dependencies:
@@ -3166,7 +3170,7 @@ snapshots:
   prosemirror-markdown@1.13.4:
     dependencies:
       '@types/markdown-it': 14.1.2
-      markdown-it: 14.1.1
+      markdown-it: 14.2.0
       prosemirror-model: 1.25.4
 
   prosemirror-model@1.25.4:
@@ -3422,7 +3426,7 @@ snapshots:
     dependencies:
       '@tiptap/core': 3.22.5(@tiptap/pm@3.22.5)
       '@types/markdown-it': 13.0.9
-      markdown-it: 14.1.1
+      markdown-it: 14.2.0
       markdown-it-task-lists: 2.1.1
       prosemirror-markdown: 1.13.4
 

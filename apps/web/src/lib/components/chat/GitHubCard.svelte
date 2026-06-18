@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { GitHubMessageMetadata } from '$lib/api/types';
-	import { GitPullRequest, CircleDot, Eye, GitMerge } from 'lucide-svelte';
+	import { GitPullRequest, CircleDot, Eye, GitMerge } from '@lucide/svelte';
 	import { appConfig } from '$lib/config.svelte';
 
 	interface Props {

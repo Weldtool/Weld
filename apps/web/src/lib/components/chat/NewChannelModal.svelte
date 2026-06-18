@@ -4,7 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { X, Search } from 'lucide-svelte';
+	import { X, Search } from '@lucide/svelte';
 
 	interface Props {
 		onClose: () => void;

@@ -9,7 +9,7 @@
 	import MessageList from '$lib/components/chat/MessageList.svelte';
 	import ThreadPanel from '$lib/components/chat/ThreadPanel.svelte';
 	import TypingIndicator from '$lib/components/chat/TypingIndicator.svelte';
-	import { Hash, Lock, MessageSquare, Settings } from 'lucide-svelte';
+	import { Hash, Lock, MessageSquare, Settings } from '@lucide/svelte';
 
 	let showSettings = $state(false);
 

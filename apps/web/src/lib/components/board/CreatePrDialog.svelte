@@ -4,7 +4,7 @@
 	import { projects } from '$lib/projects.svelte';
 	import { createPrDialog } from '$lib/create-pr-dialog.svelte';
 	import { telemetry } from '$lib/telemetry.svelte';
-	import { X, GitPullRequest } from 'lucide-svelte';
+	import { X, GitPullRequest } from '@lucide/svelte';
 
 	const task = $derived(createPrDialog.task);
 	const project = $derived(projects.current);

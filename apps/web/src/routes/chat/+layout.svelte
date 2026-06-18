@@ -8,7 +8,7 @@
 	import { projects } from '$lib/projects.svelte';
 	import { browser } from '$app/environment';
 	import { onDestroy } from 'svelte';
-	import { Menu, X } from 'lucide-svelte';
+	import { Menu, X } from '@lucide/svelte';
 
 	const LAST_CHANNEL_KEY = 'weld:last-chat-channel';
 

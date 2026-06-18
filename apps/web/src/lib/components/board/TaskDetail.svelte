@@ -15,7 +15,7 @@
 	import EstimateInput from './EstimateInput.svelte';
 	import LabelPicker from './LabelPicker.svelte';
 	import CreateIssueDialog from './CreateIssueDialog.svelte';
-	import { X } from 'lucide-svelte';
+	import { X } from '@lucide/svelte';
 	import { appConfig } from '$lib/config.svelte';
 
 	interface Props {

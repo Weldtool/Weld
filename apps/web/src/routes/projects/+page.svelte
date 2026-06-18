@@ -2,7 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { ApiError } from '$lib/api/client';
 	import { projects } from '$lib/projects.svelte';
-	import { Plus } from 'lucide-svelte';
+	import { Plus } from '@lucide/svelte';
 
 	let creating = $state(false);
 	let submitting = $state(false);

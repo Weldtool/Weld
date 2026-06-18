@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { TeamMember } from '$lib/api/types';
 	import { chat } from '$lib/chat.svelte';
-	import { X } from 'lucide-svelte';
+	import { X } from '@lucide/svelte';
 	import Composer from './Composer.svelte';
 	import Message from './Message.svelte';
 

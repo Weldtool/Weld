@@ -6,7 +6,7 @@
 	import { telemetry } from '$lib/telemetry.svelte';
 	import { cn } from '$lib/utils';
 	import type { ChatMessage } from '$lib/api/types';
-	import { MessageSquare, Pencil, Trash2, RotateCw, X } from 'lucide-svelte';
+	import { MessageSquare, Pencil, Trash2, RotateCw, X } from '@lucide/svelte';
 	import GitHubCard from './GitHubCard.svelte';
 
 	const GITHUB_BOT_ID = '00000000-0000-0000-0000-000000000002';

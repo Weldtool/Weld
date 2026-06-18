@@ -33,7 +33,7 @@
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-svelte": "^3.17.0",
 		"globals": "^17.4.0",
-		"lucide-svelte": "^1.0.1",
+		"@lucide/svelte": "^1.21.0",
 		"mode-watcher": "^1.1.0",
 		"prettier": "^3.8.1",
 		"prettier-plugin-svelte": "^3.5.1",
@@ -56,5 +56,12 @@
 		"@tiptap/starter-kit": "^3.22.5",
 		"svelte-dnd-action": "^0.9.69",
 		"tiptap-markdown": "^0.9.0"
+	},
+	"pnpm": {
+		"overrides": {
+			"markdown-it@<14.2.0": ">=14.2.0",
+			"brace-expansion@>=5.0.0 <5.0.6": ">=5.0.6",
+			"cookie@<0.7.0": ">=0.7.0"
+		}
 	}
 }

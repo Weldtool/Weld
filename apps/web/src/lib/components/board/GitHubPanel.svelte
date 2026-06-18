@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { github as githubApi } from '$lib/api';
 	import type { GitHubIssue, GitHubPR, Project } from '$lib/api/types';
-	import { GitPullRequest, CircleDot, RefreshCw, ChevronDown, ChevronRight } from 'lucide-svelte';
+	import { GitPullRequest, CircleDot, RefreshCw, ChevronDown, ChevronRight } from '@lucide/svelte';
 	import { appConfig } from '$lib/config.svelte';
 
 	// In study mode the PRs/issues are seeded fixtures with no real GitHub page,
