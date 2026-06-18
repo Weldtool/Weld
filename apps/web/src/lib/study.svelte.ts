@@ -32,6 +32,10 @@ interface PersistedState {
 	 * reload during the rating step resume at the rating instead of re-running an
 	 * already-completed (and already-logged) task. */
 	awaitingRatingTaskId: string | null;
+	/** True while the post-baseline TLX interstitial is showing (baseline done,
+	 * first agent task not yet entered). Persisted so a reload resumes at the TLX
+	 * rather than dropping the participant into the agent phase un-measured. */
+	pendingPostBaselineTlx: boolean;
 }
 
 class StudyStore {
@@ -44,6 +48,10 @@ class StudyStore {
 	/** The just-completed task awaiting its quick per-task rating, or null. While
 	 * set, the task panel shows the rating step and advancement is gated on it. */
 	ratingFor = $state<StudyTask | null>(null);
+	/** True between the last baseline task and the first agent task, while the
+	 * post-baseline NASA-TLX interstitial is showing. The first agent task is not
+	 * entered (no clock, no `task_shown`) until it's submitted. */
+	pendingPostBaselineTlx = $state(false);
 
 	constructor() {
 		if (browser) this.#restore();
@@ -203,8 +211,29 @@ class StudyStore {
 		const phaseChanged = nextTask.phase !== completed.phase;
 		if (phaseChanged) telemetry.log('phase_ended', { phase: completed.phase });
 		this.taskIndex = next;
+		// At the baseline→agent boundary, administer the post-baseline NASA-TLX
+		// before the first agent task. Advance taskIndex (so a resume lands on the
+		// agent task) but hold off entering it — the clock and `task_shown` fire
+		// only once the TLX is submitted, so load is measured on the manual phase.
+		if (phaseChanged && completed.phase === 'baseline') {
+			this.pendingPostBaselineTlx = true;
+			this.#persist();
+			telemetry.log('interim_tlx_shown', {});
+			return;
+		}
 		this.#persist();
 		this.#enterTask(next);
+	}
+
+	/** Persist the post-baseline TLX (fire-and-forget) then enter the first agent
+	 * task. Item ids are pre-suffixed `_baseline` by the caller. */
+	submitPostBaselineTlx(responses: Record<string, string>): void {
+		if (!this.pendingPostBaselineTlx) return;
+		void studyApi.submitInterimSurvey({ responses }).catch(() => {});
+		telemetry.log('interim_tlx_submitted', {});
+		this.pendingPostBaselineTlx = false;
+		this.#persist();
+		this.#enterTask(this.taskIndex);
 	}
 
 	#enterTask(index: number): void {
@@ -249,7 +278,8 @@ class StudyStore {
 			taskIndex: this.taskIndex,
 			participantCode: this.participantCode,
 			agentCondition: this.agentCondition,
-			awaitingRatingTaskId: this.ratingFor?.id ?? null
+			awaitingRatingTaskId: this.ratingFor?.id ?? null,
+			pendingPostBaselineTlx: this.pendingPostBaselineTlx
 		};
 		localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 		this.#syncProgress();
@@ -275,7 +305,11 @@ class StudyStore {
 			this.agentCondition = data.agentCondition ?? null;
 			// Re-tag telemetry with the resumed task so events stay attributed, and
 			// re-arm the dropout marker while mid-study (tasks/survey).
-			if (this.stage === 'tasks' && this.currentTask) {
+			if (this.stage === 'tasks' && data.pendingPostBaselineTlx) {
+				// Reload while the post-baseline TLX is showing: re-show it, and leave
+				// the agent task un-entered (no clock) until it's submitted.
+				this.pendingPostBaselineTlx = true;
+			} else if (this.stage === 'tasks' && this.currentTask) {
 				if (data.awaitingRatingTaskId === this.currentTask.id) {
 					// Reload during the per-task rating step: the task is already
 					// completed and logged (and its clock cleared), so resume at the

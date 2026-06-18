@@ -2,6 +2,7 @@
 	import { study } from '$lib/study.svelte';
 	import { PHASE_LABELS } from '$lib/study-tasks';
 	import { ClipboardList, X } from 'lucide-svelte';
+	import BaselineTlx from './BaselineTlx.svelte';
 
 	const task = $derived(study.currentTask);
 	const number = $derived(study.taskIndex + 1);
@@ -47,13 +48,20 @@
 
 	// Auto-open the modal whenever the task changes so the participant always sees
 	// the new instruction; mark it seen so the first auto-open isn't a "reopen".
+	// Suppressed while the post-baseline TLX is up, so the first agent task's
+	// instruction auto-opens only once the participant clears the interstitial.
 	$effect(() => {
-		if (task && task.id !== seenTaskId) {
+		if (!study.pendingPostBaselineTlx && task && task.id !== seenTaskId) {
 			seenTaskId = task.id;
 			open = true;
 		}
 	});
 </script>
+
+{#if study.pendingPostBaselineTlx}
+	<BaselineTlx />
+{/if}
+
 
 {#if task}
 	<!-- Launcher button (bottom-center), always available behind the workspace. -->

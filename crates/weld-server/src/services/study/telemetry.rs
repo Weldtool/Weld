@@ -27,6 +27,9 @@ const ALLOWED_EVENT_TYPES: &[&str] = &[
     "consent_given",
     "survey_started",
     "survey_completed",
+    // Post-baseline NASA-TLX interstitial (baseline→agent transition).
+    "interim_tlx_shown",
+    "interim_tlx_submitted",
     // Per-task timing
     "task_shown",
     "task_completed",

@@ -19,6 +19,38 @@ async fn participant_for_user(pool: &PgPool, user_id: Uuid) -> Result<Uuid, ApiE
     .ok_or_else(|| ApiError::Forbidden("Not a study participant".into()))
 }
 
+/// Persist an interim instrument (the post-baseline NASA-TLX) for the
+/// authenticated participant. Unlike [`submit_survey`], this does NOT mark the
+/// participant completed — they are mid-study, about to start the agent phase.
+/// Item ids are pre-suffixed by the client (e.g. `tlx_mental_baseline`) so these
+/// rows coexist with the exit-survey TLX in `study_survey_responses`.
+pub async fn submit_interim_survey(
+    pool: &PgPool,
+    user_id: Uuid,
+    responses: HashMap<String, String>,
+) -> Result<(), ApiError> {
+    let participant_id = participant_for_user(pool, user_id).await?;
+
+    let mut tx = pool.begin().await?;
+    for (item_id, value) in &responses {
+        sqlx::query!(
+            r#"
+            INSERT INTO study_survey_responses (participant_id, item_id, value)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (participant_id, item_id)
+            DO UPDATE SET value = EXCLUDED.value, answered_at = NOW()
+            "#,
+            participant_id,
+            item_id,
+            value,
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+    tx.commit().await?;
+    Ok(())
+}
+
 /// Persist the exit-survey responses for the authenticated participant, store
 /// any follow-up email separately, and mark the participant completed.
 pub async fn submit_survey(

@@ -96,6 +96,14 @@ export const study = {
 			body
 		}),
 
+	/** Submit an interim instrument (post-baseline TLX); does not end the study. */
+	submitInterimSurvey: (body: { responses: Record<string, string> }, opts?: RequestOptions) =>
+		authStore.fetch<void>('/api/v1/study/interim-survey', {
+			...opts,
+			method: 'POST',
+			body
+		}),
+
 	/** Submit the exit survey and mark the participant completed. */
 	submitSurvey: (
 		body: { responses: Record<string, string>; followup_email?: string },
