@@ -1,11 +1,19 @@
 <script lang="ts">
 	import type { GitHubMessageMetadata } from '$lib/api/types';
 	import { GitPullRequest, CircleDot, Eye, GitMerge } from 'lucide-svelte';
+	import { appConfig } from '$lib/config.svelte';
 
 	interface Props {
 		meta: GitHubMessageMetadata;
 	}
 	const { meta }: Props = $props();
+
+	// In study mode the linked PR/issue is a seeded fixture with no real GitHub
+	// page, so suppress the outbound link to avoid sending participants to a 404.
+	const linksDisabled = $derived(appConfig.studyMode);
+	const linkHref = $derived(linksDisabled ? undefined : meta.url);
+	const linkTarget = $derived(linksDisabled ? undefined : '_blank');
+	const linkClass = $derived(linksDisabled ? '' : 'hover:underline');
 
 	const kindLabel: Record<string, string> = {
 		'pr.opened': 'opened',
@@ -53,7 +61,7 @@
 		{#if isReview}
 			<span>
 				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-				<a href={meta.url} target="_blank" rel="noopener noreferrer" class="hover:underline">
+				<a href={linkHref} target={linkTarget} rel="noopener noreferrer" class={linkClass}>
 					@{meta.author}
 				</a>
 				{meta.verdict === 'approved'
@@ -62,13 +70,13 @@
 						? 'requested changes on'
 						: 'commented on'}
 				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-				<a href={meta.url} target="_blank" rel="noopener noreferrer" class="hover:underline">
+				<a href={linkHref} target={linkTarget} rel="noopener noreferrer" class={linkClass}>
 					#{meta.number}
 				</a>
 			</span>
 		{:else}
 			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-			<a href={meta.url} target="_blank" rel="noopener noreferrer" class="hover:underline">
+			<a href={linkHref} target={linkTarget} rel="noopener noreferrer" class={linkClass}>
 				#{meta.number}
 				{meta.title}
 			</a>

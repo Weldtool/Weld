@@ -19,7 +19,6 @@
 	// Screening answers (eligibility gate; not stored — demographics come later).
 	let experience = $state<string | null>(null);
 	let familiarity = $state<string | null>(null);
-	let priorWeld = $state<string | null>(null);
 
 	const emailValid = $derived(participantEmail.trim().includes('@'));
 
@@ -28,12 +27,11 @@
 			institution.trim().length > 0 &&
 			experience !== null &&
 			familiarity !== null &&
-			priorWeld !== null &&
 			(!codeRequired || accessCode.trim().length > 0)
 	);
 
 	function submitScreening() {
-		const ineligible = experience === 'lt1' || familiarity === 'none' || priorWeld === 'lots';
+		const ineligible = experience === 'lt1' || familiarity === 'none';
 		if (ineligible) {
 			study.markIneligible();
 		} else {
@@ -187,21 +185,6 @@
 					>
 					<label class="flex items-center gap-2"
 						><input type="radio" bind:group={familiarity} value="none" /> None</label
-					>
-				</div>
-			</fieldset>
-
-			<fieldset>
-				<legend class="text-sm font-medium">Have you used Weld before?</legend>
-				<div class="mt-2 flex flex-wrap gap-4 text-sm">
-					<label class="flex items-center gap-2"
-						><input type="radio" bind:group={priorWeld} value="no" /> No</label
-					>
-					<label class="flex items-center gap-2"
-						><input type="radio" bind:group={priorWeld} value="little" /> A little</label
-					>
-					<label class="flex items-center gap-2"
-						><input type="radio" bind:group={priorWeld} value="lots" /> Yes, a lot</label
 					>
 				</div>
 			</fieldset>

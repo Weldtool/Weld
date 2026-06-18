@@ -62,6 +62,7 @@ const ALLOWED_EVENT_TYPES: &[&str] = &[
     "card_referenced_from_chat",
     "chat_referenced_from_card",
     "pr_referenced_from_card",
+    "pr_referenced_from_chat",
     "card_referenced_from_pr",
     // GitHub
     "github_view_opened",

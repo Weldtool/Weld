@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import type { Label, Task, TeamMember } from '$lib/api/types';
 	import { telemetry } from '$lib/telemetry.svelte';
+	import { appConfig } from '$lib/config.svelte';
 
 	interface Props {
 		task: Task;
@@ -12,6 +13,10 @@
 	}
 
 	const { task, labelMap, memberMap }: Props = $props();
+
+	// In study mode the linked issue/PR is a seeded fixture with no real GitHub
+	// page; fall back to the non-clickable badge to avoid a 404.
+	const linksDisabled = $derived(appConfig.studyMode);
 
 	const assignee = $derived(task.assignee_id ? (memberMap.get(task.assignee_id) ?? null) : null);
 
@@ -85,7 +90,7 @@
 		<span class="rounded px-1.5 py-0.5 {priorityClass[task.priority]}">{task.priority}</span>
 		<div class="flex items-center gap-1.5">
 			{#if task.github_issue_id}
-				{#if task.github_repo}
+				{#if task.github_repo && !linksDisabled}
 					<a
 						href="https://github.com/{task.github_repo}/issues/{task.github_issue_id}"
 						target="_blank"
@@ -116,7 +121,7 @@
 				{/if}
 			{/if}
 			{#if task.github_pr_id}
-				{#if task.github_repo}
+				{#if task.github_repo && !linksDisabled}
 					<a
 						href="https://github.com/{task.github_repo}/pull/{task.github_pr_id}"
 						target="_blank"

@@ -3,8 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('$app/environment', () => ({ browser: false }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 
-import type { ChatMessage, TeamMember } from '$lib/api/types';
-import { extractMentionTokens, resolveMentionedUserIds } from './chat-helpers';
+import type { ChatMessage, TaskRef, TeamMember } from '$lib/api/types';
+import {
+	extractMentionTokens,
+	renderMessageMarkdown,
+	resolveMentionedUserIds
+} from './chat-helpers';
 import { chat, isPending } from './chat.svelte';
 
 interface MockResponse {
@@ -95,6 +99,62 @@ describe('resolveMentionedUserIds', () => {
 	it('returns [] when no token resolves', () => {
 		const members = [memberFixture()];
 		expect(resolveMentionedUserIds('@nobody', members)).toEqual([]);
+	});
+});
+
+describe('renderMessageMarkdown PR references', () => {
+	const taskRef = (over: Partial<TaskRef> = {}): TaskRef => ({
+		id: over.id ?? 't-uuid',
+		short_id: over.short_id ?? 7,
+		title: over.title ?? 'Add retry logic',
+		project_id: over.project_id ?? 'p-uuid',
+		github_pr_id: 'github_pr_id' in over ? (over.github_pr_id ?? null) : 42
+	});
+
+	it('renders PR#<n> as a link to the linked task on the board', () => {
+		const html = renderMessageMarkdown('Fixed in PR#42', { taskRefs: [taskRef()] });
+		expect(html).toContain('class="chat-prref"');
+		expect(html).toContain('data-pr-number="42"');
+		expect(html).toContain('href="/board?task=t-uuid&project=p-uuid"');
+		expect(html).toContain('PR #42');
+		expect(html).toContain('Add retry logic');
+	});
+
+	it('is case-insensitive on the pr prefix', () => {
+		const html = renderMessageMarkdown('see pr#42 now', { taskRefs: [taskRef()] });
+		expect(html).toContain('class="chat-prref"');
+		expect(html).toContain('data-pr-number="42"');
+	});
+
+	it('renders an inert badge (no link) when no task links that PR number', () => {
+		const html = renderMessageMarkdown('PR#999 is unknown', { taskRefs: [taskRef()] });
+		expect(html).toContain('chat-prref-bare');
+		expect(html).not.toContain('href');
+		expect(html).toContain('PR #999');
+	});
+
+	it('does not let the #<short_id> task pass re-match the PR number', () => {
+		// short_id 42 also exists as a task; PR#42 must stay a PR ref, not a task ref.
+		const refs = [
+			taskRef({ id: 't-pr', github_pr_id: 42, short_id: 7 }),
+			taskRef({ id: 't-42', short_id: 42, github_pr_id: null })
+		];
+		const html = renderMessageMarkdown('PR#42', { taskRefs: refs });
+		expect(html).toContain('class="chat-prref"');
+		expect(html).toContain('href="/board?task=t-pr&project=p-uuid"');
+		expect(html).not.toContain('chat-taskref');
+	});
+
+	it('still renders a bare #<short_id> task reference normally', () => {
+		const html = renderMessageMarkdown('see #7', { taskRefs: [taskRef()] });
+		expect(html).toContain('class="chat-taskref"');
+		expect(html).toContain('href="/board?task=t-uuid&project=p-uuid"');
+	});
+
+	it('ignores PR refs inside inline code', () => {
+		const html = renderMessageMarkdown('`PR#42`', { taskRefs: [taskRef()] });
+		expect(html).not.toContain('chat-prref');
+		expect(html).toContain('<code>PR#42</code>');
 	});
 });
 
