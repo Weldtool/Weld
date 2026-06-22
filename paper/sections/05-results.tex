@@ -2,84 +2,129 @@
 \label{sec:results}
 
 % ── PLACEHOLDER ─────────────────────────────────────────────────────────────
-% Complete once data collection is finished. This section will report:
-%   RQ1 — Baseline cognitive load and task time.
-%   RQ2 — Between-condition differences on TLX, SUS, task time, completion.
-%   RQ3 — Condition × task-type interaction.
-%   RQ4 — Cross-surface telemetry counts and integration-perception scores.
+% Complete once data collection is finished. Section order mirrors the RQs:
+%   manipulation check (scoping) reported FIRST, then RQ1 → RQ2 → RQ3.
 
-\subsection{Participant Demographics and Data Quality}
-\label{sec:results:participants}
+\subsection{Manipulation Check: Context Scoping Held}
+\label{sec:results:scoping}
 
-% TODO: N per condition, attrition, task completion rates, data exclusions.
-
-\subsection{RQ1: Integrated Workspace Value (Baseline)}
-\label{sec:results:rq1}
-
-% TODO: Descriptive statistics and inferential tests for baseline-phase measures.
+% Reported before any inferential result. From agent_context_sent snapshots:
+% verify 100% of C1 turns contained no board/GitHub context and 100% of C2
+% turns contained no GitHub context. This converts the IV from assumption to
+% evidence.
 
 \begin{table}[h]
-  \caption{Baseline-phase NASA-TLX subscale means (SD) by condition. [PLACEHOLDER]}
-  \label{tab:baseline_tlx}
+  \caption{Scoping manipulation check: share of agent turns whose
+    \texttt{agent\_context\_sent} snapshot contained each source, by condition.
+    Cells outside the condition's allowlist must be 0\%. [PLACEHOLDER]}
+  \label{tab:scoping}
   \begin{tabular}{lccc}
     \toprule
-    Subscale         & \CI & \CII & \CIII \\
+    Source in snapshot & \CI & \CII & \CIII \\
     \midrule
-    Mental Demand    & --- & --- & --- \\
-    Temporal Demand  & --- & --- & --- \\
-    Effort           & --- & --- & --- \\
-    Frustration      & --- & --- & --- \\
-    \midrule
-    Overall Weighted & --- & --- & --- \\
+    Chat   & --- & --- & --- \\
+    Board  & 0\% (expected) & --- & --- \\
+    GitHub & 0\% (expected) & 0\% (expected) & --- \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-\subsection{RQ2: Effect of Context Breadth}
-\label{sec:results:rq2}
+\subsection{Participant Demographics and Data Quality}
+\label{sec:results:participants}
 
-% TODO: One-way ANOVA or Kruskal-Wallis on TLX, SUS, time-on-task by condition.
-%   Post-hoc tests (Bonferroni/Tukey) for pairwise differences.
+% TODO: N per condition, attrition, task completion rates, data exclusions
+%   (was_interrupted tasks, cross-device resumes), CONSORT-style flow.
+
+\subsection{RQ1: Context Breadth and Effectiveness}
+\label{sec:results:rq1}
+
+% TODO: Primary linear mixed model on log baseline-normalized time
+%   (condition * task_type). Lead with effect sizes + 95% CIs. The
+%   condition × task-type interaction (H2) is the headline.
+%   Correctness reported beside time (ordinal CLMM). Cognitive-load delta (H3).
 
 \begin{figure}[h]
   \centering
-  % TODO: Replace with actual figure
+  % TODO: Replace with actual figure — the H2 interaction plot.
   \fbox{\rule{0pt}{4cm}\rule{0.8\linewidth}{0pt}}
-  \caption{Task completion time (seconds) by condition and task type.
-    Error bars show 95\% CI. [PLACEHOLDER]}
+  \caption{Baseline-normalized task time by condition (\CI/\CII/\CIII) and task
+    type (comprehension / single-surface / cross-surface). Error bars show
+    95\% CI. The predicted condition~$\times$~task-type interaction
+    concentrates on cross-surface tasks. [PLACEHOLDER]}
   \label{fig:time_by_condition}
 \end{figure}
 
-\subsection{RQ3: Task-Type Moderation}
+\begin{table}[h]
+  \caption{Per-task correctness (0--3 rubric) by condition and task type, and
+    within-person \NASATLX\ delta (agent~$-$~baseline) by condition. [PLACEHOLDER]}
+  \label{tab:correctness_load}
+  \begin{tabular}{lccc}
+    \toprule
+    Measure                       & \CI & \CII & \CIII \\
+    \midrule
+    Correctness, cross-surface (mean) & --- & --- & --- \\
+    Correctness, single-surface (mean)& --- & --- & --- \\
+    Correctness, comprehension (mean) & --- & --- & --- \\
+    \midrule
+    $\Delta$\NASATLX\ (agent $-$ baseline) & --- & --- & --- \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{RQ2: Reliance and Division of Labor}
+\label{sec:results:rq2}
+
+% TODO: Delegation ratio by condition; the agent funnel
+%   (invoked → tool attempted → executed → accepted/edited/undone);
+%   verification/override rates; whether reliance is calibrated to where the
+%   agent is actually wrong (cross with correctness). Thematic analysis of
+%   open-ended items (two coders, report κ).
+
+\begin{table}[h]
+  \caption{Reliance measures by condition: delegation ratio and the
+    accept/edit/override breakdown of agent suggestions. [PLACEHOLDER]}
+  \label{tab:reliance}
+  \begin{tabular}{lccc}
+    \toprule
+    Measure                          & \CI & \CII & \CIII \\
+    \midrule
+    Delegation ratio (median)        & n/a & --- & --- \\
+    Suggestions accepted (\%)        & --- & --- & --- \\
+    Output edited before use (\%)    & --- & --- & --- \\
+    Action undone / overridden (\%)  & --- & --- & --- \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{RQ3: Trust versus Reality}
 \label{sec:results:rq3}
 
-% TODO: Condition × task-type interaction (mixed ANOVA or linear mixed model).
+% TODO: Spearman correlations of trust composite and trust_speed_perceived
+%   against measured normalized time and correctness. Characterize divergence
+%   (H5): are agents that *do more* trusted even when no faster / occasionally
+%   wrong? Pair int_switch_perceived with behavioral view-switch rate.
 
 \begin{figure}[h]
   \centering
   \fbox{\rule{0pt}{4cm}\rule{0.8\linewidth}{0pt}}
-  \caption{NASA-TLX score by condition and task type (comprehension /
-    single-surface / cross-surface). [PLACEHOLDER]}
-  \label{fig:tlx_interaction}
+  \caption{Perception--behavior gap: perceived speedup / AI-trust score (y) vs.\
+    measured baseline-normalized time (x), per participant, colored by
+    condition. Divergence from the diagonal is the H5 finding. [PLACEHOLDER]}
+  \label{fig:perception_behavior}
 \end{figure}
 
-\subsection{RQ4: Integration Behavior and Perception}
-\label{sec:results:rq4}
-
-% TODO: Cross-surface event counts by condition; integration-perception and
-%   AI trust scale scores.
-
 \begin{table}[h]
-  \caption{Cross-surface telemetry event counts and integration-perception
-    scale means (SD) by condition. [PLACEHOLDER]}
-  \label{tab:integration}
+  \caption{AI-trust and integration-perception scale means (SD) by condition,
+    with cross-surface telemetry counts for triangulation. [PLACEHOLDER]}
+  \label{tab:trust}
   \begin{tabular}{lccc}
     \toprule
-    Measure                         & \CI & \CII & \CIII \\
+    Measure                          & \CI & \CII & \CIII \\
     \midrule
-    Cross-surface events (median)   & --- & --- & --- \\
-    Integration perception (mean)   & --- & --- & --- \\
-    AI trust scale (mean)           & --- & --- & --- \\
+    AI trust scale (mean)            & --- & --- & --- \\
+    \texttt{trust\_speed\_perceived} & --- & --- & --- \\
+    Integration perception (mean)    & --- & --- & --- \\
+    Cross-surface events (median)    & --- & --- & --- \\
     \bottomrule
   \end{tabular}
 \end{table}

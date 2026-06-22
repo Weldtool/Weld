@@ -4,53 +4,77 @@
 \subsection{Research Questions}
 \label{sec:study:rqs}
 
+The study manipulates exactly one variable---how much of the shared workspace
+the embedded agent can observe and act on (the \CI$\to$\CII$\to$\CIII\ context
+ladder)---measured against each participant's own no-agent baseline (C0). The
+questions stay inside what that manipulation supports: how much context an
+embedded agent needs and how users work with it. We deliberately make
+\emph{no} claim that an all-in-one workspace outperforms separate tools; this
+design has no fragmented-tooling arm to test that, and consolidation serves
+only as the apparatus and motivation (\S\ref{sec:related:fragmentation}), not
+as a hypothesis.
+
 \begin{description}
-  \item[RQ1] \emph{Integrated workspace value (baseline).}
-    Does using an integrated workspace (without an agent) reduce cognitive load
-    and time-on-task relative to reported experience with fragmented tooling?
+  \item[RQ1 (primary) --- Context breadth $\to$ effectiveness.]
+    Does broadening the agent's context (chat $\to$ +board $\to$ +GitHub) make
+    the user more effective, and on which task types?
 
-  \item[RQ2] \emph{Effect of context breadth on agent effectiveness.}
-    Does increasing the agent's context breadth (\CI $\to$ \CII $\to$ \CIII)
-    improve task performance and reduce cognitive load?
+  \item[RQ2 --- Reliance.]
+    How much do users delegate to versus verify and override the agent, and
+    does that division of labor shift with the agent's context breadth?
 
-  \item[RQ3] \emph{Task-type moderation.}
-    Does the effect of context breadth vary across task types (comprehension,
-    single-surface, cross-surface)?
-
-  \item[RQ4] \emph{Scaling of benefit with surface integration.}
-    Do participants in higher-context conditions show greater cross-surface
-    integration behavior (measured by telemetry) and higher integration
-    perception scores?
+  \item[RQ3 --- Trust versus reality.]
+    Does users' trust in the agent track its measured effectiveness, or diverge
+    from it?
 \end{description}
 
 \subsection{Hypotheses}
 \label{sec:study:hypotheses}
 
-Based on the research questions and prior work on AI-assisted workflows, we
-state four directional hypotheses:
-
 \begin{description}
-  \item[H1~(Context breadth and speed).]
-    Broader agent context reduces time-on-task: participants in \CIII\ will
-    complete agent tasks faster than those in \CII, who will in turn be faster
-    than those in \CI.
+  \item[H1~(RQ1, speed).]
+    Broader agent context yields a larger improvement over the participant's own
+    C0 baseline (faster completion): \CIII\ $>$ \CII\ $>$ \CI\ in
+    baseline-normalized speed.
 
-  \item[H2~(Task-type moderation).]
-    The effect of context breadth is moderated by task type. The advantage of
-    \CIII\ over \CI\ will be negligible for comprehension and single-surface
-    tasks (where cross-surface data is irrelevant) but substantial for
-    cross-surface tasks that require coordinating board, chat, and GitHub.
+  \item[H2~(RQ1, task-type interaction).]
+    The gain is \emph{task-dependent}: negligible on comprehension and
+    single-surface tasks (where cross-surface data is irrelevant) but
+    substantial on cross-surface tasks that span chat, board, and GitHub. This
+    condition~$\times$~task-type interaction is the key result.
 
-  \item[H3~(Cognitive load).]
-    Broader context reduces perceived cognitive load (\NASATLX): \CIII\ $<$
-    \CII\ $<$ \CI, driven primarily by effort and mental-demand subscales.
+  \item[H3~(RQ1, cognitive load).]
+    Broader context lowers self-reported cognitive load (\NASATLX) relative to
+    baseline more than narrow context does, driven primarily by the effort and
+    mental-demand subscales.
 
-  \item[H4~(Perception--behavior gap).]
-    Trust and integration-perception scores will not fully track objective task
-    performance: participants may report high trust or high integration
-    perception even in conditions where telemetry shows limited cross-surface
-    coordination, and vice versa.
+  \item[H4~(RQ2, reliance calibration).]
+    Delegation to the agent rises with context breadth, but reliance is
+    imperfectly calibrated: users do not verify or override precisely where the
+    agent is actually wrong.
+
+  \item[H5~(RQ3, perception--behavior gap).]
+    Trust and perceived speedup need not track the agent's measured
+    effectiveness: participants may trust an agent that \emph{does more} even
+    when it is no faster, or is occasionally wrong. This perception--behavior
+    divergence is the study's most novel angle.
 \end{description}
+
+\subsection{Design Overview}
+\label{sec:study:design}
+
+The study is a \textbf{hybrid within/between-subjects} design. Each participant
+first completes six manual baseline tasks with no agent (the within-subjects C0
+anchor), then is randomly assigned to one of three agent-context conditions and
+completes six agent-assisted tasks in that fixed condition (the between-subjects
+manipulation). The per-person C0 baseline lets each agent-task time be analyzed
+as a \emph{delta from that participant's own manual speed}, absorbing the
+individual skill variance that would otherwise sit between the between-subjects
+cells and buying back much of the statistical power a pure between-subjects
+design loses. Holding the agent's access fixed per person avoids within-person
+contamination---once a participant has seen the full-context agent solve a task,
+they cannot un-see how it should go---and keeps the session within a self-serve
+$\sim$55--65-minute budget.
 
 \subsection{Participants}
 \label{sec:study:participants}
@@ -58,26 +82,26 @@ state four directional hypotheses:
 % TODO: Fill in once recruitment is complete.
 
 We target $N$~=~20--30 participants drawn from two complementary populations:
-\emph{university CS students} (undergraduate and graduate, recruited via
-course mailing lists) and \emph{professional software developers} ($\geq$1 year
-of industry experience, recruited via professional networks and online
-communities). Recruiting both groups allows us to examine whether the benefit of
-context breadth varies with prior experience. Eligibility further required
-self-reported familiarity with at least one task-management tool (e.g., Jira,
-Linear, GitHub Projects) and one team-chat tool (e.g., Slack, Teams, Discord).
-The study was conducted remotely. Participants were compensated
-\emph{[amount TBD]}.
+\emph{university CS students} (undergraduate and graduate, recruited via course
+mailing lists) and \emph{professional software developers} ($\geq$1 year of
+industry experience, recruited via professional networks and online
+communities). Recruiting both groups lets us examine whether the benefit of
+context breadth---and reliance on and trust of the agent---varies with prior
+experience. Eligibility further required self-reported familiarity with at least
+one task-management tool (e.g., Jira, Linear, GitHub Projects) and one team-chat
+tool (e.g., Slack, Teams, Discord). The study was conducted remotely.
+Participants were compensated \emph{[amount TBD]}.
 
 \subsection{Conditions}
 \label{sec:study:conditions}
 
-Participants were randomly assigned, with balanced block randomization (block
-size 3), to one of three between-subjects conditions:
+Participants were randomly assigned, with balanced permuted-block randomization
+(block size 3), to one of three between-subjects conditions:
 
 \begin{description}
   \item[\CI~(Chat only, advisory).] The agent observes only team chat history.
-    No access to board state or GitHub. Advisory-only: no tools offered to the
-    model, so it cannot modify any surface.
+    No access to board state or GitHub. Advisory-only: no tools are offered to
+    the model, so it can advise but cannot modify any surface.
 
   \item[\CII~(Chat + Board, action-capable).] The agent observes chat and the
     full board card state. Available tools: \texttt{create\_card},
@@ -89,48 +113,67 @@ size 3), to one of three between-subjects conditions:
     enabling it to connect board cards to GitHub issues or pull requests.
 \end{description}
 
+\paragraph{Capability scales with context---by design.} An agent cannot act on
+a board it cannot see, so visibility and action capability are intentionally
+coupled along the ladder. This bundling \emph{is} the phenomenon under study
+(``does giving the agent more access help the user''); we state it as a design
+decision, not a confound to be removed.
+
 \subsection{Tasks}
 \label{sec:study:tasks}
 
-The study uses a hybrid design. Each participant completes 8 tasks in fixed
-order: two manual \emph{baseline tasks} (C0, no agent available) establishing a
-per-person speed and workload anchor, followed by six \emph{agent-assisted
-tasks} in their assigned condition. Baseline and agent tasks are
-content-disjoint to prevent learning transfer. The agent phase uses the
-\texttt{gpt-4o-mini-2024-07-18} model at temperature 0.2 with versioned
-condition-specific system prompts pinned for reproducibility.
+Each participant completes \textbf{12 tasks in fixed order}: six manual
+\emph{baseline tasks} (B1--B6, C0, no agent) followed by six \emph{agent-assisted
+tasks} (T1--T6) in their assigned condition. Each baseline is built to match an
+agent task type, giving a like-for-like per-person normalizer, while baseline
+and agent content are \emph{disjoint} to prevent learning transfer. The agent
+phase uses the \texttt{gpt-4o-mini-2024-07-18} model at temperature 0.2 with
+versioned, condition-specific system prompts pinned for reproducibility.
 
-Task types span both phases:
+Tasks span three types across both phases:
 
 \begin{description}
-  \item[Comprehension.] Synthesize information from one or more surfaces to
-    form a judgment (e.g., ``what does the team need most right now?'').
-  \item[Single-surface.] Can be completed by acting on a single surface, even
-    if cross-surface context helps.
-  \item[Cross-surface.] Explicitly requires coordinated action across two or
-    more surfaces.
+  \item[Comprehension.] Synthesize information from one or more surfaces to form
+    a judgment (e.g., ``what does the team need most right now?''). All
+    conditions should do well; chat-only is competitive.
+  \item[Single-surface.] Completable by acting on a single surface; extra context
+    should add little. These serve as controls showing broader context does
+    \emph{not} universally help.
+  \item[Cross-surface.] Explicitly requires coordinated action across two or more
+    surfaces. Where H1/H2 live: full context should pull ahead, chat-only should
+    struggle.
 \end{description}
 
 \begin{table}[h]
   \caption{Task design summary. B = Baseline (no agent, C0), T = Agent task.
-    Surfaces: Ch = Chat, Bo = Board, GH = GitHub.}
+    Surfaces: Ch = Chat, Bo = Board, GH = GitHub. T6 is constructed so the
+    correct PR is identifiable \emph{only} with GitHub context---the single
+    cleanest test of the top of the ladder.}
   \label{tab:tasks}
   \begin{tabular}{lllll}
     \toprule
     ID & Phase & Type & Surfaces & Summary \\
     \midrule
-    B1 & Baseline & Single-surface & Ch, Bo & Find blocked card from chat; move to In Progress \\
-    B2 & Baseline & Cross-surface  & Ch, Bo & Check card status; post reply in chat \\
+    B1 & Baseline & Single-surface & Ch, Bo     & Find blocked card; move to In Progress \\
+    B2 & Baseline & Cross-surface  & Ch, Bo     & Check a card's column; post status reply \\
+    B3 & Baseline & Cross-surface  & Ch, Bo     & Open card from chat link; set priority \\
+    B4 & Baseline & Cross-surface  & GH, Ch     & Find open PR in GitHub view; post number in chat \\
+    B5 & Baseline & Cross-surface  & Ch, Bo     & Recover a decision from chat; record on a card \\
+    B6 & Baseline & Comprehension  & Bo, Ch     & Find CI-pipeline card; confirm what it does in chat \\
     \midrule
-    T1 & Agent & Comprehension  & Ch, Bo     & Determine next priority; update board \\
-    T2 & Agent & Comprehension  & Ch, Bo, GH & Catch-up summary; post in chat \\
-    T3 & Agent & Single-surface & Ch         & Draft and post status update in chat \\
-    T4 & Agent & Single-surface & Bo         & Set priorities on three backlog cards \\
-    T5 & Agent & Cross-surface  & Ch, Bo     & Find bug card from chat; move to In Progress \\
-    T6 & Agent & Cross-surface  & Ch, Bo, GH & Link PR to card; announce in chat \\
+    T1 & Agent & Comprehension  & Ch, Bo     & ``What needs doing?'' then act \\
+    T2 & Agent & Comprehension  & Ch, Bo, GH & ``Catch me up'': summarize recent activity \\
+    T3 & Agent & Single-surface & Ch         & Draft and post a status update in chat \\
+    T4 & Agent & Single-surface & Bo         & Set priorities on backlog cards \\
+    T5 & Agent & Cross-surface  & Ch, Bo     & Take a bug from chat to the board \\
+    T6 & Agent & Cross-surface  & Ch, Bo, GH & Link the PR to the card; note it in chat \\
     \bottomrule
   \end{tabular}
 \end{table}
+
+Because condition is between-subjects, all participants see the \emph{same}
+tasks; only their agent's access differs. Task content is thus held constant and
+context breadth is the sole manipulation.
 
 \subsection{Procedure}
 \label{sec:study:procedure}
@@ -140,49 +183,87 @@ Task types span both phases:
 Each session proceeded as follows:
 \begin{enumerate}
   \item Informed consent and eligibility screening.
-  \item Orientation to \Weld (un-timed, guided).
-  \item \textbf{Baseline phase} (2 tasks, no agent, condition C0): tasks
-    presented sequentially; participants self-paced, rated each task before
+  \item Orientation to \Weld\ (un-timed, guided).
+  \item \textbf{Baseline phase} (6 tasks, no agent, condition C0): tasks
+    presented sequentially; participants self-paced and rated each task before
     advancing.
-  \item Phase-transition interstitial: agent panel revealed; \CII/\CIII\
-    participants received a brief explanation of available agent actions.
-  \item \textbf{Agent phase} (6 tasks): same structure with the agent
-    available under the participant's assigned condition (\CI, \CII, or
-    \CIII).
-  \item Exit survey (\NASATLX, \SUS, integration-perception, AI trust scale,
-    open-ended comments, demographics).
+  \item \textbf{Post-baseline interstitial}: a \NASATLX\ instrument is
+    administered here, \emph{before any agent exposure}
+    (\texttt{tlx\_*\_baseline}), capturing manual-phase load. The agent panel is
+    then revealed; \CII/\CIII\ participants receive a brief explanation of the
+    available agent actions.
+  \item \textbf{Agent phase} (6 tasks): same structure, with the agent available
+    under the participant's assigned condition.
+  \item Exit survey: a second \NASATLX\ (\texttt{tlx\_*}, agent phase), \SUS,
+    integration-perception items, the AI-trust block, open-ended comments, and
+    demographics.
   \item Debrief.
 \end{enumerate}
 
-Sessions were conducted remotely. Screen recording was \emph{not} collected;
-all behavioral data came from in-product telemetry.
+Sessions were conducted remotely. Screen recording was \emph{not} collected; all
+behavioral data came from in-product telemetry (\S\ref{sec:system:telemetry}).
 
 \subsection{Measures}
 \label{sec:study:measures}
 
-\paragraph{Task performance.}
-Task completion (binary, judged from \texttt{task\_final\_state} telemetry) and
-time-on-task (seconds between \texttt{task\_shown} and \texttt{task\_completed}
-or \texttt{task\_skipped}).
+\paragraph{Task performance (primary, RQ1).}
+End-to-end \emph{active} time-on-task per task---the client clock runs only while
+the tab is visible and persists across reloads, so idle and away time are
+excluded by construction (\texttt{task\_completed.task\_time\_ms}). The headline
+outcome is \textbf{baseline-normalized time}: each agent-task time divided by that
+participant's own type-matched C0 baseline---comprehension (T1, T2)~$\div$~B6,
+single-surface (T3, T4)~$\div$~B1, cross-surface (T5, T6)~$\div$~mean(B2--B5).
+Completion is judged from \texttt{task\_final\_state}.
 
-\paragraph{Cognitive load.}
-\NASATLX~\cite{hart1988tlx}, six subscales (mental demand, physical demand,
-temporal demand, performance, effort, frustration), administered once per phase
-in the exit survey.
+\paragraph{Correctness (RQ1, quality control).}
+Per-task correctness on a 0--3 rubric, hand-coded by two raters (Cohen's $\kappa$
+on a shared subset). Always reported beside time: a fast-but-wrong agent is not
+effective.
 
-\paragraph{Usability.}
-\SUS~\cite{brooke1996sus}, 10 items, 5-point Likert, yielding a 0--100 score.
+\paragraph{Cognitive load (H3).}
+\NASATLX~\cite{hart1988tlx}, six subscales, collected \textbf{twice}---
+post-baseline (\texttt{tlx\_*\_baseline}) and at exit (\texttt{tlx\_*})---so load
+is analyzed as a within-person agent$-$baseline delta rather than a single
+end-of-session snapshot. A per-task effort rating (1--7, every task including
+baselines) provides a finer-grained, task-localized companion measure.
 
-\paragraph{Integration perception.}
-A five-item scale measuring whether participants perceived workspace surfaces as
-connected (e.g., ``I could easily see how chat discussions connected to board
-tasks'').
+\paragraph{Reliance and division of labor (RQ2).}
+From telemetry: the \emph{delegation ratio} (agent- vs.\ user-performed actions),
+verification behavior (re-reads, edits to the agent's output, undo), and
+acceptance vs.\ override of agent suggestions
+(\texttt{agent\_suggestion\_accepted/\_rejected}, \texttt{agent\_output\_edited},
+\texttt{agent\_action\_undone}), plus view-switching and cross-reference usage.
 
-\paragraph{AI trust and effectiveness.}
-An eight-item scale (adapted from~\cite{madsen2000measuring}) measuring perceived
-agent accuracy, helpfulness, and appropriate scope.
+\paragraph{Trust (RQ3).}
+An eight-item AI-trust block (adapted from~\cite{madsen2000measuring}) covering
+reliability, predictability, competence, willingness to rely without checking,
+and whether the agent had enough context, plus \texttt{trust\_speed\_perceived}.
+The gap between perceived speedup/trust and measured normalized time/correctness
+operationalizes H5.
 
-\paragraph{Behavioral telemetry.}
-Cross-surface reference events (\texttt{card\_referenced\_from\_chat},
-\texttt{pr\_linked\_to\_card}, etc.) as an objective measure of integration
-behavior; agent turn counts and tool-call distributions as agent-use indicators.
+\paragraph{Usability and integration perception (descriptive).}
+\SUS~\cite{brooke1996sus} (10 items) and a five-item integration-perception
+scale; \texttt{int\_switch\_perceived} is paired with the behavioral view-switch
+rate. These describe the apparatus and are not RQ outcomes.
+
+\paragraph{Scoping manipulation check.}
+The per-turn \texttt{agent\_context\_sent} snapshot (\S\ref{sec:system:gate})
+provides direct evidence that the IV held: every \CI\ snapshot must contain no
+board or GitHub context, and every \CII\ snapshot no GitHub context. Reported
+before any inferential result.
+
+\subsection{Analysis}
+\label{sec:study:analysis}
+
+The primary RQ1 model is a linear mixed model on log-transformed normalized
+time: \texttt{log(norm\_time) \textasciitilde\ condition * task\_type +
+(1\,|\,participant)}, with the condition~$\times$~task-type interaction as the
+H2 test. Correctness is modeled in parallel with an ordinal cumulative-link
+mixed model. H3 compares the within-person \NASATLX\ delta between conditions.
+RQ2 is reported as reliance descriptives (delegation ratio, the
+invoke\,$\to$\,execute\,$\to$\,accept/edit/undo funnel) by condition, with
+thematic analysis of the open-ended items. RQ3 (H5) Spearman-correlates the
+trust composite and \texttt{trust\_speed\_perceived} against measured normalized
+time and correctness, characterizing divergence. Given three between-subjects
+cells at $N\approx$~7--10 each, we lead with effect sizes and 95\% CIs over
+null-hypothesis tests and pre-register the analysis.
