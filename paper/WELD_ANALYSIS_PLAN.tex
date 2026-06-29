@@ -1,0 +1,403 @@
+\documentclass[11pt]{article}
+
+% --- packages (all standard; compiles with a vanilla TeX Live install) ---
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+
+% Print field/code names in a monospace style. Underscores are escaped inline.
+\newcommand{\code}[1]{\texttt{#1}}
+
+% A self-contained figure placeholder: a framed caption-box so the document
+% compiles with no external image files. Replace each with \includegraphics
+% once the real plots exist.
+\newcommand{\figplaceholder}[1]{%
+  \fbox{\parbox[c][3.2cm][c]{0.92\linewidth}{\centering\itshape #1}}%
+}
+
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+
+\title{Weld Agent Study --- Data Analysis Plan\\[2pt]
+\large How the analysis maps onto the paper}
+\author{Dr.\ Jie Wu (PI) \and Andrew Sadler (Student Investigator)\\
+Computer Science, Michigan Technological University}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+This document explains how the study's data becomes the Results section of the
+paper: the metrics we compute, the statistical models we fit, the figures we
+report, and the order in which the argument is presented. Every measure is tied
+to the field that produces it (a telemetry event type and payload key, or a
+survey \code{item\_id}) so the analysis is reproducible from the event log and
+the survey export. It is a plan, not yet results: numbers and figures are
+placeholders to be filled after data collection.
+\end{abstract}
+
+\section{The spine of the argument}
+
+The whole analysis ladders up to one claim: \emph{unifying task, communication,
+and code context and making it accessible to an AI agent helps---and the benefit
+appears exactly where it should (cross-surface work), not everywhere.} Showing
+where the effect is \emph{absent} (comprehension and single-surface control
+tasks) is what makes the place it \emph{is} present credible.
+
+The independent variable is a three-rung \emph{context ladder}:
+\begin{itemize}[nosep]
+  \item \textbf{C1} --- agent sees chat only;
+  \item \textbf{C2} --- agent sees chat $+$ board;
+  \item \textbf{C3} --- agent sees chat $+$ board $+$ GitHub.
+\end{itemize}
+Moving up the ladder \emph{is} increasing integration, so ``does integration
+help?'' becomes the concrete, testable ``does $\text{C3} > \text{C2} >
+\text{C1}$, and on which tasks?''
+
+\subsection*{Research questions and hypotheses}
+
+The study manipulates one variable---how much of the workspace the in-app agent
+can see and act on (the C1$\rightarrow$C2$\rightarrow$C3 ladder)---measured
+against each participant's own no-agent baseline (C0). The questions stay inside
+what that supports: the agent's context breadth and how users work with it, not
+whether an all-in-one workspace beats separate tools (there is no
+fragmented-tools arm to test that).
+
+\begin{description}[leftmargin=2.6em,style=nextline,nosep]
+  \item[RQ1] \emph{(primary)} Does broadening the agent's context
+  (chat $\rightarrow$ $+$board $\rightarrow$ $+$GitHub) make the user more
+  effective, and on which tasks?
+  \item[RQ2] How much do users delegate to vs.\ verify the agent, and does that
+  shift with its context breadth?
+  \item[RQ3] Does trust in the agent track its measured effectiveness, or diverge?
+\end{description}
+
+\begin{description}[leftmargin=3.0em,style=nextline,nosep]
+  \item[H1] (RQ1) Broader context yields larger improvements over the user's
+  manual baseline (faster completion).
+  \item[H2] (RQ1) The gain is \emph{task-dependent}: minimal on comprehension and
+  single-surface tasks, substantial on cross-surface tasks.
+  \item[H3] (RQ1) Broader context lowers self-reported cognitive load relative to
+  baseline more than narrow context.
+  \item[H4] (RQ2) Delegation rises with context breadth, but reliance is
+  imperfectly calibrated to where the agent is actually correct.
+  \item[H5] (RQ3) Trust and perceived speedup need not track the agent's measured
+  effectiveness (the perception--behavior gap).
+\end{description}
+
+\section{The design trick: baseline-normalized time}
+
+Each participant first completes six manual tasks (B1--B6, condition C0, no
+agent), establishing their own solo speed on each task type
+(B1 single-surface; B2--B5 cross-surface; B6 comprehension). Agent-task times are
+then expressed as a \emph{ratio to that participant's own type-matched baseline}.
+This is a hybrid within-/between-subjects design: condition is between subjects,
+but the C0 anchor is within subjects.
+
+Why it matters: people differ enormously in raw speed, and at $N\approx20$--$30$
+that person-to-person variance would otherwise swamp the condition effect.
+Normalizing to each person's baseline cancels ``this person is simply fast'' and
+isolates ``how much did the agent help \emph{this} person.'' It is the single
+biggest source of statistical power in a modest sample. The six-task baseline
+(vs.\ a single warm-up) buys two things: a type-matched anchor for every agent
+task type, and a stabler per-person estimate (averaging the four cross-surface
+baselines) for the noisiest cell.
+
+\section{Measures (operationalized)}
+
+\begin{table}[h]
+\centering\small
+\begin{tabularx}{\linewidth}{@{}L L@{}}
+\toprule
+\textbf{Construct} & \textbf{Source field(s)} \\
+\midrule
+Task completion time (\emph{primary outcome}) & \code{task\_completed.task\_time\_ms} --- active engaged time (\S\ref{sec:timing}); clock stops before the per-task rating \\
+Wall / away time, interruptions & \code{task\_completed.\{wall\_ms, away\_ms, pause\_count, was\_interrupted\}} \\
+Time-to-first-action & first surface event after \code{task\_shown} $-$ \code{task\_shown} timestamp (derived) \\
+Completion vs.\ abandonment & \code{task\_completed} / \code{task\_skipped}; \code{session\_abandoned} \\
+Correctness (0--3) & manual coding of \code{task\_final\_state} (board $+$ message content) $+$ \code{study\_agent\_turns} $+$ DB \\
+Per-task effort (within-person load) & \code{task\_rating.effort} (1--7, every task incl.\ baselines) \\
+Perceived agent help & \code{task\_rating.agent\_help} (1--7, agent tasks) \\
+Global cognitive load (per phase) & 6 NASA-TLX subscales collected \emph{twice}: \code{tlx\_*\_baseline} (post-baseline interstitial, manual phase) and \code{tlx\_*} (exit survey, agent phase) --- the within-person delta is the H3 signal \\
+Usability & \code{sus\_01}\,$\ldots$\,\code{sus\_10} \\
+Integration perception & \code{int\_findacross, int\_noticed, int\_vs\_separate, int\_reuse, int\_switch\_perceived} \\
+Trust / reliance & \code{trust\_reliable, trust\_predictable, trust\_competent, trust\_rely, trust\_context, trust\_again, trust\_verify, trust\_speed\_perceived} \\
+Agent effectiveness / cost & \code{agent\_response.\{latency\_ms, response\_type, num\_tool\_calls, prompt\_tokens, completion\_tokens, total\_tokens\}}; \code{agent\_tool\_call.\{allowed, executed, error\}} \\
+Delegation / division of labor & \code{agent\_tool\_call} (executed) vs.\ user action events; \code{agent\_suggestion\_accepted/\_rejected}, \code{agent\_output\_edited}, \code{agent\_action\_undone} \\
+Cross-reference (integration usage) & \code{card\_referenced\_from\_chat}, \code{pr\_referenced\_from\_card}, \code{pr\_referenced\_from\_chat}, \code{issue\_referenced\_from\_card} \\
+View-switch rate & count of \code{view\_changed} $\div$ active time \\
+Scoping proof & \code{agent\_context\_sent} snapshot per invocation (\S\ref{sec:manip}) \\
+\bottomrule
+\end{tabularx}
+\caption{Each construct and the data that produces it. \code{chat\_referenced\_from\_card} and \code{card\_referenced\_from\_pr} have no UI affordance and are intentionally never emitted---treat their absence as N/A, not missing data.}
+\label{tab:measures}
+\end{table}
+
+\paragraph{Derived headline quantity (descriptive).} \emph{Baseline-normalized
+time} $=$ agent-task active time $\div$ that participant's own type-matched C0
+baseline: comprehension agent tasks (T1, T2) $\div$ B6; single-surface (T3, T4)
+$\div$ B1; cross-surface (T5, T6) $\div$ $\operatorname{mean}(\text{B2},
+\text{B3},\text{B4},\text{B5})$. Every agent task type thus has a like-for-like
+anchor; the cross-surface anchor averages four baselines and is the most stable.
+This ratio is the quantity we \emph{plot} (Figs.\ \ref{fig:interaction},
+\ref{fig:percep}) because it is intuitive; the \emph{inferential} model below does
+not pre-divide---it carries the baseline as a covariate so its measurement error
+is propagated rather than assumed away (\S\ref{sec:primary}), which matters here
+because the single-surface and comprehension anchors rest on one baseline task
+each.
+
+\section{Statistical models}
+
+\subsection{Primary model (RQ1 / H1 / H2)}\label{sec:primary}
+
+A linear mixed-effects model (ANCOVA on the log scale) for the active time of
+agent task $j$ from participant $i$, adjusting for that participant's own
+type-matched C0 baseline as a covariate:
+\begin{equation}
+\log(\textit{active\_time}_{ij}) = \beta_0
+  + \beta_{\text{base}}\,\log(\textit{baseline}_{ij})
+  + \beta_{\text{cond}}\,\textit{condition}_i
+  + \beta_{\text{type}}\,\textit{task\_type}_j
+  + \beta_{\text{int}}\,(\textit{condition}_i \times \textit{task\_type}_j)
+  + u_i + \varepsilon_{ij},
+\label{eq:primary}
+\end{equation}
+where $\textit{baseline}_{ij}$ is the type-matched anchor for that observation
+(B6 for comprehension, B1 for single-surface, $\operatorname{mean}(\text{B2--B5})$
+for cross-surface) and $u_i \sim \mathcal{N}(0,\sigma_u^2)$ is a per-participant
+random intercept. In words: a regression predicting agent-task time that holds
+each person's own manual speed constant via the $\log(\textit{baseline})$ term,
+with the random intercept $u_i$ letting each person have their own residual
+level---this is how the model respects that several tasks come from the same
+person (their observations are not independent). That is the ``mixed'' part.
+
+\textbf{Why ANCOVA rather than a pre-divided ratio.} Dividing by the baseline
+treats it as measured without error---fine for the cross-surface anchor (an
+average of four tasks), but the comprehension and single-surface anchors are each
+a \emph{single} baseline task, so a hard ratio would inject that one task's noise
+straight into the outcome on exactly the control task types whose nulls carry the
+``context breadth doesn't \emph{universally} help'' argument. Carrying
+$\log(\textit{baseline})$ as a covariate instead lets the model account for the
+anchor's uncertainty and estimate $\beta_{\text{base}}$ from the data rather than
+forcing it to $1$. The normalized ratio remains the descriptive/figure quantity;
+this is the inferential test.
+
+\textbf{The \code{condition $\times$ task\_type} interaction
+($\beta_{\text{int}}$) is the headline result.} An interaction means the effect
+of condition \emph{depends on} the task type. H2 predicts condition barely
+matters on comprehension/single-surface tasks but matters a lot on cross-surface
+tasks---which is precisely an interaction, and a stronger finding than a flat
+``C3 is faster.'' Because the outcome is modeled on the log scale, we lead with
+the \emph{back-transformed, baseline-adjusted multiplicative effect}---e.g.\ ``on
+cross-surface tasks C3 takes $0.7\times$ the time of C1, 95\,\% CI
+$[\cdot,\cdot]$''---which is directly interpretable and closely tracks what
+Fig.~\ref{fig:interaction} plots; standardized effect sizes are reported
+secondarily. We lead with effect sizes and CIs rather than $p$-values given the
+sample size.
+
+\paragraph{Confirmatory vs.\ supporting (pre-registered).} At
+$N\approx20$--$30$ the full $3\times3$ interaction is the most data-hungry term
+in the model and will be estimated imprecisely. We therefore pre-register a
+single \emph{focused contrast} as the confirmatory primary test---C3 vs.\ C1 on
+cross-surface tasks (the rung and task type where H1/H2 predict the largest gap,
+sharpened by T6, \S\ref{sec:t6})---and treat the omnibus
+\code{condition$\times$task\_type} interaction as supporting evidence reported
+alongside it. Everything past H3 (the trust/perception analyses, H5) is labeled
+\emph{exploratory / hypothesis-generating}, not confirmatory.
+
+\subsection{Correctness}
+
+An ordinal (cumulative-link) mixed model
+\[
+\textit{correctness}_{ij} \sim \textit{condition}_i \times \textit{task\_type}_j + (1\mid \textit{participant}_i),
+\]
+ordinal because the 0--3 score is ranked categories, not a continuous quantity.
+\textbf{Pre-specified fallback.} The 0--3 rubric is expected to pile up at 3 on
+the control tasks, and with $\sim$7--10 per cell the cumulative-link mixed model
+may not converge (sparse cells, ceiling). If it fails to converge or the
+proportional-odds assumption is violated, we collapse the score to a binary
+\emph{fully correct} ($=3$) vs.\ \emph{not} ($<3$) and report per-cell
+proportions with exact (Wilson) confidence intervals, plus a mixed-effects
+logistic model where it converges and a permutation/exact test where it does not.
+Correctness is \emph{always} reported beside time: a condition that is faster but
+less correct is not ``better.'' Speed without correctness is meaningless.
+
+\subsection{Cognitive load (H3) --- two measures, two analyses}
+
+NASA-TLX is collected \emph{twice}---once in a post-baseline interstitial (manual
+phase, \code{tlx\_*\_baseline}) and once at exit (agent phase, \code{tlx\_*})---so
+it now yields a within-person, phase-to-phase delta. We test H3 two ways:
+\begin{enumerate}[nosep,label=(\alph*)]
+  \item \emph{global TLX delta} (primary): per participant,
+  $\Delta\textit{TLX} = \textit{TLX}_{\text{agent}} - \textit{TLX}_{\text{baseline}}$
+  on the composite (and per subscale), then compare $\Delta\textit{TLX}$
+  \emph{between} conditions (Welch ANOVA / Kruskal--Wallis at small $N$). H3
+  predicts a larger drop (more negative $\Delta$) under broader context. The
+  paired baseline removes the between-person level differences that a single
+  end-of-study TLX confounds;
+  \item \emph{per-task effort}: $\textit{effort} \sim \textit{condition} \times
+  \textit{task\_type} + \textit{baseline\_effort} + (1\mid\textit{participant})$,
+  carrying each participant's type-matched baseline-task effort as a covariate
+  (the same ANCOVA logic as Eq.~\eqref{eq:primary}; the finer-grained
+  within-person test).
+\end{enumerate}
+Both are reported; (a) is the headline load result, (b) localizes it by task type.
+
+\subsection{Perception--behavior gap (H5) --- the most novel result}
+
+\emph{Across} participants (each participant is one point---one exit-survey
+trust value against one summary performance value), Spearman-correlate
+\code{trust\_speed\_perceived} and a trust composite against the \emph{measured}
+performance. The single trust item is correlated against a per-participant
+summary of normalized time and correctness: pre-specified as the mean across the
+two cross-surface agent tasks (T5, T6)---the tasks where the agent's measured
+effect is largest, so the perceived--actual comparison is sharpest---with the
+all-six-agent-task mean reported as a robustness check. We then characterize
+divergence: people tend to trust an agent that visibly \emph{does
+more} (C3 acts across all surfaces) even when it was not actually faster, or was
+occasionally wrong. We also cross \code{trust\_rely} (willing to rely) against
+\code{trust\_verify} (felt the need to double-check) for over-/under-reliance,
+and pair \code{int\_switch\_perceived} (perceived switching) with the behavioral
+view-switch rate.
+
+\subsection{The single cleanest test: task T6}\label{sec:t6}
+
+T6 (link the PR to a card and note it in chat) is constructed so the correct
+pull request is identifiable \emph{only} with GitHub context: chat refers to it
+vaguely; the PR's title/body disambiguates. Therefore: if C3 beats C2 on T6, the
+top rung earns its place; if C3 does \emph{not} beat C2 on T6, the data
+themselves say GitHub context is not pulling its weight. One task carries a large
+share of the argument, in either direction.
+
+\section{Reliance and division of labor (RQ2)}
+
+RQ2 asks how users actually work with the agent. Alongside the primary outcome
+models, the behavioral telemetry gives a division-of-labor picture --- does the
+user delegate to the agent or take over, and do they check its output?
+Supporting telemetry descriptives:
+\begin{itemize}[nosep]
+  \item \emph{delegation ratio} by condition (agent-executed vs.\ user-performed actions);
+  \item the \emph{agent funnel}: \code{agent\_invoked} $\rightarrow$ tool attempted $\rightarrow$ \code{executed} $\rightarrow$ \code{accepted}/\code{edited}/\code{undone};
+  \item tool error / rejection rates; cross-reference traversal counts; view-switch rate;
+  \item a CONSORT-style participant flow from \code{study\_participants.status} $+$ \code{session\_abandoned};
+  \item thematic analysis of the four open-ended items (two coders, Cohen's $\kappa$ on a sample).
+\end{itemize}
+
+\section{Figures}
+
+Five figures do the heavy lifting. (Placeholders below; swap for real plots after
+data collection.)
+
+\begin{figure}[h]\centering
+\figplaceholder{\textbf{Fig.\ 1 --- Normalized time by condition $\times$ task
+type.} Grouped bars/lines: task type on the x-axis (comprehension /
+single-surface / cross-surface), series C1/C2/C3. Expected shape: roughly equal
+on the left (control tasks), fanning apart on the right with C3 lowest. This
+picture \emph{is} H2.}
+\caption{The headline interaction plot.}
+\label{fig:interaction}
+\end{figure}
+
+\begin{figure}[h]\centering
+\figplaceholder{\textbf{Fig.\ 2 --- Correctness by condition $\times$ task type.}
+Same axes as Fig.\ 1, shown adjacent so speed and accuracy are read together---
+evidence that any speed gains are not from cutting corners.}
+\caption{Correctness, paired with the timing figure.}
+\label{fig:correctness}
+\end{figure}
+
+\begin{figure}[h]\centering
+\figplaceholder{\textbf{Fig.\ 3 --- Perception vs.\ behavior.} Scatter; each dot a
+participant. X: measured speedup (normalized time). Y: perceived speedup
+(\code{trust\_speed\_perceived}). Departure from the diagonal \emph{is} the H5
+story.}
+\caption{The perception--behavior gap.}
+\label{fig:percep}
+\end{figure}
+
+\begin{figure}[h]\centering
+\figplaceholder{\textbf{Fig.\ 4 --- Delegation ratio by condition.} How much the
+agent did vs.\ the user did, by condition---work shifting off the user as context
+broadens (RQ2).}
+\caption{Division of labor across the ladder.}
+\label{fig:delegation}
+\end{figure}
+
+Figure~5 is the scoping manipulation-check table (\S\ref{sec:manip}), not a plot.
+
+\section{What comes first in Results}
+
+Two things precede every inferential result.
+
+\subsection{Manipulation check (scoping held)}\label{sec:manip}
+Before claiming ``C1 had less context,'' we prove it from
+\code{agent\_context\_sent}: 100\,\% of C1 turns contained no board/GitHub data,
+and 100\,\% of C2 contained no GitHub. This converts the independent variable
+from an assumption into evidence. It is a small table, but load-bearing.
+
+\subsection{Participant flow and timing validity}\label{sec:timing}
+A CONSORT-style count (started / finished / dropped, from
+\code{study\_participants.status} and \code{session\_abandoned}), plus a statement
+that task time is \emph{active engaged time}: the client clock runs only while
+the tab is visible, pausing on background/close and resuming on return, and
+persists across reloads/re-entry, so away-time is excluded by construction rather
+than after the fact. Each task also logs \code{away\_ms}, \code{pause\_count},
+and \code{was\_interrupted}. Pre-specified handling: analyze active time as
+primary; run a sensitivity analysis excluding \code{was\_interrupted} tasks;
+report the interruption rate.
+
+\section{Reporting order (Results section skeleton)}
+
+\begin{enumerate}[nosep]
+  \item Sample \& flow --- who, how many, dropouts.
+  \item Manipulation check --- scoping held (\S\ref{sec:manip}).
+  \item RQ1 / H1--H2 --- normalized time and correctness by condition $\times$ task type (Figs.\ \ref{fig:interaction}, \ref{fig:correctness}); the core result.
+  \item H3 --- cognitive load (between-condition TLX delta, agent vs.\ baseline phase; per-task effort within person).
+  \item H5 --- perception vs.\ behavior (Fig.\ \ref{fig:percep}); the memorable result.
+  \item RQ2 --- reliance and division of labor (Fig.\ \ref{fig:delegation}), open-ended themes.
+\end{enumerate}
+
+\section{Hypothesis-to-analysis map}
+
+\begin{table}[h]
+\centering\small
+\begin{tabularx}{\linewidth}{@{}l L L@{}}
+\toprule
+\textbf{H} & \textbf{Test} & \textbf{Key fields} \\
+\midrule
+H1 & condition effect on log active time, baseline-adjusted ANCOVA, Eq.~\eqref{eq:primary}; confirmatory C3-vs-C1 cross-surface contrast & \code{task\_time\_ms}, C0 baseline (covariate), \code{agent\_condition} \\
+H2 & \code{condition $\times$ task\_type} interaction, Eq.~\eqref{eq:primary} (supporting) & \code{task\_type} across the 6 agent tasks \\
+H3 & between-condition TLX delta (agent$-$baseline) $+$ per-task effort model & \code{tlx\_*\_baseline}, \code{tlx\_*}, \code{task\_rating.effort} \\
+H4 & delegation ratio by condition; accept/verify/override rates & \code{agent\_tool\_call} (executed), \code{agent\_suggestion\_*}, \code{agent\_output\_edited}, \code{agent\_action\_undone} \\
+H5 & trust vs.\ measured speed/correctness (Spearman) & \code{trust\_speed\_perceived}, trust block, normalized time \\
+--- & scoping manipulation check & \code{agent\_context\_sent} \\
+\bottomrule
+\end{tabularx}
+\caption{Each hypothesis, its test, and the fields it draws on.}
+\label{tab:hmap}
+\end{table}
+
+\section{Limitations and small-$N$ strategy}
+
+Three between-subjects cells at $N\approx20$--$30$ ($\sim$7--10 per cell) is a
+modest, focused sample---a short full study, not a large trial, so we report
+estimates with their uncertainty rather than claiming a definitively powered
+omnibus interaction. What makes it viable: the within-person baseline (absorbed
+as a covariate, Eq.~\eqref{eq:primary}) and six agent observations per
+participant (more observations than people).
+Mitigations: condition assignment is balanced by adaptive minimization---each
+participant is assigned to the currently least-filled condition, ties broken at
+random (implemented in \code{provision.rs::pick\_agent\_condition}), which keeps
+the cells near-equal and breaks the confound between condition and enrollment
+order; pre-registration on OSF naming the confirmatory focused contrast (\S\ref{sec:t6})
+and the exploratory remainder; and reporting effect sizes and confidence
+intervals---and, where appropriate, permutation or Bayesian estimation---rather
+than relying on null-hypothesis significance tests. We state plainly that this is
+a focused study, not a large trial.
+
+\end{document}
