@@ -119,7 +119,14 @@ pub struct CardLine {
     pub assignee: Option<String>,
     pub priority: String,
     pub labels: Vec<String>,
+    // Only ever populated for conditions whose rules allow GitHub (C3). For
+    // C1/C2 these are forced to None at assembly so the agent_context_sent
+    // snapshot carries no GitHub references at all — `skip_serializing_if` then
+    // drops the keys entirely, keeping the "no GitHub data" manipulation check
+    // unambiguous. See assemble_board.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub github_issue: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub github_pr: Option<i64>,
 }
 
@@ -227,7 +234,9 @@ pub async fn assemble(pool: &PgPool, ctx: &ParticipantCtx) -> Result<ScopedConte
 
     let board = if rules.board {
         sources_included.push("board".to_string());
-        Some(assemble_board(pool, ctx.project_id).await?)
+        // Card→issue/PR link numbers are GitHub references, so they're included
+        // only when GitHub itself is allowed (C3). C2 sees the board without them.
+        Some(assemble_board(pool, ctx.project_id, rules.github).await?)
     } else {
         None
     };
@@ -274,7 +283,11 @@ async fn assemble_chat(pool: &PgPool, team_id: Uuid) -> Result<Vec<ChatLine>, Ap
         .collect())
 }
 
-async fn assemble_board(pool: &PgPool, project_id: Uuid) -> Result<Vec<CardLine>, ApiError> {
+async fn assemble_board(
+    pool: &PgPool,
+    project_id: Uuid,
+    include_github_links: bool,
+) -> Result<Vec<CardLine>, ApiError> {
     let rows = sqlx::query!(
         r#"
         SELECT t.id, t.title, t.description, c.name AS column_name,
@@ -305,8 +318,16 @@ async fn assemble_board(pool: &PgPool, project_id: Uuid) -> Result<Vec<CardLine>
             assignee: r.assignee,
             priority: r.priority,
             labels: r.labels,
-            github_issue: r.github_issue_id,
-            github_pr: r.github_pr_id,
+            github_issue: if include_github_links {
+                r.github_issue_id
+            } else {
+                None
+            },
+            github_pr: if include_github_links {
+                r.github_pr_id
+            } else {
+                None
+            },
         })
         .collect())
 }

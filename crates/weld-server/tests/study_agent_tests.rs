@@ -65,11 +65,20 @@ async fn c2_context_has_board_but_not_github() {
     let scoped = gate::assemble(&pool, &ctx).await.expect("assemble C2");
     let snap = scoped.snapshot();
 
-    assert!(scoped.board.is_some(), "C2 must assemble board");
+    let board = scoped.board.as_ref().expect("C2 must assemble board");
     assert!(scoped.github.is_none(), "C2 must NOT assemble github");
     assert!(
         snap.get("github").is_none(),
         "C2 snapshot must not contain github"
+    );
+    // The board carries no card→issue/PR link numbers either: those are GitHub
+    // references and must be absent for a no-GitHub condition, even though the
+    // seed pre-links some cards (e.g. card_feeding_schedule_ui → PR #22).
+    assert!(
+        board
+            .iter()
+            .all(|c| c.github_issue.is_none() && c.github_pr.is_none()),
+        "C2 board cards must expose no GitHub link numbers"
     );
 }
 
