@@ -13,6 +13,9 @@ pub struct TaskRef {
     pub short_id: i64,
     pub title: String,
     pub project_id: Uuid,
+    /// Number of the GitHub PR linked to this task, if any. Lets the client
+    /// resolve `PR#<number>` chat references to the task they're linked to.
+    pub github_pr_id: Option<i64>,
 }
 
 /// List referenceable tasks across a team's active projects. Caller must be a
@@ -27,7 +30,7 @@ pub async fn list_team_task_refs(
     let refs = sqlx::query_as!(
         TaskRef,
         r#"
-        SELECT t.id, t.short_id, t.title, t.project_id
+        SELECT t.id, t.short_id, t.title, t.project_id, t.github_pr_id
         FROM tasks t
         JOIN projects p ON p.id = t.project_id
         WHERE p.team_id = $1

@@ -4,7 +4,7 @@
 	import { chat } from '$lib/chat.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { X, GitBranch, Trash2 } from 'lucide-svelte';
+	import { X, GitBranch, Trash2 } from '@lucide/svelte';
 
 	interface Props {
 		channel: Channel;

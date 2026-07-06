@@ -219,6 +219,9 @@ export interface TaskRef {
 	short_id: number;
 	title: string;
 	project_id: string;
+	/** Number of the GitHub PR linked to this task, if any. Used to resolve
+	 * `PR#<number>` chat references to the task they're linked to. */
+	github_pr_id: number | null;
 }
 
 export interface MessagePage {

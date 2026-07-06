@@ -20,7 +20,7 @@
 		Pencil,
 		Trash2,
 		FolderOpen
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 	import { mode, toggleMode } from 'mode-watcher';
 
 	const COLLAPSED_KEY = 'weld:sidebar-collapsed';

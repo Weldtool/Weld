@@ -13,8 +13,8 @@
 
 	let textarea: HTMLTextAreaElement | null = $state(null);
 	let value = $state('');
-	// Which autocomplete is active: '@' for members, '#' for tasks.
-	let trigger = $state<'@' | '#' | null>(null);
+	// Which autocomplete is active: '@' members, '#' tasks, 'pr' linked PRs.
+	let trigger = $state<'@' | '#' | 'pr' | null>(null);
 	let query = $state('');
 	let anchor = $state(0);
 	let highlight = $state(0);
@@ -43,7 +43,26 @@
 			.slice(0, 6);
 	});
 
-	const matchCount = $derived(trigger === '@' ? memberMatches.length : taskMatches.length);
+	// Tasks that have a linked PR, matched by PR number or task title.
+	const prMatches = $derived.by(() => {
+		if (trigger !== 'pr') return [] as TaskRef[];
+		const lower = query.toLowerCase();
+		return chat.taskRefs
+			.filter((t) => t.github_pr_id != null)
+			.filter((t) => {
+				if (!lower) return true;
+				return String(t.github_pr_id).startsWith(lower) || t.title.toLowerCase().includes(lower);
+			})
+			.slice(0, 6);
+	});
+
+	const matchCount = $derived(
+		trigger === '@'
+			? memberMatches.length
+			: trigger === 'pr'
+				? prMatches.length
+				: taskMatches.length
+	);
 
 	function autoResize() {
 		if (!textarea) return;
@@ -68,6 +87,16 @@
 			trigger = '@';
 			query = mention[2];
 			anchor = caret - mention[2].length - 1;
+			highlight = 0;
+			return;
+		}
+
+		// `PR#<digits>` — checked before the bare `#` task rule.
+		const pr = /(^|\s)[Pp][Rr]#(\d*)$/.exec(prefix);
+		if (pr) {
+			trigger = 'pr';
+			query = pr[2];
+			anchor = caret - pr[2].length - 3;
 			highlight = 0;
 			return;
 		}
@@ -108,8 +137,13 @@
 		replaceAtAnchor('#' + task.short_id + ' ');
 	}
 
+	function selectPr(task: TaskRef) {
+		replaceAtAnchor('PR#' + task.github_pr_id + ' ');
+	}
+
 	function applyHighlight() {
 		if (trigger === '@' && memberMatches[highlight]) selectMember(memberMatches[highlight]);
+		else if (trigger === 'pr' && prMatches[highlight]) selectPr(prMatches[highlight]);
 		else if (trigger === '#' && taskMatches[highlight]) selectTask(taskMatches[highlight]);
 	}
 
@@ -210,6 +244,32 @@
 				</li>
 			{/each}
 		</ul>
+	{:else if trigger === 'pr' && prMatches.length > 0}
+		<ul
+			class="absolute bottom-full left-4 mb-1.5 w-80 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--card)] p-1 shadow-xl"
+			role="listbox"
+		>
+			{#each prMatches as t, i (t.id)}
+				<li>
+					<button
+						type="button"
+						class="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm transition-colors {i ===
+						highlight
+							? 'bg-[var(--accent)] text-[var(--accent-foreground)]'
+							: 'hover:bg-[var(--accent)]/60'}"
+						onmousedown={(e) => {
+							e.preventDefault();
+							selectPr(t);
+						}}
+					>
+						<span class="shrink-0 font-mono text-xs text-[var(--muted-foreground)]">
+							PR#{t.github_pr_id}
+						</span>
+						<span class="truncate">{t.title}</span>
+					</button>
+				</li>
+			{/each}
+		</ul>
 	{/if}
 
 	<textarea
@@ -224,7 +284,8 @@
 	></textarea>
 	<div class="mt-2 flex items-center justify-between">
 		<span class="text-[11px] text-[var(--muted-foreground)]">
-			⏎ send &nbsp;·&nbsp; ⇧⏎ newline &nbsp;·&nbsp; @ mention &nbsp;·&nbsp; # task
+			⏎ send &nbsp;·&nbsp; ⇧⏎ newline &nbsp;·&nbsp; @ mention &nbsp;·&nbsp; # task &nbsp;·&nbsp; PR#
+			pull request
 		</span>
 		<button
 			type="button"

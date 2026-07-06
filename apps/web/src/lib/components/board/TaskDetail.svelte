@@ -15,13 +15,18 @@
 	import EstimateInput from './EstimateInput.svelte';
 	import LabelPicker from './LabelPicker.svelte';
 	import CreateIssueDialog from './CreateIssueDialog.svelte';
-	import { X } from 'lucide-svelte';
+	import { X } from '@lucide/svelte';
+	import { appConfig } from '$lib/config.svelte';
 
 	interface Props {
 		taskId: string;
 	}
 
 	const { taskId }: Props = $props();
+
+	// In study mode the linked issue/PR is a seeded fixture with no real GitHub
+	// page, so suppress the outbound link to avoid sending participants to a 404.
+	const linksDisabled = $derived(appConfig.studyMode);
 
 	const task = $derived(boardStore.taskById(taskId));
 	const role = $derived(projects.team?.role ?? 'viewer');
@@ -515,10 +520,14 @@
 							{#if task.github_issue_id && task.github_repo}
 								<div class="flex items-center gap-1.5">
 									<a
-										href="https://github.com/{task.github_repo}/issues/{task.github_issue_id}"
-										target="_blank"
+										href={linksDisabled
+											? undefined
+											: `https://github.com/${task.github_repo}/issues/${task.github_issue_id}`}
+										target={linksDisabled ? undefined : '_blank'}
 										rel="noopener noreferrer"
-										class="inline-flex flex-1 items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--card)] px-2.5 py-1 text-xs font-medium text-[var(--card-foreground)] hover:bg-[var(--accent)]"
+										class="inline-flex flex-1 items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--card)] px-2.5 py-1 text-xs font-medium text-[var(--card-foreground)] {linksDisabled
+											? 'cursor-default'
+											: 'hover:bg-[var(--accent)]'}"
 										onclick={() =>
 											telemetry.log('issue_referenced_from_card', {
 												task_id: task?.id,
@@ -634,10 +643,14 @@
 							{#if task.github_pr_id && task.github_repo}
 								<div class="flex items-center gap-1.5">
 									<a
-										href="https://github.com/{task.github_repo}/pull/{task.github_pr_id}"
-										target="_blank"
+										href={linksDisabled
+											? undefined
+											: `https://github.com/${task.github_repo}/pull/${task.github_pr_id}`}
+										target={linksDisabled ? undefined : '_blank'}
 										rel="noopener noreferrer"
-										class="inline-flex flex-1 items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--card)] px-2.5 py-1 text-xs font-medium text-[var(--card-foreground)] hover:bg-[var(--accent)]"
+										class="inline-flex flex-1 items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--card)] px-2.5 py-1 text-xs font-medium text-[var(--card-foreground)] {linksDisabled
+											? 'cursor-default'
+											: 'hover:bg-[var(--accent)]'}"
 										onclick={() =>
 											telemetry.log('pr_referenced_from_card', {
 												task_id: task?.id,

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
-	import { GitPullRequest } from 'lucide-svelte';
+	import { GitPullRequest } from '@lucide/svelte';
 	import Board from '$lib/components/board/Board.svelte';
 	import TaskDetail from '$lib/components/board/TaskDetail.svelte';
 	import TaskDraft from '$lib/components/board/TaskDraft.svelte';

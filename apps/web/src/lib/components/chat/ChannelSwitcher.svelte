@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import type { Channel } from '$lib/api/types';
 	import { cn } from '$lib/utils';
-	import { Hash, Lock, MessageSquare } from 'lucide-svelte';
+	import { Hash, Lock, MessageSquare } from '@lucide/svelte';
 
 	interface Props {
 		channels: Channel[];

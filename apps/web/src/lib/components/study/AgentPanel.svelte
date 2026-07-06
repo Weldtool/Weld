@@ -4,7 +4,7 @@
 	import { study } from '$lib/study.svelte';
 	import { telemetry } from '$lib/telemetry.svelte';
 	import { cn } from '$lib/utils';
-	import { Bot, Send, PanelRightClose, PanelRightOpen } from 'lucide-svelte';
+	import { Bot, Send, PanelRightClose, PanelRightOpen } from '@lucide/svelte';
 
 	interface Turn {
 		role: 'user' | 'agent';

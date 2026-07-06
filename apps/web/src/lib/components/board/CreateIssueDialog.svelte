@@ -2,7 +2,7 @@
 	import { tasks as tasksApi, github as githubApi } from '$lib/api';
 	import type { IssueTemplate, Task } from '$lib/api/types';
 	import { telemetry } from '$lib/telemetry.svelte';
-	import { X, CircleDot } from 'lucide-svelte';
+	import { X, CircleDot } from '@lucide/svelte';
 
 	interface Props {
 		task: Task;

@@ -4,7 +4,7 @@
 	import type { Channel } from '$lib/api/types';
 	import { chat } from '$lib/chat.svelte';
 	import { cn } from '$lib/utils';
-	import { Hash, Lock, Plus, MessageSquare } from 'lucide-svelte';
+	import { Hash, Lock, Plus, MessageSquare } from '@lucide/svelte';
 
 	interface Props {
 		channels: Channel[];

@@ -21,8 +21,8 @@
 			{/if}
 		</p>
 		<p class="mt-3 text-sm text-[var(--muted-foreground)]">
-			If you opted in to a follow-up interview, we’ll reach out via the email you provided. You can
-			close this tab now.
+			If you opted in to future research related to this study, we’ll reach out via the email you
+			provided. You can close this tab now.
 		</p>
 	{/if}
 </div>

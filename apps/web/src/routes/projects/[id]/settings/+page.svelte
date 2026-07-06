@@ -6,7 +6,7 @@
 	import { board as boardApi, github as githubApi, projects as projectsApi } from '$lib/api';
 	import type { Column, ProjectMember } from '$lib/api/types';
 	import { projects } from '$lib/projects.svelte';
-	import { ArrowLeft, X } from 'lucide-svelte';
+	import { ArrowLeft, X } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
 	const projectId = $derived(page.params.id);

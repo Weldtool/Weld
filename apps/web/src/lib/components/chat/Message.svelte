@@ -6,7 +6,7 @@
 	import { telemetry } from '$lib/telemetry.svelte';
 	import { cn } from '$lib/utils';
 	import type { ChatMessage } from '$lib/api/types';
-	import { MessageSquare, Pencil, Trash2, RotateCw, X } from 'lucide-svelte';
+	import { MessageSquare, Pencil, Trash2, RotateCw, X } from '@lucide/svelte';
 	import GitHubCard from './GitHubCard.svelte';
 
 	const GITHUB_BOT_ID = '00000000-0000-0000-0000-000000000002';
@@ -60,6 +60,19 @@
 			const target = e.target as HTMLElement;
 			const msgId = isPending(message) ? null : message.id;
 			const chanId = message.channel_id;
+
+			// PR cross-references → pr_referenced_from_chat. The bare badge (no
+			// linked task) is a <span>, not an <a>, so it simply won't match here.
+			const prLink = target.closest('a.chat-prref') as HTMLAnchorElement | null;
+			if (prLink) {
+				telemetry.log('pr_referenced_from_chat', {
+					pr_number: prLink.getAttribute('data-pr-number'),
+					task_id: new URL(prLink.href, window.location.origin).searchParams.get('task'),
+					message_id: msgId,
+					channel_id: chanId
+				});
+				return;
+			}
 
 			// Card / task cross-references → card_referenced_from_chat
 			const cardLink = target.closest('.chat-cardref, .chat-taskref') as HTMLAnchorElement | null;
@@ -356,6 +369,37 @@
 		border-color: color-mix(in srgb, var(--primary) 40%, transparent);
 	}
 	:global(.chat-taskref .chat-taskref-id) {
+		font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+		font-size: 0.85em;
+		color: var(--primary);
+	}
+	:global(.chat-prref) {
+		display: inline-flex;
+		align-items: baseline;
+		gap: 0.25rem;
+		max-width: 22rem;
+		padding: 0 0.35rem;
+		border-radius: 0.25rem;
+		background: color-mix(in srgb, var(--foreground) 8%, transparent);
+		border: 1px solid var(--border);
+		color: var(--foreground);
+		font-weight: 500;
+		text-decoration: none;
+		vertical-align: baseline;
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+	/* Bare badge has no linked task: keep it inert (no pointer, no hover). */
+	:global(.chat-prref.chat-prref-bare) {
+		cursor: default;
+		opacity: 0.85;
+	}
+	:global(a.chat-prref:hover) {
+		background: color-mix(in srgb, var(--primary) 14%, transparent);
+		border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+	}
+	:global(.chat-prref .chat-prref-id) {
 		font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 		font-size: 0.85em;
 		color: var(--primary);

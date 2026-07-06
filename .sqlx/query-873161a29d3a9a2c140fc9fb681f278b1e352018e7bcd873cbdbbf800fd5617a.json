@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT p.agent_condition AS \"condition!\",\n                  COUNT(*)::bigint AS \"turns!\",\n                  COUNT(*) FILTER (\n                      WHERE NOT jsonb_exists(e.payload, 'board')\n                        AND NOT jsonb_exists(e.payload, 'github')\n                  )::bigint AS \"clean_no_board_github!\",\n                  COUNT(*) FILTER (\n                      WHERE NOT jsonb_exists(e.payload, 'github')\n                  )::bigint AS \"clean_no_github!\"\n           FROM study_events e\n           JOIN study_participants p ON p.id = e.participant_id\n           WHERE e.event_type = 'agent_context_sent'\n           GROUP BY p.agent_condition\n           ORDER BY p.agent_condition",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "condition!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "turns!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "clean_no_board_github!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "clean_no_github!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "873161a29d3a9a2c140fc9fb681f278b1e352018e7bcd873cbdbbf800fd5617a"
+}

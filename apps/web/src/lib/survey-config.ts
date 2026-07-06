@@ -23,61 +23,82 @@ export interface SurveySection {
 
 const SUS_LABEL = (s: string) => s;
 
+/**
+ * NASA-TLX (6 raw subscales). Administered twice with the SAME items so the two
+ * load measurements are comparable: once right after the manual baseline phase
+ * (ids suffixed `_baseline`, via the interstitial — see `baselineTlxItems()`)
+ * and once in the exit survey for the agent phase (bare ids, below). The
+ * within-person baseline→agent delta is the H3 cognitive-load signal.
+ */
+export const TLX_ITEMS: SurveyItem[] = [
+	{
+		id: 'tlx_mental',
+		type: 'slider100',
+		label: 'How mentally demanding were the tasks?',
+		lowAnchor: 'Very low',
+		highAnchor: 'Very high',
+		required: true
+	},
+	{
+		id: 'tlx_physical',
+		type: 'slider100',
+		label: 'How physically demanding were the tasks?',
+		lowAnchor: 'Very low',
+		highAnchor: 'Very high',
+		required: true
+	},
+	{
+		id: 'tlx_temporal',
+		type: 'slider100',
+		label: 'How hurried or rushed was the pace of the tasks?',
+		lowAnchor: 'Very low',
+		highAnchor: 'Very high',
+		required: true
+	},
+	{
+		id: 'tlx_performance',
+		type: 'slider100',
+		label: 'How successful were you in accomplishing what you were asked to do?',
+		lowAnchor: 'Perfect',
+		highAnchor: 'Failure',
+		required: true
+	},
+	{
+		id: 'tlx_effort',
+		type: 'slider100',
+		label: 'How hard did you have to work to accomplish your level of performance?',
+		lowAnchor: 'Very low',
+		highAnchor: 'Very high',
+		required: true
+	},
+	{
+		id: 'tlx_frustration',
+		type: 'slider100',
+		label: 'How insecure, discouraged, irritated, stressed, and annoyed were you?',
+		lowAnchor: 'Very low',
+		highAnchor: 'Very high',
+		required: true
+	}
+];
+
+/** Suffix distinguishing the post-baseline TLX rows from the exit (agent) ones. */
+export const BASELINE_TLX_SUFFIX = '_baseline';
+
+/**
+ * The TLX items for the post-baseline interstitial: same questions, ids suffixed
+ * so they store as separate rows (`tlx_mental_baseline`, …) alongside the exit
+ * TLX without colliding on the `(participant_id, item_id)` key.
+ */
+export function baselineTlxItems(): SurveyItem[] {
+	return TLX_ITEMS.map((it) => ({ ...it, id: `${it.id}${BASELINE_TLX_SUFFIX}` }));
+}
+
 export const SURVEY: SurveySection[] = [
 	{
 		title: 'Task load',
 		instruction:
-			'Think about the tasks you just completed in Weld. For each item, mark the point on the scale that best matches your experience.',
-		items: [
-			{
-				id: 'tlx_mental',
-				type: 'slider100',
-				label: 'How mentally demanding were the tasks?',
-				lowAnchor: 'Very low',
-				highAnchor: 'Very high',
-				required: true
-			},
-			{
-				id: 'tlx_physical',
-				type: 'slider100',
-				label: 'How physically demanding were the tasks?',
-				lowAnchor: 'Very low',
-				highAnchor: 'Very high',
-				required: true
-			},
-			{
-				id: 'tlx_temporal',
-				type: 'slider100',
-				label: 'How hurried or rushed was the pace of the tasks?',
-				lowAnchor: 'Very low',
-				highAnchor: 'Very high',
-				required: true
-			},
-			{
-				id: 'tlx_performance',
-				type: 'slider100',
-				label: 'How successful were you in accomplishing what you were asked to do?',
-				lowAnchor: 'Perfect',
-				highAnchor: 'Failure',
-				required: true
-			},
-			{
-				id: 'tlx_effort',
-				type: 'slider100',
-				label: 'How hard did you have to work to accomplish your level of performance?',
-				lowAnchor: 'Very low',
-				highAnchor: 'Very high',
-				required: true
-			},
-			{
-				id: 'tlx_frustration',
-				type: 'slider100',
-				label: 'How insecure, discouraged, irritated, stressed, and annoyed were you?',
-				lowAnchor: 'Very low',
-				highAnchor: 'Very high',
-				required: true
-			}
-		]
+			'Think about the main tasks you just completed with the assistant. For each item, mark the point on the scale that best matches your experience.',
+		items: TLX_ITEMS
 	},
 	{
 		title: 'Usability',
@@ -364,7 +385,7 @@ export const SURVEY: SurveySection[] = [
 			{
 				id: 'followup_ok',
 				type: 'single',
-				label: 'Would you be willing to be contacted for a short (15-min) follow-up interview?',
+				label: 'Would you be willing to be contacted about future research related to this study?',
 				options: opts(['Yes', 'No'])
 			},
 			{

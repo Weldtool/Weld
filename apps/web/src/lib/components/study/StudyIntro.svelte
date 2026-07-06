@@ -19,7 +19,6 @@
 	// Screening answers (eligibility gate; not stored — demographics come later).
 	let experience = $state<string | null>(null);
 	let familiarity = $state<string | null>(null);
-	let priorWeld = $state<string | null>(null);
 
 	const emailValid = $derived(participantEmail.trim().includes('@'));
 
@@ -28,12 +27,11 @@
 			institution.trim().length > 0 &&
 			experience !== null &&
 			familiarity !== null &&
-			priorWeld !== null &&
 			(!codeRequired || accessCode.trim().length > 0)
 	);
 
 	function submitScreening() {
-		const ineligible = experience === 'lt1' || familiarity === 'none' || priorWeld === 'lots';
+		const ineligible = experience === 'lt1' || familiarity === 'none';
 		if (ineligible) {
 			study.markIneligible();
 		} else {
@@ -90,8 +88,19 @@
 			</p>
 			<p class="mt-3">
 				Your email and institution are collected so your results can be linked to you. This
-				information is stored securely and used only for research purposes. You may stop at any time
-				by closing the tab.
+				information is stored securely, separately from your study responses, and used only for
+				research purposes. You may stop at any time by closing the tab.
+			</p>
+			<p class="mt-3">
+				The AI assistant is powered by a third-party language-model service (OpenAI). The messages
+				you send to the assistant, and the practice-project content it is given to answer them, are
+				transmitted to that service for processing under their API data terms (not used to train
+				their models). No real personal data or real code of yours is involved.
+			</p>
+			<p class="mt-3">
+				De-identified study data (containing no name, email, or institution) may be retained
+				indefinitely and shared publicly to support reproducibility and future research. Data that
+				has already been published or shared cannot be withdrawn.
 			</p>
 			<p class="mt-3">By continuing, you confirm you are 18+ and consent to take part.</p>
 			<p class="mt-3 text-xs">Consent version {CONSENT_VERSION}</p>
@@ -176,21 +185,6 @@
 					>
 					<label class="flex items-center gap-2"
 						><input type="radio" bind:group={familiarity} value="none" /> None</label
-					>
-				</div>
-			</fieldset>
-
-			<fieldset>
-				<legend class="text-sm font-medium">Have you used Weld before?</legend>
-				<div class="mt-2 flex flex-wrap gap-4 text-sm">
-					<label class="flex items-center gap-2"
-						><input type="radio" bind:group={priorWeld} value="no" /> No</label
-					>
-					<label class="flex items-center gap-2"
-						><input type="radio" bind:group={priorWeld} value="little" /> A little</label
-					>
-					<label class="flex items-center gap-2"
-						><input type="radio" bind:group={priorWeld} value="lots" /> Yes, a lot</label
 					>
 				</div>
 			</fieldset>

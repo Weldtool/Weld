@@ -194,6 +194,25 @@ pub async fn submit_survey(
 }
 
 #[derive(Debug, Deserialize)]
+pub struct InterimSurveyRequest {
+    pub responses: std::collections::HashMap<String, String>,
+}
+
+/// Persist an interim instrument (the post-baseline NASA-TLX) without marking the
+/// participant completed. Study-mode only.
+pub async fn submit_interim_survey(
+    auth: AuthUser,
+    State(state): State<AppState>,
+    Json(input): Json<InterimSurveyRequest>,
+) -> Result<StatusCode, ApiError> {
+    if !state.study_mode {
+        return Err(ApiError::NotFound("Not found".into()));
+    }
+    study::survey::submit_interim_survey(&state.db, auth.user_id, input.responses).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(Debug, Deserialize)]
 pub struct ProgressRequest {
     pub stage: String,
     pub task_index: i32,

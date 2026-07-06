@@ -49,6 +49,10 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/study/events", post(study::ingest_events))
         .route("/api/v1/study/progress", post(study::save_progress))
         .route("/api/v1/study/survey", post(study::submit_survey))
+        .route(
+            "/api/v1/study/interim-survey",
+            post(study::submit_interim_survey),
+        )
         .route("/api/v1/study/agent", post(study::agent_turn))
         .route("/api/v1/teams", get(teams::list).post(teams::create))
         .route(

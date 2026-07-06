@@ -138,6 +138,12 @@ pub async fn run_turn(
     let mut drafts: Vec<AgentDraft> = Vec::new();
     let mut total_tool_calls = 0usize;
     let mut reply = String::new();
+    // Accumulate token usage across all model calls in this turn (a turn may
+    // make several OpenAI calls when the model iterates on tool results) so the
+    // agent_response event carries the full per-turn cost for analysis.
+    let mut prompt_tokens = 0i64;
+    let mut completion_tokens = 0i64;
+    let mut total_tokens = 0i64;
 
     for _ in 0..MAX_TURNS {
         let resp = openai::chat_completion(agent, &messages, &tool_defs).await;
@@ -159,6 +165,9 @@ pub async fn run_turn(
         };
 
         if let Some(usage) = &resp.usage {
+            prompt_tokens += usage.prompt_tokens;
+            completion_tokens += usage.completion_tokens;
+            total_tokens += usage.total_tokens;
             tracing::info!(
                 participant = %pid,
                 model = %agent.model,
@@ -305,6 +314,9 @@ pub async fn run_turn(
             "model": agent.model,
             "temperature": agent.temperature,
             "prompt_version": agent.prompt_version,
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": total_tokens,
             "reply": reply,
         }),
     )

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { boardStore } from '$lib/board.svelte';
 	import type { Priority } from '$lib/api/types';
-	import { Plus, X, Pencil, Check } from 'lucide-svelte';
+	import { Plus, X, Pencil, Check } from '@lucide/svelte';
 
 	interface Props {
 		editMode: boolean;

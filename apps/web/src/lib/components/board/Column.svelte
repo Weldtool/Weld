@@ -9,7 +9,7 @@
 	import { createPrDialog } from '$lib/create-pr-dialog.svelte';
 	import type { Column, Label, Task, TeamMember } from '$lib/api/types';
 	import TaskCard from './TaskCard.svelte';
-	import { Plus, Trash2, GripVertical } from 'lucide-svelte';
+	import { Plus, Trash2, GripVertical } from '@lucide/svelte';
 
 	interface Props {
 		column: Column;

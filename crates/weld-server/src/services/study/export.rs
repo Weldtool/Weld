@@ -256,6 +256,14 @@ pub struct ParticipantRow {
     pub duration_seconds: Option<i64>,
     pub event_count: i64,
     pub survey_items_answered: i64,
+    /// Server receipt time of the participant's most recent telemetry event, if
+    /// any. Lets the dashboard flag stale `in_progress` rows (likely dropouts) —
+    /// nothing sets status to `abandoned`, so a dropout otherwise looks active.
+    pub last_event_at: Option<String>,
+    /// Sum of active (engaged) time across this participant's completed tasks,
+    /// from `task_completed.task_time_ms`. The real time-on-task — unlike
+    /// `duration_seconds` (wall clock incl. breaks/resumes).
+    pub active_task_ms: Option<i64>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -265,6 +273,46 @@ pub struct AccessCodeStats {
     pub unused: i64,
 }
 
+/// One cell of the headline figure: mean active time on an agent task, by
+/// condition × task type (the Fig. 1 interaction shape). Descriptive preview of
+/// raw active time — the paper normalizes per participant; this does not.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TimeCell {
+    pub condition: String,
+    pub task_type: String,
+    pub mean_active_ms: i64,
+    pub n: i64,
+}
+
+/// Division of labor by condition (Fig. 4 shape): agent-executed actions vs.
+/// user actions during the agent phase.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DelegationRow {
+    pub condition: String,
+    pub agent_actions: i64,
+    pub user_actions: i64,
+}
+
+/// Live scoping manipulation check (Fig. 5): from `agent_context_sent`, the
+/// share of turns whose snapshot contained no disallowed source. C1 turns should
+/// be 100% board+GitHub-free, C2 turns 100% GitHub-free.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ManipulationRow {
+    pub condition: String,
+    pub turns: i64,
+    /// Turns with neither a board nor a github key in the snapshot (C1 target).
+    pub clean_no_board_github: i64,
+    /// Turns with no github key in the snapshot (C2 target).
+    pub clean_no_github: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StudyCharts {
+    pub time_by_cell: Vec<TimeCell>,
+    pub delegation: Vec<DelegationRow>,
+    pub manipulation: Vec<ManipulationRow>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StudySummary {
     pub total_participants: i64,
@@ -272,6 +320,7 @@ pub struct StudySummary {
     pub by_status: Vec<StatusCount>,
     pub top_event_types: Vec<EventTypeCount>,
     pub access_codes: AccessCodeStats,
+    pub charts: StudyCharts,
     pub participants: Vec<ParticipantRow>,
 }
 
@@ -362,7 +411,10 @@ pub async fn summary(pool: &PgPool) -> Result<StudySummary, ApiError> {
                   p.provisioned_at, p.completed_at,
                   EXTRACT(EPOCH FROM (p.completed_at - p.provisioned_at))::bigint AS duration_seconds,
                   COUNT(DISTINCT e.id)::bigint AS "event_count!",
-                  COUNT(DISTINCT s.item_id)::bigint AS "survey_items!"
+                  COUNT(DISTINCT s.item_id)::bigint AS "survey_items!",
+                  MAX(e.server_ts) AS last_event_at,
+                  SUM((e.payload->>'task_time_ms')::bigint)
+                    FILTER (WHERE e.event_type = 'task_completed')::bigint AS active_task_ms
            FROM study_participants p
            LEFT JOIN study_events e ON e.participant_id = p.id
            LEFT JOIN study_survey_responses s ON s.participant_id = p.id
@@ -384,8 +436,12 @@ pub async fn summary(pool: &PgPool) -> Result<StudySummary, ApiError> {
             duration_seconds: r.duration_seconds,
             event_count: r.event_count,
             survey_items_answered: r.survey_items,
+            last_event_at: r.last_event_at.map(|t| t.to_rfc3339()),
+            active_task_ms: r.active_task_ms,
         })
         .collect();
+
+    let charts = charts(pool).await?;
 
     Ok(StudySummary {
         total_participants,
@@ -393,7 +449,112 @@ pub async fn summary(pool: &PgPool) -> Result<StudySummary, ApiError> {
         by_status,
         top_event_types,
         access_codes,
+        charts,
         participants,
+    })
+}
+
+/// Descriptive chart aggregates for the dashboard's default view — previews of
+/// the paper figures, computed live from telemetry. Correctness (Fig. 2) and the
+/// trust/perception figure (Fig. 3) are intentionally absent: correctness is
+/// hand-coded offline and perception needs the analyzed survey, so neither is
+/// derivable from the raw event log.
+async fn charts(pool: &PgPool) -> Result<StudyCharts, ApiError> {
+    let err = |e: sqlx::Error| ApiError::Internal(format!("charts query failed: {e}"));
+
+    // Fig. 1 shape — mean active time per condition × task type, agent tasks only
+    // (task ids T1..T6). Raw active ms; the paper normalizes per participant.
+    let time_by_cell = sqlx::query!(
+        r#"SELECT p.agent_condition AS "condition!",
+                  e.payload->>'task_type' AS "task_type!",
+                  AVG((e.payload->>'task_time_ms')::bigint)::bigint AS "mean_active_ms!",
+                  COUNT(*)::bigint AS "n!"
+           FROM study_events e
+           JOIN study_participants p ON p.id = e.participant_id
+           WHERE e.event_type = 'task_completed'
+             AND e.payload->>'task_id' LIKE 'T%'
+             AND e.payload->>'task_time_ms' IS NOT NULL
+             AND e.payload->>'task_type' IS NOT NULL
+           GROUP BY p.agent_condition, e.payload->>'task_type'
+           ORDER BY p.agent_condition, e.payload->>'task_type'"#
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(err)?
+    .into_iter()
+    .map(|r| TimeCell {
+        condition: r.condition,
+        task_type: r.task_type,
+        mean_active_ms: r.mean_active_ms,
+        n: r.n,
+    })
+    .collect();
+
+    // Fig. 4 shape — agent-executed vs. user actions during the agent phase
+    // (current_task_id T1..T6), by condition.
+    let delegation = sqlx::query!(
+        r#"SELECT p.agent_condition AS "condition!",
+                  COUNT(*) FILTER (
+                      WHERE e.event_type = 'agent_tool_call'
+                        AND e.payload->>'executed' = 'true'
+                  )::bigint AS "agent_actions!",
+                  COUNT(*) FILTER (
+                      WHERE e.event_type IN ('card_created','card_moved','card_edited',
+                                             'card_priority_set','card_assigned','card_labeled',
+                                             'message_sent')
+                  )::bigint AS "user_actions!"
+           FROM study_events e
+           JOIN study_participants p ON p.id = e.participant_id
+           WHERE e.current_task_id LIKE 'T%'
+           GROUP BY p.agent_condition
+           ORDER BY p.agent_condition"#
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(err)?
+    .into_iter()
+    .map(|r| DelegationRow {
+        condition: r.condition,
+        agent_actions: r.agent_actions,
+        user_actions: r.user_actions,
+    })
+    .collect();
+
+    // Fig. 5 — live scoping proof from agent_context_sent snapshots. The `?`
+    // operator tests jsonb key existence: C1 turns should carry neither board nor
+    // github; C2 turns no github.
+    let manipulation = sqlx::query!(
+        r#"SELECT p.agent_condition AS "condition!",
+                  COUNT(*)::bigint AS "turns!",
+                  COUNT(*) FILTER (
+                      WHERE NOT jsonb_exists(e.payload, 'board')
+                        AND NOT jsonb_exists(e.payload, 'github')
+                  )::bigint AS "clean_no_board_github!",
+                  COUNT(*) FILTER (
+                      WHERE NOT jsonb_exists(e.payload, 'github')
+                  )::bigint AS "clean_no_github!"
+           FROM study_events e
+           JOIN study_participants p ON p.id = e.participant_id
+           WHERE e.event_type = 'agent_context_sent'
+           GROUP BY p.agent_condition
+           ORDER BY p.agent_condition"#
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(err)?
+    .into_iter()
+    .map(|r| ManipulationRow {
+        condition: r.condition,
+        turns: r.turns,
+        clean_no_board_github: r.clean_no_board_github,
+        clean_no_github: r.clean_no_github,
+    })
+    .collect();
+
+    Ok(StudyCharts {
+        time_by_cell,
+        delegation,
+        manipulation,
     })
 }
 

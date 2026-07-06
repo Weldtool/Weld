@@ -1,7 +1,12 @@
 <script lang="ts">
 	import { github as githubApi } from '$lib/api';
 	import type { GitHubIssue, GitHubPR, Project } from '$lib/api/types';
-	import { GitPullRequest, CircleDot, RefreshCw, ChevronDown, ChevronRight } from 'lucide-svelte';
+	import { GitPullRequest, CircleDot, RefreshCw, ChevronDown, ChevronRight } from '@lucide/svelte';
+	import { appConfig } from '$lib/config.svelte';
+
+	// In study mode the PRs/issues are seeded fixtures with no real GitHub page,
+	// so suppress the outbound links to avoid sending participants to a 404.
+	const linksDisabled = $derived(appConfig.studyMode);
 
 	interface Props {
 		project: Project;
@@ -95,10 +100,12 @@
 					{#each prs as pr (pr.number)}
 						<li>
 							<a
-								href={pr.html_url}
-								target="_blank"
+								href={linksDisabled ? undefined : pr.html_url}
+								target={linksDisabled ? undefined : '_blank'}
 								rel="noopener noreferrer"
-								class="flex items-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-[var(--accent)]"
+								class="flex items-start gap-1.5 rounded px-1.5 py-1 text-xs {linksDisabled
+									? 'cursor-default'
+									: 'hover:bg-[var(--accent)]'}"
 							>
 								<span class="mt-0.5 shrink-0 text-[var(--muted-foreground)]">#{pr.number}</span>
 								<span
@@ -141,10 +148,12 @@
 					{#each issues as issue (issue.number)}
 						<li>
 							<a
-								href={issue.html_url}
-								target="_blank"
+								href={linksDisabled ? undefined : issue.html_url}
+								target={linksDisabled ? undefined : '_blank'}
 								rel="noopener noreferrer"
-								class="flex items-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-[var(--accent)]"
+								class="flex items-start gap-1.5 rounded px-1.5 py-1 text-xs {linksDisabled
+									? 'cursor-default'
+									: 'hover:bg-[var(--accent)]'}"
 							>
 								<span class="mt-0.5 shrink-0 text-[var(--muted-foreground)]">#{issue.number}</span>
 								<span class="flex-1 leading-snug">{issue.title}</span>
