@@ -191,7 +191,8 @@
 				},
 				body: JSON.stringify({ count: mintCount, note: null })
 			});
-			if (!res.ok) throw new Error(`${res.status}: ${await res.text().catch(() => res.statusText)}`);
+			if (!res.ok)
+				throw new Error(`${res.status}: ${await res.text().catch(() => res.statusText)}`);
 			mintedCodes = await res.text();
 			fetchSummary(savedToken); // refresh the unused/used counts
 		} catch (e: unknown) {
@@ -304,7 +305,8 @@
 	function likelyDropped(p: ParticipantRow): boolean {
 		return (
 			p.status === 'in_progress' &&
-			(p.last_event_at === null || Date.now() - new Date(p.last_event_at).getTime() > STALE_AFTER_MS)
+			(p.last_event_at === null ||
+				Date.now() - new Date(p.last_event_at).getTime() > STALE_AFTER_MS)
 		);
 	}
 
@@ -422,7 +424,9 @@
 			</div>
 
 			<!-- ── View toggle ─────────────────────────────────────────────────── -->
-			<div class="flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-900 p-1 text-xs sm:w-fit">
+			<div
+				class="flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-900 p-1 text-xs sm:w-fit"
+			>
 				<button
 					onclick={() => (view = 'charts')}
 					class="rounded-md px-4 py-1.5 font-medium transition-colors {view === 'charts'
@@ -571,9 +575,9 @@
 		</div>
 
 		<p class="text-xs text-slate-600">
-			Correctness (Fig. 2) and the trust/perception figure (Fig. 3) aren't shown here: correctness is
-			hand-coded offline and perception needs the analyzed survey, so neither is derivable from the
-			live event log.
+			Correctness (Fig. 2) and the trust/perception figure (Fig. 3) aren't shown here: correctness
+			is hand-coded offline and perception needs the analyzed survey, so neither is derivable from
+			the live event log.
 		</p>
 	</div>
 {/snippet}
@@ -724,9 +728,8 @@
 										{/if}
 									</td>
 									<td class="py-2 pr-4 text-slate-400">{formatDate(p.provisioned_at)}</td>
-									<td
-										class="py-2 pr-4 text-slate-400"
-										class:text-amber-400={likelyDropped(p)}>{lastSeenAgo(p.last_event_at)}</td
+									<td class="py-2 pr-4 text-slate-400" class:text-amber-400={likelyDropped(p)}
+										>{lastSeenAgo(p.last_event_at)}</td
 									>
 									<td class="py-2 pr-4 text-slate-400">{formatDate(p.completed_at)}</td>
 									<td class="py-2 pr-4 tabular-nums">{formatDuration(p.duration_seconds)}</td>
@@ -743,7 +746,6 @@
 					</table>
 				</div>
 			</section>
-
 		</div>
 	{/if}
 {/snippet}
