@@ -6,6 +6,7 @@
 	import { chat } from '$lib/chat.svelte';
 	import ChannelSettingsPanel from '$lib/components/chat/ChannelSettingsPanel.svelte';
 	import Composer from '$lib/components/chat/Composer.svelte';
+	import MessageDraft from '$lib/components/chat/MessageDraft.svelte';
 	import MessageList from '$lib/components/chat/MessageList.svelte';
 	import ThreadPanel from '$lib/components/chat/ThreadPanel.svelte';
 	import TypingIndicator from '$lib/components/chat/TypingIndicator.svelte';
@@ -85,6 +86,8 @@
 			<MessageList channelId={channel.id} members={chat.members} {selfId} onReply={openThread} />
 
 			<TypingIndicator userIds={typingIds} members={chat.members} {selfId} />
+
+			<MessageDraft channelId={channel.id} />
 
 			<Composer
 				channelId={channel.id}
