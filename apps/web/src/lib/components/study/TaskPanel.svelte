@@ -62,7 +62,11 @@
 	<BaselineTlx />
 {/if}
 
-{#if task}
+<!-- Hide the task launcher + instruction modal while the post-baseline TLX
+     interstitial is up, so the next (agent) task doesn't render underneath it.
+     `open` may still be true from the just-finished baseline task; the modal
+     re-appears (and the auto-open effect re-fires) once the TLX is submitted. -->
+{#if task && !study.pendingPostBaselineTlx}
 	<!-- Launcher button (bottom-center), always available behind the workspace. -->
 	<button
 		type="button"
