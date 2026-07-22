@@ -148,7 +148,7 @@
       "id": "card_db_decision",
       "column_id": "col_backlog",
       "title": "Decide local cache database",
-      "description": "We need to settle on a local cache DB for offline support. Discussion ongoing in #pettracker (thread started by Alex). NOTE: this is intentionally a placeholder; the decision card the participant creates in task p2_decision is separate.",
+      "description": "We need to settle on a local cache DB for offline support. Discussion ongoing in #pettracker (thread started by Alex).",
       "labels": ["lbl_backend"],
       "assignee_id": "user_alex",
       "priority": "Medium",
