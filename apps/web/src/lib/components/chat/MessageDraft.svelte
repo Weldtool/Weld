@@ -65,7 +65,9 @@
 
 {#each drafts as draft (draft.id)}
 	<div class="border-t border-[var(--border)] bg-[var(--accent)]/40 px-4 pt-3 pb-1">
-		<div class="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-[var(--muted-foreground)]">
+		<div
+			class="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-[var(--muted-foreground)]"
+		>
 			<Sparkles class="h-3.5 w-3.5 text-[var(--primary)]" />
 			The assistant drafted this message — review, edit, then send.
 		</div>
