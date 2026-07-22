@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { tasks as tasksApi, github as githubApi } from '$lib/api';
 	import type { GitHubIssue, GitHubPR, Priority } from '$lib/api/types';
@@ -45,8 +44,9 @@
 	function close() {
 		const url = new URL(page.url);
 		url.searchParams.delete('task');
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- resolve('/board') is the base; query string is appended dynamically
-		goto(resolve('/board') + url.search, { replaceState: false, keepFocus: false });
+		url.searchParams.delete('project');
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- stay on the current route (board or chat); only the query string changes
+		goto(url.pathname + url.search, { replaceState: false, keepFocus: false });
 	}
 
 	function onKey(e: KeyboardEvent) {

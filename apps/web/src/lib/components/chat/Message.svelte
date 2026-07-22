@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import type { TeamMember, GitHubMessageMetadata } from '$lib/api/types';
 	import { renderMessageMarkdown } from '$lib/chat-helpers';
 	import type { PendingMessage } from '$lib/chat.svelte';
@@ -51,6 +53,23 @@
 		editing = false;
 	}
 
+	// Open a task-detail deep link (from a card/task/PR chat reference) as a modal
+	// over the current route instead of following the `/board?task=…` href, which
+	// would yank the participant off the chat screen. The global TaskDetailOverlay
+	// picks up the `?task=`/`?project=` params.
+	function openTaskInPlace(link: HTMLAnchorElement, e: Event) {
+		const href = new URL(link.href, window.location.origin);
+		const task = href.searchParams.get('task') ?? link.getAttribute('data-card-ref');
+		if (!task) return;
+		e.preventDefault();
+		const url = new URL(page.url);
+		url.searchParams.set('task', task);
+		const project = href.searchParams.get('project');
+		if (project) url.searchParams.set('project', project);
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- stay on the current chat route; only the query string changes
+		void goto(url.pathname + url.search, { keepFocus: true, noScroll: true });
+	}
+
 	// Delegate clicks on rendered card/task cross-reference links so the study
 	// can record a `card_referenced_from_chat` event (headline integration
 	// metric). Inert outside study mode. An action avoids a11y warnings that an
@@ -71,6 +90,7 @@
 					message_id: msgId,
 					channel_id: chanId
 				});
+				openTaskInPlace(prLink, e);
 				return;
 			}
 
@@ -85,6 +105,7 @@
 					message_id: msgId,
 					channel_id: chanId
 				});
+				openTaskInPlace(cardLink, e);
 				return;
 			}
 

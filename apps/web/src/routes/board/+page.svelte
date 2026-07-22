@@ -3,7 +3,6 @@
 	import { resolve } from '$app/paths';
 	import { GitPullRequest } from '@lucide/svelte';
 	import Board from '$lib/components/board/Board.svelte';
-	import TaskDetail from '$lib/components/board/TaskDetail.svelte';
 	import TaskDraft from '$lib/components/board/TaskDraft.svelte';
 	import CreatePrDialog from '$lib/components/board/CreatePrDialog.svelte';
 	import GitHubPanel from '$lib/components/board/GitHubPanel.svelte';
@@ -85,10 +84,8 @@
 	{#key draftColumnId}
 		<TaskDraft columnId={draftColumnId} />
 	{/key}
-{:else if taskId}
-	{#key taskId}
-		<TaskDetail {taskId} />
-	{/key}
 {/if}
+<!-- Existing-task modal is rendered globally by TaskDetailOverlay in the root
+     layout, so a `?task=` deep link opens in place on any route. -->
 
 <CreatePrDialog />
