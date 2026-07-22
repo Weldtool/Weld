@@ -56,11 +56,14 @@ export const TLX_ITEMS: SurveyItem[] = [
 		required: true
 	},
 	{
+		// Anchored Failure(low)→Perfect(high): high = good performance, opposite the
+		// other five TLX items. Analysis must reverse-score this (101 - raw) before
+		// it enters the NASA-TLX workload composite. See WELD_EXIT_SURVEY.md.
 		id: 'tlx_performance',
 		type: 'slider100',
 		label: 'How successful were you in accomplishing what you were asked to do?',
-		lowAnchor: 'Perfect',
-		highAnchor: 'Failure',
+		lowAnchor: 'Failure',
+		highAnchor: 'Perfect',
 		required: true
 	},
 	{
