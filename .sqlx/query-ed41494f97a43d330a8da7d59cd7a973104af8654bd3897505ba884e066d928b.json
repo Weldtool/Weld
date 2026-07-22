@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT p.participant_code, p.agent_condition, p.status,\n                  p.provisioned_at, p.completed_at,\n                  EXTRACT(EPOCH FROM (p.completed_at - p.provisioned_at))::bigint AS duration_seconds,\n                  COUNT(DISTINCT e.id)::bigint AS \"event_count!\",\n                  COUNT(DISTINCT s.item_id)::bigint AS \"survey_items!\",\n                  MAX(e.server_ts) AS last_event_at,\n                  SUM((e.payload->>'task_time_ms')::bigint)\n                    FILTER (WHERE e.event_type = 'task_completed')::bigint AS active_task_ms\n           FROM study_participants p\n           LEFT JOIN study_events e ON e.participant_id = p.id\n           LEFT JOIN study_survey_responses s ON s.participant_id = p.id\n           GROUP BY p.id\n           ORDER BY p.participant_code",
+  "query": "SELECT p.participant_code, p.agent_condition, p.status,\n                  p.provisioned_at, p.completed_at,\n                  EXTRACT(EPOCH FROM (p.completed_at - p.provisioned_at))::bigint AS duration_seconds,\n                  COUNT(DISTINCT e.id)::bigint AS \"event_count!\",\n                  (SELECT COUNT(DISTINCT s.item_id)\n                     FROM study_survey_responses s\n                    WHERE s.participant_id = p.id)::bigint AS \"survey_items!\",\n                  MAX(e.server_ts) AS last_event_at,\n                  SUM((e.payload->>'task_time_ms')::bigint)\n                    FILTER (WHERE e.event_type = 'task_completed')::bigint AS active_task_ms\n           FROM study_participants p\n           LEFT JOIN study_events e ON e.participant_id = p.id\n           GROUP BY p.id\n           ORDER BY p.participant_code",
   "describe": {
     "columns": [
       {
@@ -70,5 +70,5 @@
       null
     ]
   },
-  "hash": "e2cfff53b9cc51d32ca4e7050e1c7615b312abbfd1d9cfffd44ce66130d19f3a"
+  "hash": "ed41494f97a43d330a8da7d59cd7a973104af8654bd3897505ba884e066d928b"
 }
