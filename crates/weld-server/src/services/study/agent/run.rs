@@ -294,6 +294,29 @@ pub async fn run_turn(
         }
     }
 
+    // Post-processing safety net: the system prompt tells the model to refer to
+    // cards by title, but an LLM can still slip and echo a raw card id. Enforce
+    // the rule deterministically — swap any leaked card id for the card's quoted
+    // title, redact any other stray UUID — so a participant never sees an opaque
+    // id even on a model miss. Log the catch so we can audit how often it fires.
+    let leaks = {
+        let (sanitized, n) = sanitize_card_ids(&reply, scoped.board.as_deref());
+        if n > 0 {
+            reply = sanitized;
+        }
+        n
+    };
+    if leaks > 0 {
+        record_server_event(
+            pool,
+            pid,
+            "agent_id_leak_sanitized",
+            current_task_id,
+            json!({ "count": leaks }),
+        )
+        .await;
+    }
+
     let response_type = if total_tool_calls == 0 {
         "advice_only"
     } else if reply.is_empty() {
@@ -360,7 +383,10 @@ fn system_prompt(condition: AgentCondition) -> String {
         do not invent cards, messages, or pull requests that aren't shown. Only report an action \
         as completed if you actually performed it by calling the matching tool — never claim or \
         imply you did something you have no tool for. If the user asks for something outside your \
-        abilities, say plainly that you can't do it and tell them how to do it themselves.";
+        abilities, say plainly that you can't do it and tell them how to do it themselves. \
+        Always refer to a card by its title in quotes (e.g. \"Fix login bug\"), never by its id. \
+        The id shown next to each card is an internal identifier for calling tools only — never \
+        show it to the user or mention it in your replies.";
     let capability = match condition {
         AgentCondition::C1 => {
             " You have NO ability to act: you cannot change the board, post messages, or link \
@@ -389,6 +415,132 @@ fn system_prompt(condition: AgentCondition) -> String {
         }
     };
     format!("{base}{capability}")
+}
+
+/// Deterministic backstop for the "refer to cards by title, never by id" rule.
+/// Scans `reply` for UUID-shaped tokens: a known card id is replaced with the
+/// card's quoted title, any other stray UUID is redacted to "that card" (in the
+/// scoped study context, card ids are the only UUIDs the model is ever shown).
+/// Returns the rewritten reply and the number of substitutions made.
+fn sanitize_card_ids(reply: &str, board: Option<&[gate::CardLine]>) -> (String, usize) {
+    let titles: std::collections::HashMap<String, String> = board
+        .unwrap_or(&[])
+        .iter()
+        .map(|c| (c.id.to_string(), format!("\"{}\"", c.title)))
+        .collect();
+
+    let mut out = String::with_capacity(reply.len());
+    let mut count = 0usize;
+    let mut i = 0;
+    while i < reply.len() {
+        if let Some(uuid) = uuid_at(reply, i) {
+            match titles.get(&uuid.to_ascii_lowercase()) {
+                Some(title) => out.push_str(title),
+                None => out.push_str("that card"),
+            }
+            count += 1;
+            i += uuid.len();
+            continue;
+        }
+        // Safe: we only advance `i` by a full UUID (36 ASCII bytes) or a full
+        // char, so `i` is always on a char boundary here.
+        let ch = reply[i..].chars().next().expect("char boundary");
+        out.push(ch);
+        i += ch.len_utf8();
+    }
+    (out, count)
+}
+
+/// If a canonical 36-char UUID (8-4-4-4-12 hex) begins at byte `i` and is not
+/// part of a longer hex/hyphen run on either side, return its slice.
+fn uuid_at(s: &str, i: usize) -> Option<&str> {
+    const HYPHENS: [usize; 4] = [8, 13, 18, 23];
+    let b = s.as_bytes();
+    if i + 36 > b.len() {
+        return None;
+    }
+    for (pos, &c) in b[i..i + 36].iter().enumerate() {
+        if HYPHENS.contains(&pos) {
+            if c != b'-' {
+                return None;
+            }
+        } else if !c.is_ascii_hexdigit() {
+            return None;
+        }
+    }
+    // Reject if it's the middle of a longer token (e.g. a 40-char hash).
+    if i > 0 && (b[i - 1].is_ascii_hexdigit() || b[i - 1] == b'-') {
+        return None;
+    }
+    if i + 36 < b.len() && (b[i + 36].is_ascii_hexdigit() || b[i + 36] == b'-') {
+        return None;
+    }
+    Some(&s[i..i + 36])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use uuid::Uuid;
+
+    fn card(id: Uuid, title: &str) -> gate::CardLine {
+        gate::CardLine {
+            id,
+            title: title.to_string(),
+            description: None,
+            column: "To Do".into(),
+            assignee: None,
+            priority: "medium".into(),
+            labels: vec![],
+            github_issue: None,
+            github_pr: None,
+        }
+    }
+
+    #[test]
+    fn known_card_id_is_replaced_with_quoted_title() {
+        let id = Uuid::parse_str("3f2a1b4c-0000-4000-8000-000000000001").unwrap();
+        let board = vec![card(id, "Fix login bug")];
+        let reply = format!("You should look at card {id} next.");
+        let (out, n) = sanitize_card_ids(&reply, Some(&board));
+        assert_eq!(out, "You should look at card \"Fix login bug\" next.");
+        assert_eq!(n, 1);
+    }
+
+    #[test]
+    fn uppercased_card_id_still_matches() {
+        let id = Uuid::parse_str("3f2a1b4c-0000-4000-8000-000000000001").unwrap();
+        let board = vec![card(id, "Fix login bug")];
+        let reply = format!("card {} is ready", id.to_string().to_uppercase());
+        let (out, n) = sanitize_card_ids(&reply, Some(&board));
+        assert_eq!(out, "card \"Fix login bug\" is ready");
+        assert_eq!(n, 1);
+    }
+
+    #[test]
+    fn unknown_uuid_is_redacted() {
+        let reply = "see 11111111-2222-4333-8444-555555555555 for details";
+        let (out, n) = sanitize_card_ids(reply, Some(&[]));
+        assert_eq!(out, "see that card for details");
+        assert_eq!(n, 1);
+    }
+
+    #[test]
+    fn ordinary_text_is_untouched() {
+        let reply = "Move \"Fix login bug\" to Done and ping the team.";
+        let (out, n) = sanitize_card_ids(reply, Some(&[]));
+        assert_eq!(out, reply);
+        assert_eq!(n, 0);
+    }
+
+    #[test]
+    fn longer_hex_run_is_not_treated_as_uuid() {
+        // A 40-char git-style hash must not be mistaken for an embedded UUID.
+        let reply = "commit 3f2a1b4c000040008000000000000001abcdef01 landed";
+        let (out, n) = sanitize_card_ids(reply, Some(&[]));
+        assert_eq!(out, reply);
+        assert_eq!(n, 0);
+    }
 }
 
 fn assistant_tool_call_message(content: &Option<String>, calls: &[openai::ToolCall]) -> Value {
