@@ -73,7 +73,7 @@ export const STUDY_TASKS: StudyTask[] = [
 		surfaces: ['github', 'chat'],
 		title: 'Baseline 4',
 		instruction:
-			'Open the GitHub view for this project and find the open pull request titled “Feeding schedule editor UI”. Then post its PR number in #general.'
+			'Open the GitHub view for this project and find the open pull request titled “Feeding schedule editor UI”. Review its changes, then post its PR number in #general along with a one-line assessment.'
 	},
 	{
 		id: 'B5',
@@ -146,7 +146,7 @@ export const STUDY_TASKS: StudyTask[] = [
 		surfaces: ['chat', 'board', 'github'],
 		title: 'Task 6',
 		instruction:
-			'The vaccination reminders work needs to be connected to its code: find the related open pull request, link it to the right board card, and post a note in #pettracker that they’re linked. Use the assistant to help with whatever it can.'
+			'The vaccination reminders work needs to be connected to its code: find the related open pull request, review its changes and approve it (or leave a comment), then link it to the right board card and post a note in #pettracker that they’re linked. Use the assistant to help with whatever it can.'
 	}
 ];
 

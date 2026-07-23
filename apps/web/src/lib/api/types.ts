@@ -83,6 +83,14 @@ export interface GitHubIssueDetail extends GitHubIssue {
 	body: string | null;
 }
 
+export interface GitHubPRFile {
+	filename: string;
+	status: string;
+	additions: number;
+	deletions: number;
+	patch: string;
+}
+
 export interface GitHubPR {
 	number: number;
 	title: string;
@@ -90,6 +98,14 @@ export interface GitHubPR {
 	state: string;
 	draft: boolean;
 	user: { login: string; avatar_url: string };
+	// Present in study mode (seeded fixtures); the live GitHub list endpoint omits
+	// these heavier fields, so treat them as optional.
+	body?: string;
+	labels?: { name: string; color: string }[];
+	additions?: number;
+	deletions?: number;
+	changed_files?: number;
+	files?: GitHubPRFile[];
 }
 
 export interface RepoBranches {

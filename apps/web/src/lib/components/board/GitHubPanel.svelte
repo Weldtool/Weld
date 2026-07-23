@@ -1,8 +1,17 @@
 <script lang="ts">
 	import { github as githubApi } from '$lib/api';
 	import type { GitHubIssue, GitHubPR, Project } from '$lib/api/types';
-	import { GitPullRequest, CircleDot, RefreshCw, ChevronDown, ChevronRight } from '@lucide/svelte';
+	import {
+		GitPullRequest,
+		CircleDot,
+		RefreshCw,
+		ChevronDown,
+		ChevronRight,
+		Check
+	} from '@lucide/svelte';
 	import { appConfig } from '$lib/config.svelte';
+	import { prReviews, verdictLabel } from '$lib/pr-reviews.svelte';
+	import PrReviewOverlay from './PrReviewOverlay.svelte';
 
 	// In study mode the PRs/issues are seeded fixtures with no real GitHub page,
 	// so suppress the outbound links to avoid sending participants to a 404.
@@ -19,6 +28,10 @@
 	let error = $state<string | null>(null);
 	let showIssues = $state(true);
 	let showPRs = $state(true);
+
+	// In study mode a PR opens an in-app review view (view diff, approve/comment)
+	// instead of a dead external link; this is the surface tasks B4/T6 exercise.
+	let reviewingPr = $state<GitHubPR | null>(null);
 
 	async function load() {
 		if (!project.github_repo) return;
@@ -98,25 +111,47 @@
 						<li class="text-xs text-[var(--muted-foreground)] italic">No open pull requests</li>
 					{/if}
 					{#each prs as pr (pr.number)}
+						{@const review = prReviews.get(pr.number)}
 						<li>
-							<a
-								href={linksDisabled ? undefined : pr.html_url}
-								target={linksDisabled ? undefined : '_blank'}
-								rel="noopener noreferrer"
-								class="flex items-start gap-1.5 rounded px-1.5 py-1 text-xs {linksDisabled
-									? 'cursor-default'
-									: 'hover:bg-[var(--accent)]'}"
-							>
-								<span class="mt-0.5 shrink-0 text-[var(--muted-foreground)]">#{pr.number}</span>
-								<span
-									class="flex-1 leading-snug {pr.draft ? 'text-[var(--muted-foreground)]' : ''}"
+							{#if linksDisabled}
+								<button
+									type="button"
+									onclick={() => (reviewingPr = pr)}
+									class="flex w-full items-start gap-1.5 rounded px-1.5 py-1 text-left text-xs hover:bg-[var(--accent)]"
 								>
-									{pr.title}
-									{#if pr.draft}
-										<span class="ml-1 text-[10px] opacity-70">(draft)</span>
+									<span class="mt-0.5 shrink-0 text-[var(--muted-foreground)]">#{pr.number}</span>
+									<span class="flex-1 leading-snug {pr.draft ? 'text-[var(--muted-foreground)]' : ''}">
+										{pr.title}
+										{#if pr.draft}
+											<span class="ml-1 text-[10px] opacity-70">(draft)</span>
+										{/if}
+									</span>
+									{#if review}
+										<span
+											class="mt-0.5 inline-flex shrink-0 items-center gap-0.5 rounded-full bg-green-500/15 px-1.5 py-0.5 text-[10px] font-medium text-green-700 dark:text-green-400"
+											title={verdictLabel(review.verdict)}
+										>
+											<Check class="h-3 w-3" />
+											Reviewed
+										</span>
 									{/if}
-								</span>
-							</a>
+								</button>
+							{:else}
+								<a
+									href={pr.html_url}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="flex items-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-[var(--accent)]"
+								>
+									<span class="mt-0.5 shrink-0 text-[var(--muted-foreground)]">#{pr.number}</span>
+									<span class="flex-1 leading-snug {pr.draft ? 'text-[var(--muted-foreground)]' : ''}">
+										{pr.title}
+										{#if pr.draft}
+											<span class="ml-1 text-[10px] opacity-70">(draft)</span>
+										{/if}
+									</span>
+								</a>
+							{/if}
 						</li>
 					{/each}
 				</ul>
@@ -165,3 +200,11 @@
 		</div>
 	{/if}
 </div>
+
+{#if reviewingPr}
+	<PrReviewOverlay
+		pr={reviewingPr}
+		repo={project.github_repo ?? ''}
+		onClose={() => (reviewingPr = null)}
+	/>
+{/if}
