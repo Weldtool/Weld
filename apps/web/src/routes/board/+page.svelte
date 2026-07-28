@@ -1,11 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
-	import { GitPullRequest } from '@lucide/svelte';
 	import Board from '$lib/components/board/Board.svelte';
 	import TaskDraft from '$lib/components/board/TaskDraft.svelte';
 	import CreatePrDialog from '$lib/components/board/CreatePrDialog.svelte';
-	import GitHubPanel from '$lib/components/board/GitHubPanel.svelte';
 	import { boardStore } from '$lib/board.svelte';
 	import { projects } from '$lib/projects.svelte';
 
@@ -30,7 +28,9 @@
 	const taskId = $derived(page.url.searchParams.get('task'));
 	const draftColumnId = $derived(page.url.searchParams.get('column'));
 
-	let showGitHub = $state(false);
+	// No GitHub side panel: issues/PRs live on the card they belong to (chip on
+	// the card face, link + review inside the task detail), so there is one
+	// fewer surface to learn.
 </script>
 
 <header class="mb-6 flex items-end justify-between gap-3">
@@ -44,18 +44,6 @@
 			{/if}
 		</p>
 	</div>
-	{#if projects.current?.github_repo}
-		<button
-			type="button"
-			onclick={() => (showGitHub = !showGitHub)}
-			class="flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-xs text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] {showGitHub
-				? 'bg-[var(--accent)] text-[var(--foreground)]'
-				: ''}"
-		>
-			<GitPullRequest class="h-3.5 w-3.5" />
-			GitHub
-		</button>
-	{/if}
 </header>
 
 {#if !projects.current}
@@ -66,17 +54,8 @@
 		<a class="ml-1 underline" href={resolve('/projects')}>Pick one</a> to load its board.
 	</div>
 {:else}
-	<div class="flex min-h-0 flex-1 gap-4 overflow-hidden">
-		<div class="flex min-w-0 flex-1 flex-col overflow-hidden">
-			<Board />
-		</div>
-		{#if showGitHub && projects.current}
-			<aside
-				class="w-72 shrink-0 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--card)] p-4"
-			>
-				<GitHubPanel project={projects.current} />
-			</aside>
-		{/if}
+	<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
+		<Board />
 	</div>
 {/if}
 
