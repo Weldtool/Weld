@@ -98,9 +98,11 @@ pub async fn setup_callback(
         return Ok(Redirect::to(&redirect_url).into_response());
     }
 
-    // caller_id is derived from the team's created_by — use a sentinel for the
-    // post-install flow since the request has no auth header. We look up the
-    // team owner to satisfy the RBAC check inside connect_github.
+    // This request comes from GitHub's redirect, so it carries no auth header.
+    // We pass the team owner as the caller, which means the `require_team_role`
+    // check inside `connect_github` always passes — it is decorative here. The
+    // real authorisation is the signed state token verified above, which only a
+    // team Admin+ could have obtained from `get_install_url`.
     let team_owner_id = sqlx::query_scalar!(
         "SELECT owner_id FROM teams WHERE id = $1 AND deleted_at IS NULL",
         team_id
@@ -268,10 +270,17 @@ pub async fn webhook(
 
 // ── GET /api/v1/projects/:id/github/issues ────────────────────────────────
 
+/// Optional `?state=open|closed|all` filter shared by the issue and PR lists.
+#[derive(Debug, Deserialize, Default)]
+pub struct ListQuery {
+    pub state: Option<String>,
+}
+
 pub async fn list_project_issues(
     auth: AuthUser,
     State(state): State<AppState>,
     Path(project_id): Path<Uuid>,
+    Query(q): Query<ListQuery>,
 ) -> Result<Json<Vec<serde_json::Value>>, ApiError> {
     if state.study_mode {
         return Ok(Json(
@@ -279,8 +288,14 @@ pub async fn list_project_issues(
         ));
     }
     let gh_cfg = require_github_config(&state.github)?;
-    let issues =
-        github::sync::list_project_issues(&state.db, gh_cfg, project_id, auth.user_id).await?;
+    let issues = github::sync::list_project_issues(
+        &state.db,
+        gh_cfg,
+        project_id,
+        auth.user_id,
+        q.state.as_deref(),
+    )
+    .await?;
     Ok(Json(issues))
 }
 
@@ -309,6 +324,7 @@ pub async fn list_project_prs(
     auth: AuthUser,
     State(state): State<AppState>,
     Path(project_id): Path<Uuid>,
+    Query(q): Query<ListQuery>,
 ) -> Result<Json<Vec<serde_json::Value>>, ApiError> {
     if state.study_mode {
         return Ok(Json(
@@ -316,8 +332,107 @@ pub async fn list_project_prs(
         ));
     }
     let gh_cfg = require_github_config(&state.github)?;
-    let prs = github::sync::list_project_prs(&state.db, gh_cfg, project_id, auth.user_id).await?;
+    let prs = github::sync::list_project_prs(
+        &state.db,
+        gh_cfg,
+        project_id,
+        auth.user_id,
+        q.state.as_deref(),
+    )
+    .await?;
     Ok(Json(prs))
+}
+
+// ── GET /api/v1/projects/:id/github/prs/:number ───────────────────────────
+
+/// A single PR plus its changed files, which is what the review view needs.
+pub async fn get_project_pr(
+    auth: AuthUser,
+    State(state): State<AppState>,
+    Path((project_id, number)): Path<(Uuid, i64)>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    if state.study_mode {
+        // Study fixtures already carry `files` on the list entries.
+        let prs = github_fixtures::list_prs(&state.db, project_id, auth.user_id).await?;
+        return prs
+            .into_iter()
+            .find(|pr| pr["number"].as_i64() == Some(number))
+            .map(Json)
+            .ok_or_else(|| ApiError::NotFound("Pull request not found".into()));
+    }
+    let gh_cfg = require_github_config(&state.github)?;
+    let pr =
+        github::sync::get_project_pr(&state.db, gh_cfg, project_id, number, auth.user_id).await?;
+    Ok(Json(pr))
+}
+
+// ── POST /api/v1/projects/:id/github/prs/:number/reviews ──────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct SubmitReviewRequest {
+    pub verdict: github::sync::ReviewVerdict,
+    #[serde(default)]
+    pub body: String,
+}
+
+pub async fn submit_pr_review(
+    auth: AuthUser,
+    State(state): State<AppState>,
+    Path((project_id, number)): Path<(Uuid, i64)>,
+    Json(input): Json<SubmitReviewRequest>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    if state.study_mode {
+        return Err(ApiError::Forbidden(
+            "GitHub writes are disabled in study mode".into(),
+        ));
+    }
+    let gh_cfg = require_github_config(&state.github)?;
+    let review = github::sync::submit_pr_review(
+        &state.db,
+        gh_cfg,
+        state.master_encryption_key.as_deref(),
+        project_id,
+        number,
+        auth.user_id,
+        input.verdict,
+        &input.body,
+    )
+    .await?;
+    Ok(Json(review))
+}
+
+// ── PUT /api/v1/projects/:id/github/prs/:number/merge ─────────────────────
+
+#[derive(Debug, Deserialize, Default)]
+pub struct MergePrRequest {
+    #[serde(default)]
+    pub method: github::sync::MergeMethod,
+}
+
+pub async fn merge_pr(
+    auth: AuthUser,
+    State(state): State<AppState>,
+    Path((project_id, number)): Path<(Uuid, i64)>,
+    body: Option<Json<MergePrRequest>>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    if state.study_mode {
+        return Err(ApiError::Forbidden(
+            "GitHub writes are disabled in study mode".into(),
+        ));
+    }
+    let gh_cfg = require_github_config(&state.github)?;
+    let method = body.map(|Json(b)| b.method).unwrap_or_default();
+    let result = github::sync::merge_pr(
+        &state.db,
+        gh_cfg,
+        state.master_encryption_key.as_deref(),
+        project_id,
+        number,
+        auth.user_id,
+        method,
+    )
+    .await?;
+    Ok(Json(result))
 }
 
 // ── GET /api/v1/projects/:id/github/branches ──────────────────────────────

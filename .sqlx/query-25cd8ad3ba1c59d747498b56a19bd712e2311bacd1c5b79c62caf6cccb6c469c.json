@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, team_id, name, slug, description, github_repo, done_column_id,\n               in_progress_column_id, review_column_id, auto_close_on_issue_closed,\n               created_at, updated_at, deleted_at\n        FROM projects\n        WHERE id = $1 AND deleted_at IS NULL\n        ",
+  "query": "\n        UPDATE projects\n        SET in_progress_column_id = $2, review_column_id = $3, done_column_id = $4\n        WHERE id = $1\n        RETURNING id, team_id, name, slug, description, github_repo, done_column_id,\n                  in_progress_column_id, review_column_id, auto_close_on_issue_closed,\n               github_comment_on_move,\n                  created_at, updated_at, deleted_at\n        ",
   "describe": {
     "columns": [
       {
@@ -55,22 +55,30 @@
       },
       {
         "ordinal": 10,
+        "name": "github_comment_on_move",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 11,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 11,
+        "ordinal": 12,
         "name": "updated_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "deleted_at",
         "type_info": "Timestamptz"
       }
     ],
     "parameters": {
       "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
         "Uuid"
       ]
     },
@@ -87,8 +95,9 @@
       false,
       false,
       false,
+      false,
       true
     ]
   },
-  "hash": "ef031bbf45585ffc2782df33ce13bd819d8272284b2c0723a883acdb2a1c3c12"
+  "hash": "25cd8ad3ba1c59d747498b56a19bd712e2311bacd1c5b79c62caf6cccb6c469c"
 }

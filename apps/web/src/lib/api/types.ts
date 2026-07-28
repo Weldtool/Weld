@@ -56,6 +56,8 @@ export interface Project {
 	in_progress_column_id: string | null;
 	review_column_id: string | null;
 	auto_close_on_issue_closed: boolean;
+	/** Whether Weld comments on a linked GitHub issue when its card is picked up. */
+	github_comment_on_move: boolean;
 	created_at: string;
 	updated_at: string;
 }
@@ -88,8 +90,13 @@ export interface GitHubPRFile {
 	status: string;
 	additions: number;
 	deletions: number;
-	patch: string;
+	/** Absent for binary files and for diffs GitHub judges too large to inline. */
+	patch?: string;
 }
+
+export type ReviewVerdict = 'approve' | 'comment' | 'request_changes';
+
+export type MergeMethod = 'merge' | 'squash' | 'rebase';
 
 export interface GitHubPR {
 	number: number;
@@ -105,7 +112,11 @@ export interface GitHubPR {
 	additions?: number;
 	deletions?: number;
 	changed_files?: number;
+	/** Only the single-PR endpoint returns files; the list endpoint omits them. */
 	files?: GitHubPRFile[];
+	/** GitHub's mergeability check; null means it is still computing. */
+	mergeable?: boolean | null;
+	merged?: boolean;
 }
 
 export interface RepoBranches {
@@ -160,6 +171,9 @@ export interface Task {
 	github_issue_id: number | null;
 	github_pr_id: number | null;
 	github_repo: string | null;
+	/** Latest CI conclusion for the linked PR, in GitHub's vocabulary
+	 *  ('success', 'failure', 'pending', …). Null when no result is known. */
+	github_check_status: string | null;
 	labels: string[];
 	created_at: string;
 	updated_at: string;

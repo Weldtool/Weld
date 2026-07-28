@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        UPDATE tasks\n        SET github_repo = $2, github_issue_id = $3, github_pr_id = $4, updated_at = NOW()\n        WHERE id = $1 AND deleted_at IS NULL\n        RETURNING id, project_id, column_id, title, description,\n                  assignee_id, reporter_id,\n                  priority as \"priority: Priority\",\n                  position, due_date, estimate_hours,\n                  short_id, github_issue_id, github_pr_id, github_repo,\n                  deleted_at, created_at, updated_at\n        ",
+  "query": "\n        WITH base AS (\n            SELECT COALESCE(MAX(position), 0.0) AS max_pos\n            FROM tasks WHERE column_id = $2 AND deleted_at IS NULL\n        ),\n        ordered AS (\n            SELECT id, ROW_NUMBER() OVER (ORDER BY position) AS rn\n            FROM tasks WHERE column_id = $1 AND deleted_at IS NULL\n        )\n        UPDATE tasks t\n        SET column_id = $2,\n            position = base.max_pos + ordered.rn,\n            updated_at = NOW()\n        FROM ordered, base\n        WHERE t.id = ordered.id\n        RETURNING t.id, t.project_id, t.column_id, t.title, t.description,\n                  t.assignee_id, t.reporter_id,\n                  t.priority as \"priority: Priority\",\n                  t.position, t.due_date, t.estimate_hours,\n                  t.short_id, t.github_issue_id, t.github_pr_id, t.github_repo, t.github_check_status,\n                  t.deleted_at, t.created_at, t.updated_at\n        ",
   "describe": {
     "columns": [
       {
@@ -93,16 +93,21 @@
       },
       {
         "ordinal": 15,
+        "name": "github_check_status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 16,
         "name": "deleted_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 16,
+        "ordinal": 17,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 17,
+        "ordinal": 18,
         "name": "updated_at",
         "type_info": "Timestamptz"
       }
@@ -110,9 +115,7 @@
     "parameters": {
       "Left": [
         "Uuid",
-        "Text",
-        "Int8",
-        "Int8"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -132,9 +135,10 @@
       true,
       true,
       true,
+      true,
       false,
       false
     ]
   },
-  "hash": "c3479f1abc194362daf508f509c7f1a2635742652f9b4daca0139a842cc0bd00"
+  "hash": "ee1b9b819d32fe7848fa0b0c3e8982452c8d99389a4ccdba949a7772365beef2"
 }

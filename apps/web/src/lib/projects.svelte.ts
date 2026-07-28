@@ -133,6 +133,7 @@ class ProjectsStore {
 			in_progress_column_id?: string | null;
 			review_column_id?: string | null;
 			auto_close_on_issue_closed?: boolean;
+			github_comment_on_move?: boolean;
 		}
 	): Promise<Project> {
 		const updated = await projectsApi.update(id, patch);

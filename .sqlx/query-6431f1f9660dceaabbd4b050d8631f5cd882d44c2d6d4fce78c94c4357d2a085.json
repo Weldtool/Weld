@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE tasks t SET github_repo = $1, updated_at = NOW()\n             FROM projects p\n             WHERE p.id = t.project_id\n               AND p.deleted_at IS NULL\n               AND p.team_id = ANY($3)\n               AND t.short_id = $2\n               AND t.github_repo IS NULL\n               AND t.deleted_at IS NULL\n             RETURNING t.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "6431f1f9660dceaabbd4b050d8631f5cd882d44c2d6d4fce78c94c4357d2a085"
+}

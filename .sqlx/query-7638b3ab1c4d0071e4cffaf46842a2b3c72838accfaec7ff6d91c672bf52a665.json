@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        UPDATE tasks\n        SET github_repo = $2, github_pr_id = $3, updated_at = NOW()\n        WHERE id = $1 AND deleted_at IS NULL\n        RETURNING id, project_id, column_id, title, description,\n                  assignee_id, reporter_id,\n                  priority as \"priority: Priority\",\n                  position, due_date, estimate_hours,\n                  short_id, github_issue_id, github_pr_id, github_repo,\n                  deleted_at, created_at, updated_at\n        ",
+  "query": "\n        UPDATE tasks\n        SET github_repo = NULL, github_issue_id = NULL, github_pr_id = NULL, updated_at = NOW()\n        WHERE id = $1 AND deleted_at IS NULL\n        RETURNING id, project_id, column_id, title, description,\n                  assignee_id, reporter_id,\n                  priority as \"priority: Priority\",\n                  position, due_date, estimate_hours,\n                  short_id, github_issue_id, github_pr_id, github_repo, github_check_status,\n                  deleted_at, created_at, updated_at\n        ",
   "describe": {
     "columns": [
       {
@@ -93,25 +93,28 @@
       },
       {
         "ordinal": 15,
+        "name": "github_check_status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 16,
         "name": "deleted_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 16,
+        "ordinal": 17,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 17,
+        "ordinal": 18,
         "name": "updated_at",
         "type_info": "Timestamptz"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Text",
-        "Int8"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -131,9 +134,10 @@
       true,
       true,
       true,
+      true,
       false,
       false
     ]
   },
-  "hash": "74415bf30762fc75c000546556e8cc3693ac0bb71b17b4d7bdf2e73b3c8e7f29"
+  "hash": "7638b3ab1c4d0071e4cffaf46842a2b3c72838accfaec7ff6d91c672bf52a665"
 }

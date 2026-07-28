@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, team_id, name, slug, description, github_repo, done_column_id,\n                   in_progress_column_id, review_column_id, auto_close_on_issue_closed,\n                   created_at, updated_at, deleted_at\n            FROM projects\n            WHERE team_id = $1 AND deleted_at IS NULL\n            ORDER BY created_at ASC\n            ",
+  "query": "\n        UPDATE projects\n        SET name = $1,\n            description = $2,\n            github_repo = $3,\n            done_column_id = $4,\n            auto_close_on_issue_closed = $5,\n            in_progress_column_id = $7,\n            review_column_id = $8,\n            github_comment_on_move = $9,\n            updated_at = NOW()\n        WHERE id = $6 AND deleted_at IS NULL\n        RETURNING id, team_id, name, slug, description, github_repo, done_column_id,\n                  in_progress_column_id, review_column_id,\n                  auto_close_on_issue_closed, github_comment_on_move, created_at, updated_at, deleted_at\n        ",
   "describe": {
     "columns": [
       {
@@ -55,23 +55,36 @@
       },
       {
         "ordinal": 10,
+        "name": "github_comment_on_move",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 11,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 11,
+        "ordinal": 12,
         "name": "updated_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "deleted_at",
         "type_info": "Timestamptz"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Text",
+        "Text",
+        "Text",
+        "Uuid",
+        "Bool",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Bool"
       ]
     },
     "nullable": [
@@ -87,8 +100,9 @@
       false,
       false,
       false,
+      false,
       true
     ]
   },
-  "hash": "d904bda2a90e24a23b49fc4f7cb4d5828e5e67e804d1b5b5463b887d86a0ffac"
+  "hash": "821facf4e75762a4a4e6e9d7e4d8d947aaee907ff34b057c3b419cf4cab2e8d2"
 }

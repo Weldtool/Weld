@@ -59,7 +59,38 @@
 			? new Date(task.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 			: null
 	);
+
+	// GitHub reports a handful of non-failure conclusions (neutral, skipped,
+	// stale). Only red/green/amber are worth a colour; anything else stays grey
+	// rather than implying a verdict the CI did not give.
+	const check = $derived.by(() => {
+		switch (task.github_check_status) {
+			case 'success':
+				return { tone: 'bg-green-500', label: 'CI passing' };
+			case 'failure':
+			case 'timed_out':
+			case 'action_required':
+				return { tone: 'bg-red-500', label: 'CI failing' };
+			case 'pending':
+				return { tone: 'bg-amber-500 animate-pulse', label: 'CI running' };
+			case null:
+			case undefined:
+				return null;
+			default:
+				return { tone: 'bg-[var(--muted-foreground)]', label: `CI ${task.github_check_status}` };
+		}
+	});
 </script>
+
+{#snippet checkDot()}
+	{#if check}
+		<span
+			class="ml-0.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full {check.tone}"
+			title={check.label}
+			aria-label={check.label}
+		></span>
+	{/if}
+{/snippet}
 
 <div
 	role="button"
@@ -138,6 +169,7 @@
 						</svg>
 						#{task.github_pr_id}
 					</a>
+					{@render checkDot()}
 				{:else}
 					<span class="inline-flex items-center gap-0.5" aria-label="GitHub pull request">
 						<svg class="h-3 w-3" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
@@ -147,6 +179,7 @@
 						</svg>
 						#{task.github_pr_id}
 					</span>
+					{@render checkDot()}
 				{/if}
 			{/if}
 			{#if dueLabel}

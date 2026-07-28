@@ -8,7 +8,9 @@ use tracing::Instrument;
 use crate::errors::ApiError;
 use crate::realtime::Hub;
 
-use super::{webhook_installation, webhook_issues, webhook_pull_request, webhook_push};
+use super::{
+    webhook_check_suite, webhook_installation, webhook_issues, webhook_pull_request, webhook_push,
+};
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -109,21 +111,61 @@ pub async fn handle_webhook(
     }
 }
 
+/// Resolves the payload's `installation.id` to the Weld teams that installed it.
+///
+/// Every handler below matches work by repository *name*. A repo name is not a
+/// tenant boundary: anyone can install the Weld App on their own `acme/api`, and
+/// without this scoping their PR events would move cards and post chat messages
+/// in every unrelated team that happens to have typed the same repo string.
+///
+/// Returns every matching team, since two Weld teams may legitimately connect
+/// the same installation (`github_connections` is unique per team, not per
+/// installation).
+async fn resolve_installation_teams(
+    db: &PgPool,
+    payload: &serde_json::Value,
+) -> Result<Vec<uuid::Uuid>, ApiError> {
+    let Some(installation_id) = payload["installation"]["id"].as_i64() else {
+        return Ok(Vec::new());
+    };
+
+    let teams = sqlx::query_scalar!(
+        "SELECT team_id FROM github_connections WHERE installation_id = $1",
+        installation_id
+    )
+    .fetch_all(db)
+    .await?;
+
+    Ok(teams)
+}
+
 async fn dispatch(
     db: &PgPool,
     hub: &Arc<Hub>,
     event: &str,
     payload: &serde_json::Value,
 ) -> Result<(), ApiError> {
+    // Installation events are how connections are created and removed, so they
+    // are handled before (and without) a team lookup.
+    if event == "installation" || event == "installation_repositories" {
+        return webhook_installation::handle(db, event, payload).await;
+    }
+
+    let teams = resolve_installation_teams(db, payload).await?;
+    if teams.is_empty() {
+        // A delivery from an installation no team has connected. Acknowledge it
+        // so GitHub stops retrying, but touch nothing.
+        tracing::warn!(event, "Webhook from an unconnected installation — ignored");
+        return Ok(());
+    }
+
     match event {
-        "installation" | "installation_repositories" => {
-            webhook_installation::handle(db, event, payload).await
-        }
-        "issues" | "issue_comment" => webhook_issues::handle(db, hub, event, payload).await,
+        "issues" | "issue_comment" => webhook_issues::handle(db, hub, event, payload, &teams).await,
         "pull_request" | "pull_request_review" => {
-            webhook_pull_request::handle(db, hub, event, payload).await
+            webhook_pull_request::handle(db, hub, event, payload, &teams).await
         }
-        "push" => webhook_push::handle(db, payload).await,
+        "push" => webhook_push::handle(db, payload, &teams).await,
+        "check_suite" => webhook_check_suite::handle(db, hub, payload, &teams).await,
         _ => {
             tracing::debug!(event, "Unhandled GitHub event type");
             Ok(())

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        UPDATE tasks\n        SET github_repo = $2, github_issue_id = $3, updated_at = NOW()\n        WHERE id = $1 AND deleted_at IS NULL\n        RETURNING id, project_id, column_id, title, description,\n                  assignee_id, reporter_id,\n                  priority as \"priority: Priority\",\n                  position, due_date, estimate_hours,\n                  short_id, github_issue_id, github_pr_id, github_repo,\n                  deleted_at, created_at, updated_at\n        ",
+  "query": "\n        UPDATE tasks\n        SET title = $2, description = $3, updated_at = NOW()\n        WHERE id = $1 AND deleted_at IS NULL\n        RETURNING id, project_id, column_id, title, description,\n                  assignee_id, reporter_id,\n                  priority as \"priority: Priority\",\n                  position, due_date, estimate_hours,\n                  short_id, github_issue_id, github_pr_id, github_repo, github_check_status,\n                  deleted_at, created_at, updated_at\n        ",
   "describe": {
     "columns": [
       {
@@ -93,16 +93,21 @@
       },
       {
         "ordinal": 15,
+        "name": "github_check_status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 16,
         "name": "deleted_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 16,
+        "ordinal": 17,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 17,
+        "ordinal": 18,
         "name": "updated_at",
         "type_info": "Timestamptz"
       }
@@ -111,7 +116,7 @@
       "Left": [
         "Uuid",
         "Text",
-        "Int8"
+        "Text"
       ]
     },
     "nullable": [
@@ -131,9 +136,10 @@
       true,
       true,
       true,
+      true,
       false,
       false
     ]
   },
-  "hash": "e354f5de37362585e4852ed5b65c811180a68c5b56bc4a6765e077d2ec9d204e"
+  "hash": "93782fad84c09a51e906cc538a49a68dae6fdbe214adb58aafffbdc7af18ee04"
 }

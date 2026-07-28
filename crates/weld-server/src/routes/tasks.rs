@@ -94,6 +94,8 @@ pub struct TaskResponse {
     pub github_issue_id: Option<i64>,
     pub github_pr_id: Option<i64>,
     pub github_repo: Option<String>,
+    /// Latest CI conclusion for the linked PR; drives the check dot on the card.
+    pub github_check_status: Option<String>,
     pub labels: Vec<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -118,6 +120,7 @@ impl From<TaskWithLabels> for TaskResponse {
             github_issue_id: task.github_issue_id,
             github_pr_id: task.github_pr_id,
             github_repo: task.github_repo,
+            github_check_status: task.github_check_status,
             labels,
             created_at: task.created_at,
             updated_at: task.updated_at,
@@ -176,6 +179,10 @@ pub async fn update(
     Path(id): Path<Uuid>,
     Json(input): Json<UpdateTaskRequest>,
 ) -> Result<Json<TaskResponse>, ApiError> {
+    // Whether the caller touched the fields GitHub mirrors, checked before the
+    // input is consumed.
+    let text_changed = input.title.is_some() || input.description.is_some();
+
     let task = task::update_task(
         &state.db,
         id,
@@ -193,6 +200,21 @@ pub async fn update(
     .await?;
     let resp: TaskResponse = task.into();
     publish_project_event(&state.hub, resp.project_id, "task.updated", &resp);
+
+    // Keep the linked GitHub issue's title/body in step with the card. Spawned
+    // so a slow or down GitHub cannot make editing a task feel slow.
+    if text_changed && let Some(gh_cfg) = github_sync_config(&state) {
+        tokio::spawn(sync::sync_task_to_issue(
+            state.db.clone(),
+            gh_cfg,
+            state.master_encryption_key.clone(),
+            resp.id,
+            auth.user_id,
+            resp.title.clone(),
+            resp.description.clone(),
+        ));
+    }
+
     Ok(Json(resp))
 }
 
@@ -224,7 +246,30 @@ pub async fn move_task(
     let resp: TaskResponse = task.into();
     publish_project_event(&state.hub, resp.project_id, "task.moved", &resp);
 
+    // Tell the linked issue/PR that the card moved, so people watching the
+    // thread on GitHub can see the work progress without opening Weld.
+    if let Some(gh_cfg) = github_sync_config(&state) {
+        tokio::spawn(sync::comment_task_moved(
+            state.db.clone(),
+            gh_cfg,
+            state.master_encryption_key.clone(),
+            resp.id,
+            auth.user_id,
+        ));
+    }
+
     Ok(Json(resp))
+}
+
+/// GitHub config for background sync, or `None` when the integration is off.
+///
+/// Study mode is excluded along with an unconfigured server: participants run
+/// against fixtures and must never reach the real GitHub.
+fn github_sync_config(state: &AppState) -> Option<std::sync::Arc<crate::state::GithubConfig>> {
+    if state.study_mode {
+        return None;
+    }
+    state.github.clone()
 }
 
 pub async fn link_task(
@@ -281,8 +326,16 @@ pub async fn push_task_to_github(
         Some(Json(input)) => (input.title, input.body),
         None => (None, None),
     };
-    let task =
-        sync::push_task_to_github(&state.db, gh_cfg, id, auth.user_id, title, issue_body).await?;
+    let task = sync::push_task_to_github(
+        &state.db,
+        gh_cfg,
+        state.master_encryption_key.as_deref(),
+        id,
+        auth.user_id,
+        title,
+        issue_body,
+    )
+    .await?;
     let resp: TaskResponse = task.into();
     publish_project_event(&state.hub, resp.project_id, "task.updated", &resp);
     Ok(Json(resp))
@@ -305,6 +358,7 @@ pub async fn create_pr(
     let task = sync::create_pr_for_task(
         &state.db,
         gh_cfg,
+        state.master_encryption_key.as_deref(),
         id,
         auth.user_id,
         sync::CreatePrInput {

@@ -222,7 +222,7 @@ async fn test_install_url_requires_admin() {
 }
 
 #[tokio::test]
-async fn test_install_url_returns_501_when_github_not_configured() {
+async fn test_install_url_returns_400_when_github_not_configured() {
     let app = setup_app().await; // github: None
     let (token, _) = register_and_login(&app).await;
     let team_id = create_team(&app, &token).await;
@@ -238,8 +238,9 @@ async fn test_install_url_returns_501_when_github_not_configured() {
         )
         .await
         .unwrap();
-    // Returns 500 (Internal) when GitHub config is missing
-    assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    // A server without a GitHub App is a deployment state, not a crash: the UI
+    // needs to tell the user "GitHub isn't set up", which a 500 cannot express.
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
 }
 
 // ── setup callback ────────────────────────────────────────────────────────────
@@ -319,7 +320,7 @@ async fn test_oauth_url_requires_auth() {
 }
 
 #[tokio::test]
-async fn test_oauth_url_returns_501_when_github_not_configured() {
+async fn test_oauth_url_returns_400_when_github_not_configured() {
     let app = setup_app().await; // github: None
     let (token, _) = register_and_login(&app).await;
 
@@ -334,7 +335,7 @@ async fn test_oauth_url_returns_501_when_github_not_configured() {
         )
         .await
         .unwrap();
-    assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
 }
 
 // ── oauth/callback ────────────────────────────────────────────────────────────
@@ -458,7 +459,7 @@ async fn test_disconnect_returns_404_when_not_connected() {
 // ── webhook ───────────────────────────────────────────────────────────────────
 
 #[tokio::test]
-async fn test_webhook_github_not_configured_returns_500() {
+async fn test_webhook_github_not_configured_returns_400() {
     let app = setup_app().await; // github: None
     let body = json!({"action": "opened"}).to_string();
 
@@ -476,7 +477,9 @@ async fn test_webhook_github_not_configured_returns_500() {
         )
         .await
         .unwrap();
-    assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    // No App configured means no webhook secret to verify against — retrying
+    // will not help, so this is a 4xx rather than a 5xx GitHub would redeliver.
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
 }
 
 #[tokio::test]

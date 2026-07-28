@@ -13,6 +13,8 @@ pub struct Project {
     pub in_progress_column_id: Option<Uuid>,
     pub review_column_id: Option<Uuid>,
     pub auto_close_on_issue_closed: bool,
+    /// Whether Weld comments on a linked issue when its card is picked up.
+    pub github_comment_on_move: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,

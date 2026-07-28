@@ -2,17 +2,23 @@ use std::sync::Arc;
 
 use sqlx::PgPool;
 
+use uuid::Uuid;
+
 use crate::errors::ApiError;
 use crate::realtime::Hub;
 
 use super::{activity_feed, sync};
 
 /// Handles `pull_request` and `pull_request_review` webhook events.
+///
+/// `teams` are the Weld teams that own the installation this delivery came
+/// from; every lookup below is scoped to them.
 pub async fn handle(
     db: &PgPool,
     hub: &Arc<Hub>,
     event: &str,
     payload: &serde_json::Value,
+    teams: &[Uuid],
 ) -> Result<(), ApiError> {
     let action = payload["action"].as_str().unwrap_or("");
     let repo = payload["repository"]["full_name"].as_str().unwrap_or("");
@@ -22,10 +28,10 @@ pub async fn handle(
     tracing::info!(event, action, repo, pr_number, "GitHub PR event");
 
     if event == "pull_request" {
-        sync::on_pr_event(db, hub, repo, pr_number, action, merged).await?;
-        activity_feed::post_pr_event(db, hub, repo, payload, action, merged).await?;
+        sync::on_pr_event(db, hub, repo, pr_number, action, merged, teams).await?;
+        activity_feed::post_pr_event(db, hub, repo, payload, action, merged, teams).await?;
     } else if event == "pull_request_review" && action == "submitted" {
-        activity_feed::post_review_event(db, hub, repo, payload).await?;
+        activity_feed::post_review_event(db, hub, repo, payload, teams).await?;
     }
 
     Ok(())

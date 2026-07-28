@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT p.id, p.team_id, p.name, p.slug, p.description, p.github_repo,\n                   p.done_column_id, p.in_progress_column_id, p.review_column_id,\n                   p.auto_close_on_issue_closed, p.created_at, p.updated_at, p.deleted_at\n            FROM projects p\n            JOIN project_memberships pm ON pm.project_id = p.id AND pm.user_id = $2\n            WHERE p.team_id = $1 AND p.deleted_at IS NULL\n            ORDER BY p.created_at ASC\n            ",
+  "query": "\n            SELECT id, team_id, name, slug, description, github_repo, done_column_id,\n                   in_progress_column_id, review_column_id, auto_close_on_issue_closed,\n               github_comment_on_move,\n                   created_at, updated_at, deleted_at\n            FROM projects\n            WHERE team_id = $1 AND deleted_at IS NULL\n            ORDER BY created_at ASC\n            ",
   "describe": {
     "columns": [
       {
@@ -55,23 +55,27 @@
       },
       {
         "ordinal": 10,
+        "name": "github_comment_on_move",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 11,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 11,
+        "ordinal": 12,
         "name": "updated_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "deleted_at",
         "type_info": "Timestamptz"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid",
         "Uuid"
       ]
     },
@@ -88,8 +92,9 @@
       false,
       false,
       false,
+      false,
       true
     ]
   },
-  "hash": "5215108f339ddc6460b24ece6da0a84779f3ed93e56def7f13869d4e79e3ab36"
+  "hash": "e76db9461071515b1e253fa61c0ebe20936cc9b9aafb3def6fb3a2855c466a9b"
 }

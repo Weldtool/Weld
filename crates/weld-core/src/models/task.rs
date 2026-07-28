@@ -22,6 +22,9 @@ pub struct Task {
     pub github_issue_id: Option<i64>,
     pub github_pr_id: Option<i64>,
     pub github_repo: Option<String>,
+    /// Latest CI conclusion for the linked PR, in GitHub's own vocabulary
+    /// (`success`, `failure`, …) plus `pending`. `None` = no result seen.
+    pub github_check_status: Option<String>,
     pub deleted_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,

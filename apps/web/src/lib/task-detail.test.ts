@@ -34,6 +34,7 @@ const taskFixture = (over: Partial<Task> = {}): Task => ({
 	estimate_hours: null,
 	github_issue_id: null,
 	github_pr_id: null,
+	github_check_status: null,
 	github_repo: null,
 	labels: [],
 	created_at: '',

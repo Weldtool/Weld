@@ -32,6 +32,7 @@ pub struct UpdateProjectRequest {
     #[serde(default, deserialize_with = "deserialize_optional_field")]
     pub review_column_id: Option<Option<Uuid>>,
     pub auto_close_on_issue_closed: Option<bool>,
+    pub github_comment_on_move: Option<bool>,
 }
 
 fn deserialize_optional_field<'de, T, D>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
@@ -54,6 +55,7 @@ pub struct ProjectResponse {
     pub in_progress_column_id: Option<Uuid>,
     pub review_column_id: Option<Uuid>,
     pub auto_close_on_issue_closed: bool,
+    pub github_comment_on_move: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -71,6 +73,7 @@ impl From<Project> for ProjectResponse {
             in_progress_column_id: p.in_progress_column_id,
             review_column_id: p.review_column_id,
             auto_close_on_issue_closed: p.auto_close_on_issue_closed,
+            github_comment_on_move: p.github_comment_on_move,
             created_at: p.created_at,
             updated_at: p.updated_at,
         }
@@ -135,6 +138,7 @@ pub async fn update(
             in_progress_column_id: input.in_progress_column_id,
             review_column_id: input.review_column_id,
             auto_close_on_issue_closed: input.auto_close_on_issue_closed,
+            github_comment_on_move: input.github_comment_on_move,
         },
     )
     .await?;

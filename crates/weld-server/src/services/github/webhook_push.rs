@@ -1,4 +1,5 @@
 use sqlx::PgPool;
+use uuid::Uuid;
 
 use crate::errors::ApiError;
 
@@ -9,7 +10,11 @@ use super::sync;
 /// Scans commit messages for `[WD-<id>]` task references.  For any matched
 /// short IDs, sets `github_repo` on the task (auto-link to repo) if not
 /// already set.  Full PR/issue linking happens via the pull_request handler.
-pub async fn handle(db: &PgPool, payload: &serde_json::Value) -> Result<(), ApiError> {
+pub async fn handle(
+    db: &PgPool,
+    payload: &serde_json::Value,
+    teams: &[Uuid],
+) -> Result<(), ApiError> {
     let repo = payload["repository"]["full_name"].as_str().unwrap_or("");
     let commits = payload["commits"].as_array();
 
@@ -32,10 +37,13 @@ pub async fn handle(db: &PgPool, payload: &serde_json::Value) -> Result<(), ApiE
         }
     }
 
+    // dedup() only collapses *adjacent* duplicates, so the sort is what makes
+    // this actually deduplicate refs spread across several commits.
+    short_ids.sort_unstable();
     short_ids.dedup();
 
     if !short_ids.is_empty() {
-        sync::autolink_from_push(db, repo, &short_ids).await?;
+        sync::autolink_from_push(db, repo, &short_ids, teams).await?;
     }
 
     Ok(())

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, project_id, column_id, title, description,\n               assignee_id, reporter_id,\n               priority as \"priority: weld_core::models::enums::Priority\",\n               position, due_date, estimate_hours,\n               short_id, github_issue_id, github_pr_id, github_repo,\n               deleted_at, created_at, updated_at\n        FROM tasks\n        WHERE id = $1 AND deleted_at IS NULL\n        ",
+  "query": "\n        UPDATE tasks\n        SET column_id = $1, position = $2, updated_at = NOW()\n        WHERE id = $3 AND deleted_at IS NULL\n        RETURNING id, project_id, column_id, title, description,\n                  assignee_id, reporter_id,\n                  priority as \"priority: Priority\",\n                  position, due_date, estimate_hours,\n                  short_id, github_issue_id, github_pr_id, github_repo, github_check_status,\n                  deleted_at, created_at, updated_at\n        ",
   "describe": {
     "columns": [
       {
@@ -40,7 +40,7 @@
       },
       {
         "ordinal": 7,
-        "name": "priority: weld_core::models::enums::Priority",
+        "name": "priority: Priority",
         "type_info": {
           "Custom": {
             "name": "priority",
@@ -93,22 +93,29 @@
       },
       {
         "ordinal": 15,
+        "name": "github_check_status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 16,
         "name": "deleted_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 16,
+        "ordinal": 17,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 17,
+        "ordinal": 18,
         "name": "updated_at",
         "type_info": "Timestamptz"
       }
     ],
     "parameters": {
       "Left": [
+        "Uuid",
+        "Float8",
         "Uuid"
       ]
     },
@@ -129,9 +136,10 @@
       true,
       true,
       true,
+      true,
       false,
       false
     ]
   },
-  "hash": "ab3a7bdfa5cefd7757a13c8e60693dbbc021ec0677acb6d856a46facba15010b"
+  "hash": "805c8f8afec456d72edac2da3d3f830c12033a1ef985041faf212cad7f115446"
 }

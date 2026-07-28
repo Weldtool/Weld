@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, project_id, column_id, title, description,\n               assignee_id, reporter_id,\n               priority as \"priority: Priority\",\n               position, due_date, estimate_hours,\n               short_id, github_issue_id, github_pr_id, github_repo,\n               deleted_at, created_at, updated_at\n        FROM tasks\n        WHERE project_id = $1 AND deleted_at IS NULL\n        ORDER BY column_id, position ASC\n        ",
+  "query": "\n        UPDATE tasks\n        SET title = $1, description = $2, assignee_id = $3, priority = $4,\n            due_date = $5, estimate_hours = $6, updated_at = NOW()\n        WHERE id = $7 AND deleted_at IS NULL\n        RETURNING id, project_id, column_id, title, description,\n                  assignee_id, reporter_id,\n                  priority as \"priority: Priority\",\n                  position, due_date, estimate_hours,\n                  short_id, github_issue_id, github_pr_id, github_repo, github_check_status,\n                  deleted_at, created_at, updated_at\n        ",
   "describe": {
     "columns": [
       {
@@ -93,22 +93,46 @@
       },
       {
         "ordinal": 15,
+        "name": "github_check_status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 16,
         "name": "deleted_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 16,
+        "ordinal": 17,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 17,
+        "ordinal": 18,
         "name": "updated_at",
         "type_info": "Timestamptz"
       }
     ],
     "parameters": {
       "Left": [
+        "Text",
+        "Text",
+        "Uuid",
+        {
+          "Custom": {
+            "name": "priority",
+            "kind": {
+              "Enum": [
+                "critical",
+                "high",
+                "medium",
+                "low",
+                "none"
+              ]
+            }
+          }
+        },
+        "Timestamptz",
+        "Float4",
         "Uuid"
       ]
     },
@@ -129,9 +153,10 @@
       true,
       true,
       true,
+      true,
       false,
       false
     ]
   },
-  "hash": "9c384a50356d025cf8bed4d124503331035c6c7f185b54c1732b39908185e0cf"
+  "hash": "472afeb24d3fa5c4efa80e182141103e59d7a176a554b43610e10931faee1944"
 }

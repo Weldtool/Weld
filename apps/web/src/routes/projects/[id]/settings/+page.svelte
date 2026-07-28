@@ -19,6 +19,7 @@
 	let inProgressColumnId = $state<string>('');
 	let reviewColumnId = $state<string>('');
 	let autoClose = $state(false);
+	let commentOnMove = $state(true);
 	let saving = $state(false);
 	let saveError = $state<string | null>(null);
 	let saveSuccess = $state(false);
@@ -103,6 +104,7 @@
 		inProgressColumnId = project.in_progress_column_id ?? '';
 		reviewColumnId = project.review_column_id ?? '';
 		autoClose = project.auto_close_on_issue_closed;
+		commentOnMove = project.github_comment_on_move;
 		lastSyncedId = project.id;
 		saveSuccess = false;
 		saveError = null;
@@ -157,7 +159,8 @@
 				done_column_id: doneColumnId || null,
 				in_progress_column_id: inProgressColumnId || null,
 				review_column_id: reviewColumnId || null,
-				auto_close_on_issue_closed: autoClose
+				auto_close_on_issue_closed: autoClose,
+				github_comment_on_move: commentOnMove
 			});
 			saveSuccess = true;
 		} catch (err) {
@@ -320,6 +323,18 @@
 				<label class="flex cursor-pointer items-center gap-2 text-sm">
 					<input type="checkbox" bind:checked={autoClose} class="rounded" />
 					<span>Automatically move tasks based on GitHub activity</span>
+				</label>
+
+				<label class="flex cursor-pointer items-start gap-2 text-sm">
+					<input type="checkbox" bind:checked={commentOnMove} class="mt-0.5 rounded" />
+					<span>
+						Comment on the linked GitHub issue when work starts
+						<span class="mt-0.5 block text-[10px] text-[var(--muted-foreground)]">
+							Posts a note on the issue when its card reaches In Progress or Review, so people
+							watching on GitHub can see it was picked up. Turn off to keep issue threads
+							human-only.
+						</span>
+					</span>
 				</label>
 			</fieldset>
 

@@ -3,7 +3,7 @@ use axum::Json;
 use axum::extract::State;
 use axum::http::HeaderValue;
 use axum::response::IntoResponse;
-use axum::routing::{delete, get, patch, post};
+use axum::routing::{delete, get, patch, post, put};
 use axum::{Router, routing};
 use serde_json::json;
 use tower_http::cors::{AllowHeaders, AllowMethods, CorsLayer};
@@ -130,6 +130,18 @@ pub fn router() -> Router<AppState> {
         .route(
             "/api/v1/projects/{id}/github/prs",
             get(github::list_project_prs),
+        )
+        .route(
+            "/api/v1/projects/{id}/github/prs/{number}",
+            get(github::get_project_pr),
+        )
+        .route(
+            "/api/v1/projects/{id}/github/prs/{number}/reviews",
+            post(github::submit_pr_review),
+        )
+        .route(
+            "/api/v1/projects/{id}/github/prs/{number}/merge",
+            put(github::merge_pr),
         )
         .route(
             "/api/v1/projects/{id}/github/labels/sync",

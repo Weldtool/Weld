@@ -41,7 +41,7 @@ pub async fn get_board_state(
                assignee_id, reporter_id,
                priority as "priority: Priority",
                position, due_date, estimate_hours,
-               short_id, github_issue_id, github_pr_id, github_repo,
+               short_id, github_issue_id, github_pr_id, github_repo, github_check_status,
                deleted_at, created_at, updated_at
         FROM tasks
         WHERE project_id = $1 AND deleted_at IS NULL

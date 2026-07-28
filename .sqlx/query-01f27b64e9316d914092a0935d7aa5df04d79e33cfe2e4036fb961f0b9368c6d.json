@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT t.column_id, col.name AS column_name,\n               p.in_progress_column_id, p.review_column_id, p.github_comment_on_move\n        FROM tasks t\n        JOIN columns col ON col.id = t.column_id\n        JOIN projects p ON p.id = t.project_id AND p.deleted_at IS NULL\n        WHERE t.id = $1 AND t.deleted_at IS NULL\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "column_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "column_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "in_progress_column_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "review_column_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
+        "name": "github_comment_on_move",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "01f27b64e9316d914092a0935d7aa5df04d79e33cfe2e4036fb961f0b9368c6d"
+}

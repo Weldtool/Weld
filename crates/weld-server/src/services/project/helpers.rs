@@ -40,6 +40,7 @@ pub async fn fetch_active_project(pool: &PgPool, id: Uuid) -> Result<Project, Ap
         r#"
         SELECT id, team_id, name, slug, description, github_repo, done_column_id,
                in_progress_column_id, review_column_id, auto_close_on_issue_closed,
+               github_comment_on_move,
                created_at, updated_at, deleted_at
         FROM projects
         WHERE id = $1 AND deleted_at IS NULL

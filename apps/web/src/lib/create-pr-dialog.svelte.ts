@@ -40,7 +40,7 @@ class CreatePrDialogState {
 		this.task = null;
 		this.originColumnId = null;
 		if (task && origin && origin !== task.column_id) {
-			void boardStore.revertMove(task.id, origin);
+			void boardStore.moveToColumnEnd(task.id, origin);
 		}
 	}
 }

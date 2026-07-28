@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        UPDATE projects\n        SET name = $1,\n            description = $2,\n            github_repo = $3,\n            done_column_id = $4,\n            auto_close_on_issue_closed = $5,\n            in_progress_column_id = $7,\n            review_column_id = $8,\n            updated_at = NOW()\n        WHERE id = $6 AND deleted_at IS NULL\n        RETURNING id, team_id, name, slug, description, github_repo, done_column_id,\n                  in_progress_column_id, review_column_id,\n                  auto_close_on_issue_closed, created_at, updated_at, deleted_at\n        ",
+  "query": "\n        INSERT INTO projects (team_id, name, slug, description)\n        VALUES ($1, $2, $3, $4)\n        RETURNING id, team_id, name, slug, description, github_repo, done_column_id,\n                  in_progress_column_id, review_column_id, auto_close_on_issue_closed,\n               github_comment_on_move,\n                  created_at, updated_at, deleted_at\n        ",
   "describe": {
     "columns": [
       {
@@ -55,30 +55,31 @@
       },
       {
         "ordinal": 10,
+        "name": "github_comment_on_move",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 11,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 11,
+        "ordinal": 12,
         "name": "updated_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "deleted_at",
         "type_info": "Timestamptz"
       }
     ],
     "parameters": {
       "Left": [
+        "Uuid",
         "Text",
         "Text",
-        "Text",
-        "Uuid",
-        "Bool",
-        "Uuid",
-        "Uuid",
-        "Uuid"
+        "Text"
       ]
     },
     "nullable": [
@@ -94,8 +95,9 @@
       false,
       false,
       false,
+      false,
       true
     ]
   },
-  "hash": "f2dc560d8b121adbcc933d895d5d00acfeb4381111bade7dfa0c51b74f8b3af0"
+  "hash": "4e446607d89c2b9ef5136af91bccaf7004cdbfacd17ca737164ebab8a2b7171f"
 }

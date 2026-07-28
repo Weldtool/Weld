@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        UPDATE tasks\n        SET title = $1, description = $2, assignee_id = $3, priority = $4,\n            due_date = $5, estimate_hours = $6, updated_at = NOW()\n        WHERE id = $7 AND deleted_at IS NULL\n        RETURNING id, project_id, column_id, title, description,\n                  assignee_id, reporter_id,\n                  priority as \"priority: Priority\",\n                  position, due_date, estimate_hours,\n                  short_id, github_issue_id, github_pr_id, github_repo,\n                  deleted_at, created_at, updated_at\n        ",
+  "query": "\n        UPDATE tasks t\n        SET github_check_status = $4, updated_at = NOW()\n        FROM projects p\n        WHERE p.id = t.project_id\n          AND p.deleted_at IS NULL\n          AND p.team_id = ANY($3)\n          AND t.github_repo = $1\n          AND t.github_pr_id = ANY($2)\n          AND t.deleted_at IS NULL\n          AND t.github_check_status IS DISTINCT FROM $4\n        RETURNING t.id, t.project_id, t.column_id, t.title, t.description,\n                  t.assignee_id, t.reporter_id,\n                  t.priority as \"priority: Priority\",\n                  t.position, t.due_date, t.estimate_hours,\n                  t.short_id, t.github_issue_id, t.github_pr_id, t.github_repo,\n                  t.github_check_status,\n                  t.deleted_at, t.created_at, t.updated_at\n        ",
   "describe": {
     "columns": [
       {
@@ -93,16 +93,21 @@
       },
       {
         "ordinal": 15,
+        "name": "github_check_status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 16,
         "name": "deleted_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 16,
+        "ordinal": 17,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 17,
+        "ordinal": 18,
         "name": "updated_at",
         "type_info": "Timestamptz"
       }
@@ -110,25 +115,9 @@
     "parameters": {
       "Left": [
         "Text",
-        "Text",
-        "Uuid",
-        {
-          "Custom": {
-            "name": "priority",
-            "kind": {
-              "Enum": [
-                "critical",
-                "high",
-                "medium",
-                "low",
-                "none"
-              ]
-            }
-          }
-        },
-        "Timestamptz",
-        "Float4",
-        "Uuid"
+        "Int8Array",
+        "UuidArray",
+        "Text"
       ]
     },
     "nullable": [
@@ -148,9 +137,10 @@
       true,
       true,
       true,
+      true,
       false,
       false
     ]
   },
-  "hash": "da25f91a3de98ad03284ec015580d5fde0ce670af2052ae7276330625389c4d3"
+  "hash": "47e56a86b705156e3a5178e4757b6c0afb6210eaefc35040965a8f57310c116a"
 }
