@@ -2,6 +2,7 @@
 	import { study } from '$lib/study.svelte';
 	import { PHASE_LABELS } from '$lib/study-tasks';
 	import { ClipboardList, X } from '@lucide/svelte';
+	import { modal } from '$lib/modal';
 	import BaselineTlx from './BaselineTlx.svelte';
 
 	const task = $derived(study.currentTask);
@@ -79,161 +80,148 @@
 	</button>
 
 	{#if rating}
-		<!-- Per-task rating step: gates advancement, shown after "Next task". -->
-		<div
-			class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-			role="dialog"
-			aria-modal="true"
+		<!-- Per-task rating step: gates advancement, shown after "Next task", so it
+		     takes no dismissal callback — Escape and click-off do nothing. -->
+		<dialog
+			use:modal
 			aria-labelledby="task-rating-title"
+			class="m-auto flex w-full max-w-md flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] text-[var(--card-foreground)] shadow-xl backdrop:bg-black/40"
 		>
-			<div
-				class="flex w-full max-w-md flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-xl"
-			>
-				<div class="border-b border-[var(--border)] px-5 py-3">
-					<span id="task-rating-title" class="text-sm font-medium">Quick rating</span>
-				</div>
+			<div class="border-b border-[var(--border)] px-5 py-3">
+				<span id="task-rating-title" class="text-sm font-medium">Quick rating</span>
+			</div>
 
-				<div class="space-y-5 px-5 py-4">
+			<div class="space-y-5 px-5 py-4">
+				<fieldset>
+					<legend class="mb-2 text-sm">How mentally demanding was this task?</legend>
+					<div class="flex gap-1.5">
+						{#each SCALE as n (n)}
+							<button
+								type="button"
+								onclick={() => (effort = n)}
+								class="h-9 flex-1 rounded-md border text-xs transition-colors {effort === n
+									? 'border-[var(--ring)] bg-[var(--primary)] text-[var(--primary-foreground)]'
+									: 'border-[var(--border)] hover:bg-[var(--accent)]'}"
+								aria-pressed={effort === n}
+							>
+								{n}
+							</button>
+						{/each}
+					</div>
+					<div class="mt-1 flex justify-between text-[10px] text-[var(--muted-foreground)]">
+						<span>Very low</span>
+						<span>Very high</span>
+					</div>
+				</fieldset>
+
+				{#if isAgentTask}
 					<fieldset>
-						<legend class="mb-2 text-sm">How mentally demanding was this task?</legend>
+						<legend class="mb-2 text-sm">How much did the assistant help with this task?</legend>
 						<div class="flex gap-1.5">
 							{#each SCALE as n (n)}
 								<button
 									type="button"
-									onclick={() => (effort = n)}
-									class="h-9 flex-1 rounded-md border text-xs transition-colors {effort === n
+									onclick={() => (agentHelp = n)}
+									class="h-9 flex-1 rounded-md border text-xs transition-colors {agentHelp === n
 										? 'border-[var(--ring)] bg-[var(--primary)] text-[var(--primary-foreground)]'
 										: 'border-[var(--border)] hover:bg-[var(--accent)]'}"
-									aria-pressed={effort === n}
+									aria-pressed={agentHelp === n}
 								>
 									{n}
 								</button>
 							{/each}
 						</div>
 						<div class="mt-1 flex justify-between text-[10px] text-[var(--muted-foreground)]">
-							<span>Very low</span>
-							<span>Very high</span>
+							<span>Not at all</span>
+							<span>A great deal</span>
 						</div>
 					</fieldset>
-
-					{#if isAgentTask}
-						<fieldset>
-							<legend class="mb-2 text-sm">How much did the assistant help with this task?</legend>
-							<div class="flex gap-1.5">
-								{#each SCALE as n (n)}
-									<button
-										type="button"
-										onclick={() => (agentHelp = n)}
-										class="h-9 flex-1 rounded-md border text-xs transition-colors {agentHelp === n
-											? 'border-[var(--ring)] bg-[var(--primary)] text-[var(--primary-foreground)]'
-											: 'border-[var(--border)] hover:bg-[var(--accent)]'}"
-										aria-pressed={agentHelp === n}
-									>
-										{n}
-									</button>
-								{/each}
-							</div>
-							<div class="mt-1 flex justify-between text-[10px] text-[var(--muted-foreground)]">
-								<span>Not at all</span>
-								<span>A great deal</span>
-							</div>
-						</fieldset>
-					{/if}
-				</div>
-
-				<div class="flex justify-end border-t border-[var(--border)] px-5 py-3">
-					<button
-						type="button"
-						onclick={submitRating}
-						disabled={!canSubmitRating}
-						class="rounded-md bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-[var(--primary-foreground)] hover:opacity-90 disabled:opacity-50"
-					>
-						{study.isLastTask ? 'Continue to survey' : 'Continue'}
-					</button>
-				</div>
+				{/if}
 			</div>
-		</div>
+
+			<div class="flex justify-end border-t border-[var(--border)] px-5 py-3">
+				<button
+					type="button"
+					onclick={submitRating}
+					disabled={!canSubmitRating}
+					class="rounded-md bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-[var(--primary-foreground)] hover:opacity-90 disabled:opacity-50"
+				>
+					{study.isLastTask ? 'Continue to survey' : 'Continue'}
+				</button>
+			</div>
+		</dialog>
 	{:else if open}
-		<!-- Backdrop: clicking anywhere outside the dialog dismisses it. -->
-		<div
-			class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-			role="presentation"
-			onclick={() => (open = false)}
+		<dialog
+			use:modal={() => (open = false)}
+			aria-labelledby="task-modal-title"
+			class="m-auto flex w-full max-w-md flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] text-[var(--card-foreground)] shadow-xl backdrop:bg-black/40"
 		>
 			<div
-				role="dialog"
-				aria-modal="true"
-				aria-labelledby="task-modal-title"
-				class="flex w-full max-w-md flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-xl"
-				onclick={(e) => e.stopPropagation()}
+				class="flex shrink-0 items-center justify-between border-b border-[var(--border)] px-5 py-3"
 			>
-				<div
-					class="flex shrink-0 items-center justify-between border-b border-[var(--border)] px-5 py-3"
+				<div class="flex flex-col">
+					<span
+						class="text-xs font-semibold tracking-wide text-[var(--muted-foreground)] uppercase"
+					>
+						{PHASE_LABELS[task.phase]}
+					</span>
+					<span id="task-modal-title" class="text-sm font-medium"
+						>Task {number} of {study.totalTasks}</span
+					>
+				</div>
+				<button
+					type="button"
+					onclick={() => (open = false)}
+					aria-label="Close"
+					class="rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
 				>
-					<div class="flex flex-col">
-						<span
-							class="text-xs font-semibold tracking-wide text-[var(--muted-foreground)] uppercase"
-						>
-							{PHASE_LABELS[task.phase]}
-						</span>
-						<span id="task-modal-title" class="text-sm font-medium"
-							>Task {number} of {study.totalTasks}</span
-						>
-					</div>
+					<X class="h-4 w-4" />
+				</button>
+			</div>
+
+			<div class="px-5 py-4">
+				{#if task.phase === 'baseline'}
+					<p class="mb-2 text-xs text-[var(--muted-foreground)]">
+						Do this one yourself (no assistant).
+					</p>
+				{/if}
+				<p class="text-sm leading-relaxed">{task.instruction}</p>
+				<p class="mt-3 text-xs text-[var(--muted-foreground)]">
+					When you believe you’ve finished, come back here and hit
+					<span class="font-medium text-[var(--foreground)]">Next task</span>.
+				</p>
+			</div>
+
+			<div
+				class="flex shrink-0 items-center justify-between gap-2 border-t border-[var(--border)] px-5 py-3"
+			>
+				<button
+					type="button"
+					onclick={() => {
+						study.skipCurrentTask();
+						open = false;
+					}}
+					class="text-xs text-[var(--muted-foreground)] hover:underline"
+				>
+					Skip
+				</button>
+				<div class="flex gap-2">
 					<button
 						type="button"
 						onclick={() => (open = false)}
-						aria-label="Close"
-						class="rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
+						class="rounded-md border border-[var(--border)] px-3 py-1.5 text-xs hover:bg-[var(--accent)]"
 					>
-						<X class="h-4 w-4" />
+						Keep working
 					</button>
-				</div>
-
-				<div class="px-5 py-4">
-					{#if task.phase === 'baseline'}
-						<p class="mb-2 text-xs text-[var(--muted-foreground)]">
-							Do this one yourself (no assistant).
-						</p>
-					{/if}
-					<p class="text-sm leading-relaxed">{task.instruction}</p>
-					<p class="mt-3 text-xs text-[var(--muted-foreground)]">
-						When you believe you’ve finished, come back here and hit
-						<span class="font-medium text-[var(--foreground)]">Next task</span>.
-					</p>
-				</div>
-
-				<div
-					class="flex shrink-0 items-center justify-between gap-2 border-t border-[var(--border)] px-5 py-3"
-				>
 					<button
 						type="button"
-						onclick={() => {
-							study.skipCurrentTask();
-							open = false;
-						}}
-						class="text-xs text-[var(--muted-foreground)] hover:underline"
+						onclick={() => study.completeCurrentTask()}
+						class="rounded-md bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-[var(--primary-foreground)] hover:opacity-90"
 					>
-						Skip
+						{study.isLastTask ? 'Finish task' : 'Next task'}
 					</button>
-					<div class="flex gap-2">
-						<button
-							type="button"
-							onclick={() => (open = false)}
-							class="rounded-md border border-[var(--border)] px-3 py-1.5 text-xs hover:bg-[var(--accent)]"
-						>
-							Keep working
-						</button>
-						<button
-							type="button"
-							onclick={() => study.completeCurrentTask()}
-							class="rounded-md bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-[var(--primary-foreground)] hover:opacity-90"
-						>
-							{study.isLastTask ? 'Finish task' : 'Next task'}
-						</button>
-					</div>
 				</div>
 			</div>
-		</div>
+		</dialog>
 	{/if}
 {/if}

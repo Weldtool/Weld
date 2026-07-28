@@ -109,7 +109,13 @@
 	</div>
 
 	{#if showSettings && channel}
-		<ChannelSettingsPanel {channel} onClose={() => (showSettings = false)} />
+		<!-- Keyed on the channel: the panel seeds its form from `channel` once, but
+		     `showSettings` survives a channel switch. Without the remount you could
+		     open #general's settings, click through to #pettracker, hit Save, and
+		     write #general's repo subscriptions onto #pettracker. -->
+		{#key channel.id}
+			<ChannelSettingsPanel {channel} onClose={() => (showSettings = false)} />
+		{/key}
 	{:else if threadId && channel}
 		<ThreadPanel
 			channelId={channel.id}

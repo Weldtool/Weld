@@ -10,6 +10,7 @@
 	import type { Column, Label, Task, TeamMember } from '$lib/api/types';
 	import TaskCard from './TaskCard.svelte';
 	import { Plus, Trash2, GripVertical } from '@lucide/svelte';
+	import { modal } from '$lib/modal';
 
 	interface Props {
 		column: Column;
@@ -236,62 +237,57 @@
 </section>
 
 {#if showDeleteConfirm}
-	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-		role="dialog"
-		aria-modal="true"
+	<dialog
+		use:modal={() => (showDeleteConfirm = false)}
 		aria-labelledby="delete-column-title"
+		class="m-auto w-full max-w-sm rounded-lg border border-[var(--border)] bg-[var(--card)] p-5 shadow-xl backdrop:bg-black/40"
 	>
-		<div
-			class="w-full max-w-sm rounded-lg border border-[var(--border)] bg-[var(--card)] p-5 shadow-xl"
-		>
-			<h2 id="delete-column-title" class="text-base font-semibold">Delete "{column.name}"</h2>
+		<h2 id="delete-column-title" class="text-base font-semibold">Delete "{column.name}"</h2>
 
-			{#if tasks.length > 0}
-				<p class="mt-2 text-sm text-[var(--muted-foreground)]">
-					This column has {tasks.length} task{tasks.length === 1 ? '' : 's'}. Move them to:
+		{#if tasks.length > 0}
+			<p class="mt-2 text-sm text-[var(--muted-foreground)]">
+				This column has {tasks.length} task{tasks.length === 1 ? '' : 's'}. Move them to:
+			</p>
+			{#if otherColumns.length === 0}
+				<p class="mt-2 text-sm text-red-600 dark:text-red-400">
+					No other column exists to move tasks into. Create one first.
 				</p>
-				{#if otherColumns.length === 0}
-					<p class="mt-2 text-sm text-red-600 dark:text-red-400">
-						No other column exists to move tasks into. Create one first.
-					</p>
-				{:else}
-					<select
-						bind:value={moveTarget}
-						class="mt-2 w-full rounded-md border border-[var(--input)] bg-[var(--background)] px-2 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-					>
-						{#each otherColumns as col (col.id)}
-							<option value={col.id}>{col.name}</option>
-						{/each}
-					</select>
-				{/if}
 			{:else}
-				<p class="mt-2 text-sm text-[var(--muted-foreground)]">
-					This column is empty and will be removed. This cannot be undone.
-				</p>
-			{/if}
-
-			{#if deleteError}
-				<p class="mt-2 text-xs text-red-500">{deleteError}</p>
-			{/if}
-
-			<div class="mt-4 flex justify-end gap-2">
-				<button
-					type="button"
-					onclick={() => (showDeleteConfirm = false)}
-					class="rounded-md border border-[var(--border)] px-3 py-1.5 text-sm hover:bg-[var(--accent)]"
+				<select
+					bind:value={moveTarget}
+					class="mt-2 w-full rounded-md border border-[var(--input)] bg-[var(--background)] px-2 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
 				>
-					Cancel
-				</button>
-				<button
-					type="button"
-					onclick={confirmDelete}
-					disabled={deleteBusy || (tasks.length > 0 && (otherColumns.length === 0 || !moveTarget))}
-					class="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-				>
-					{deleteBusy ? 'Deleting…' : 'Delete column'}
-				</button>
-			</div>
+					{#each otherColumns as col (col.id)}
+						<option value={col.id}>{col.name}</option>
+					{/each}
+				</select>
+			{/if}
+		{:else}
+			<p class="mt-2 text-sm text-[var(--muted-foreground)]">
+				This column is empty and will be removed. This cannot be undone.
+			</p>
+		{/if}
+
+		{#if deleteError}
+			<p class="mt-2 text-xs text-red-500">{deleteError}</p>
+		{/if}
+
+		<div class="mt-4 flex justify-end gap-2">
+			<button
+				type="button"
+				onclick={() => (showDeleteConfirm = false)}
+				class="rounded-md border border-[var(--border)] px-3 py-1.5 text-sm hover:bg-[var(--accent)]"
+			>
+				Cancel
+			</button>
+			<button
+				type="button"
+				onclick={confirmDelete}
+				disabled={deleteBusy || (tasks.length > 0 && (otherColumns.length === 0 || !moveTarget))}
+				class="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+			>
+				{deleteBusy ? 'Deleting…' : 'Delete column'}
+			</button>
 		</div>
-	</div>
+	</dialog>
 {/if}
