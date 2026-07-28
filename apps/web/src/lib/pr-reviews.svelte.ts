@@ -11,6 +11,9 @@ export type ReviewVerdict = 'approve' | 'comment' | 'request_changes';
 export interface PrReview {
 	verdict: ReviewVerdict;
 	comment: string;
+	/** Approving is a signal; merging is the act that ships it. Tracked
+	 *  separately so the UI can offer the merge step only after an approval. */
+	merged: boolean;
 }
 
 class PrReviews {
@@ -27,7 +30,12 @@ class PrReviews {
 
 export const prReviews = new PrReviews();
 
-/** Short human label for a verdict, used on badges. */
-export function verdictLabel(v: ReviewVerdict): string {
-	return v === 'approve' ? 'Approved' : v === 'request_changes' ? 'Changes requested' : 'Commented';
+/** Short human label for a review's state, used on badges. */
+export function verdictLabel(review: PrReview): string {
+	if (review.merged) return 'Merged';
+	return review.verdict === 'approve'
+		? 'Approved'
+		: review.verdict === 'request_changes'
+			? 'Changes requested'
+			: 'Commented';
 }

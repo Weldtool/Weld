@@ -478,6 +478,28 @@ fn uuid_at(s: &str, i: usize) -> Option<&str> {
     Some(&s[i..i + 36])
 }
 
+fn assistant_tool_call_message(content: &Option<String>, calls: &[openai::ToolCall]) -> Value {
+    let tool_calls: Vec<Value> = calls
+        .iter()
+        .map(|c| {
+            json!({
+                "id": c.id,
+                "type": "function",
+                "function": { "name": c.function.name, "arguments": c.function.arguments }
+            })
+        })
+        .collect();
+    json!({
+        "role": "assistant",
+        "content": content.clone().unwrap_or_default(),
+        "tool_calls": tool_calls,
+    })
+}
+
+fn tool_result_message(tool_call_id: &str, content: &str) -> Value {
+    json!({ "role": "tool", "tool_call_id": tool_call_id, "content": content })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -541,26 +563,4 @@ mod tests {
         assert_eq!(out, reply);
         assert_eq!(n, 0);
     }
-}
-
-fn assistant_tool_call_message(content: &Option<String>, calls: &[openai::ToolCall]) -> Value {
-    let tool_calls: Vec<Value> = calls
-        .iter()
-        .map(|c| {
-            json!({
-                "id": c.id,
-                "type": "function",
-                "function": { "name": c.function.name, "arguments": c.function.arguments }
-            })
-        })
-        .collect();
-    json!({
-        "role": "assistant",
-        "content": content.clone().unwrap_or_default(),
-        "tool_calls": tool_calls,
-    })
-}
-
-fn tool_result_message(tool_call_id: &str, content: &str) -> Value {
-    json!({ "role": "tool", "tool_call_id": tool_call_id, "content": content })
 }

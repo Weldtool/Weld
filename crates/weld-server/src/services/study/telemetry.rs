@@ -91,6 +91,14 @@ const ALLOWED_EVENT_TYPES: &[&str] = &[
     "agent_panel_collapsed",
     // GitHub cross-reference (from card)
     "issue_referenced_from_card",
+    // In-app PR review (B4 / T6). `pr_review_submitted` carries the verdict and
+    // the participant's review comment — that comment is never written to
+    // GitHub, so this event is its only record and the rubric needs it.
+    "pr_review_opened",
+    "pr_review_submitted",
+    // Merging is the act that ships a PR (approving only signals), so it is
+    // recorded separately from the review verdict.
+    "pr_merged",
 ];
 
 #[derive(Debug, Deserialize)]
@@ -145,7 +153,14 @@ async fn participant_for_user(pool: &PgPool, user_id: Uuid) -> Result<Option<Uui
 }
 
 /// Persist a batch of behavioral events for the authenticated participant.
-/// Returns the number of events stored. Unknown event types are rejected.
+/// Returns the number of events stored.
+///
+/// Events with an unrecognised type are **dropped and logged**, not stored, and
+/// the rest of the batch is still written. Rejecting the whole batch would be
+/// worse than useless here: the client re-queues a failed batch, so a single
+/// unknown type would poison the buffer and silently cost the participant every
+/// subsequent event of the session. The privacy guarantee is unchanged — an
+/// unknown type still never reaches the database.
 pub async fn record_events(
     pool: &PgPool,
     user_id: Uuid,
@@ -155,13 +170,16 @@ pub async fn record_events(
         .await?
         .ok_or_else(|| ApiError::Forbidden("Not a study participant".into()))?;
 
-    for ev in &events {
-        if !ALLOWED_EVENT_TYPES.contains(&ev.event_type.as_str()) {
-            return Err(ApiError::Validation(format!(
-                "Unknown telemetry event type: {}",
-                ev.event_type
-            )));
-        }
+    let (events, rejected): (Vec<_>, Vec<_>) = events
+        .into_iter()
+        .partition(|ev| ALLOWED_EVENT_TYPES.contains(&ev.event_type.as_str()));
+
+    for ev in &rejected {
+        tracing::warn!(
+            event_type = %ev.event_type,
+            %participant_id,
+            "Dropped telemetry event with unknown type — instrumented in the client but missing from ALLOWED_EVENT_TYPES?"
+        );
     }
 
     let mut tx = pool.begin().await?;

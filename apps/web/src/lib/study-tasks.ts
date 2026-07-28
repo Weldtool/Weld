@@ -15,6 +15,18 @@
  * it spans, stamped onto task telemetry so per-task-type analysis (does context
  * breadth help more on cross-surface than comprehension tasks?) is first-class
  * rather than hand-mapped at analysis time.
+ *
+ * Two wording rules, both load-bearing — don't "helpfully" undo them:
+ *
+ * 1. Agent tasks say the assistant *is available*, never "use the assistant."
+ *    RQ2 measures how much people choose to delegate; instructing them to
+ *    delegate would measure compliance instead.
+ * 2. Tasks state a goal, not a route. Naming the surfaces and steps ("open this
+ *    card, then attach the PR") lets the participant navigate without the
+ *    agent's context, which is precisely the variable under test — it collapses
+ *    condition differences into UI mechanics. Baseline tasks may be explicit
+ *    (they are a per-person normalizer, equally explicit for every condition);
+ *    agent tasks must not be.
  */
 export type StudyPhase = 'baseline' | 'agent';
 
@@ -73,7 +85,7 @@ export const STUDY_TASKS: StudyTask[] = [
 		surfaces: ['github', 'chat'],
 		title: 'Baseline 4',
 		instruction:
-			'Open the GitHub view for this project and find the open pull request titled “Feeding schedule editor UI”. Review its changes, then post its PR number in #general along with a one-line assessment.'
+			'On the board, open the “Feeding schedule editor UI” card and open the pull request attached to it. Review its changes, then post its PR number in #general along with a one-line assessment.'
 	},
 	{
 		id: 'B5',
@@ -101,7 +113,7 @@ export const STUDY_TASKS: StudyTask[] = [
 		surfaces: ['chat', 'board'],
 		title: 'Task 1',
 		instruction:
-			'Figure out what the team most needs done next, based on the recent discussion, then make that change on the board (for example, set a priority or move a card). Use the assistant to help you decide.'
+			'Figure out what the team most needs done next, based on the recent discussion, then make that change on the board (for example, set a priority or move a card). The assistant is available if you want it.'
 	},
 	{
 		id: 'T2',
@@ -110,7 +122,7 @@ export const STUDY_TASKS: StudyTask[] = [
 		surfaces: ['chat', 'board', 'github'],
 		title: 'Task 2',
 		instruction:
-			'You’re returning after being away. Get caught up on what’s happened recently and what’s waiting on you, then post a short 2–3 sentence summary in #general of where things stand. Use the assistant to help.'
+			'You’re returning after being away. Get caught up on what’s happened recently and what’s waiting on you, then post a short 2–3 sentence summary in #general of where things stand. The assistant is available if you want it.'
 	},
 	{
 		id: 'T3',
@@ -119,7 +131,7 @@ export const STUDY_TASKS: StudyTask[] = [
 		surfaces: ['chat'],
 		title: 'Task 3',
 		instruction:
-			'A short status update on where the vaccination reminders work stands needs to be posted in #pettracker. Use the assistant to help draft and post it.'
+			'A short status update on where the vaccination reminders work stands needs to be posted in #pettracker. The assistant is available if you want it.'
 	},
 	{
 		id: 'T4',
@@ -128,7 +140,7 @@ export const STUDY_TASKS: StudyTask[] = [
 		surfaces: ['board'],
 		title: 'Task 4',
 		instruction:
-			'Three new-issue cards in the Backlog need sensible priorities set. Use the assistant to help, then make sure the priorities are set.'
+			'Three new-issue cards in the Backlog need sensible priorities set. The assistant is available if you want it.'
 	},
 	{
 		id: 'T5',
@@ -137,7 +149,7 @@ export const STUDY_TASKS: StudyTask[] = [
 		surfaces: ['chat', 'board'],
 		title: 'Task 5',
 		instruction:
-			'A bug Sarah reported in #pettracker needs to be moved to In Progress. Use the assistant to help find the right card and get it moved, then confirm it’s done.'
+			'A bug Sarah reported in #pettracker needs to be moved to In Progress. The assistant is available if you want it.'
 	},
 	{
 		id: 'T6',
@@ -146,7 +158,7 @@ export const STUDY_TASKS: StudyTask[] = [
 		surfaces: ['chat', 'board', 'github'],
 		title: 'Task 6',
 		instruction:
-			'The vaccination reminders work needs to be connected to its code: find the related open pull request, review its changes and approve it (or leave a comment), then link it to the right board card and post a note in #pettracker that they’re linked. Use the assistant to help with whatever it can.'
+			'The vaccination reminders work isn’t connected to its code yet, and it hasn’t been reviewed. Sort that out and let the team know in #pettracker. The assistant is available if you want it.'
 	}
 ];
 

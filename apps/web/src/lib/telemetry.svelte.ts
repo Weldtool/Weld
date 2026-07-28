@@ -1,6 +1,7 @@
 import { browser } from '$app/environment';
 import { env } from '$env/dynamic/public';
 import { study as studyApi, type TelemetryEvent } from '$lib/api';
+import { ApiError } from '$lib/api/client';
 import { auth } from '$lib/auth.svelte';
 import { appConfig } from '$lib/config.svelte';
 
@@ -77,14 +78,24 @@ class Telemetry {
 		this.#teardown();
 	}
 
-	/** Send buffered events. Re-queues on failure so nothing is silently dropped. */
+	/**
+	 * Send buffered events. Re-queues on a network error or a server fault so a
+	 * flaky connection doesn't lose data — but a 4xx is the server refusing this
+	 * batch's *content*, and retrying it forever would poison the buffer and cost
+	 * the participant every later event of the session. Drop those and move on.
+	 */
 	async flush(): Promise<void> {
 		if (!this.active || this.#buffer.length === 0) return;
 		const batch = this.#buffer;
 		this.#buffer = [];
 		try {
 			await studyApi.events({ events: batch });
-		} catch {
+		} catch (err) {
+			const status = err instanceof ApiError ? err.status : 0;
+			if (status >= 400 && status < 500) {
+				console.warn(`[telemetry] server rejected a batch of ${batch.length} events`, err);
+				return;
+			}
 			this.#buffer = batch.concat(this.#buffer);
 		}
 	}

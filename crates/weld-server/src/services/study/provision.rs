@@ -150,6 +150,20 @@ pub async fn provision_participant(
         column_map.insert(col.id.clone(), id);
     }
 
+    // Wire the PR-driven board automation to the seeded columns. Without this the
+    // project has no idea where "done" is, so approving-and-merging a pull request
+    // in the review view would record the merge and move nothing. The seed has no
+    // Review column, so `review_column_id` stays null — that mapping only drives
+    // the create-a-PR-on-move prompt, which study mode locks out anyway.
+    sqlx::query!(
+        "UPDATE projects SET in_progress_column_id = $1, done_column_id = $2 WHERE id = $3",
+        column_map.get("col_inprogress").copied(),
+        column_map.get("col_done").copied(),
+        project_id,
+    )
+    .execute(&mut *tx)
+    .await?;
+
     // --- Labels ---
     let mut label_map: HashMap<String, Uuid> = HashMap::new();
     for label in &seed.labels {
