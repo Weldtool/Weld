@@ -326,7 +326,8 @@
       "channel_id": "chan_pettracker",
       "sender_id": "user_alex",
       "content": "Side note — can someone take a look at the nearby vet directory card? [[card:card_vet_directory]] It's been sitting in the backlog and keeps slipping. Let's bump its priority so it doesn't get lost.",
-      "created_offset": -160
+      "created_offset": -160,
+      "task_anchor": "B3"
     },
     {
       "id": "msg_d1",
