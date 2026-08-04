@@ -1,0 +1,757 @@
+% =====================================================================
+% Weld Agent Scope Study --- TOSEM paper skeleton (results pending)
+%
+% Target: ACM TOSEM, Special Section/Issue on Human-AI Collaboration in
+% Software Engineering.
+%   https://dl.acm.org/journal/tosem/continuous-special-sections-on-human-se
+%   Submission type on Manuscript Central: "Human AI Collaboration in
+%   Software Engineering" (handled as fast-impact track).
+%
+% BUILD:  latexmk -pdf WELD_TOSEM_PAPER.tex
+%
+% STATUS OF THIS FILE
+%   Sections 3-5 (design, measures, analysis plan) are drafted as near-final
+%   prose -- they are pre-specified and do not depend on the data.
+%   Sections 1-2 and 6-9 are structured skeletons: each carries a \skel box
+%   saying what goes in it, and every number that must come from data is a
+%   \NUM{} placeholder so they can be grepped before submission.
+%
+% BEFORE SUBMITTING
+%   - grep for \todo and \NUM -- none may survive.
+%   - Verify every .bib entry below (drafted from memory; DOIs/venues/years
+%     must be checked against the ACM DL / DBLP).
+%   - Confirm the CfP's exact deadline, page limit, and whether the special
+%     section requires double-anonymous review (the `anonymous' class option
+%     below); the CfP PDF was not machine-fetchable at drafting time.
+% =====================================================================
+
+\documentclass[acmsmall,review,screen]{acmart}
+% Add `anonymous' to the option list if the special section is double-anonymous.
+
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+
+% --- drafting aids (delete the definitions and all uses before submission) ---
+\newcommand{\todo}[1]{\textcolor{red}{\textbf{[TODO:} #1\textbf{]}}}
+\newcommand{\NUM}[1]{\textcolor{blue}{[#1]}}          % number that comes from data
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\skel}[1]{%
+  \par\medskip\noindent
+  \fbox{\parbox{0.96\linewidth}{\footnotesize\itshape\textbf{Skeleton note.} #1}}%
+  \par\medskip}
+\newcommand{\figplaceholder}[1]{%
+  \fbox{\parbox[c][3.4cm][c]{0.92\linewidth}{\centering\itshape #1}}}
+
+\begin{document}
+
+\title{How Much Should an Agent See? A Controlled Study of Agent Scope
+       in an Integrated Developer Workspace}
+% Alternative titles to choose from:
+%   - Seeing More, Doing More: Agent Scope and Developer Effectiveness
+%   - Scope, Reliance, and Trust: A Controlled Study of a Workspace-Embedded
+%     AI Agent
+%   - What the Agent Can See: Manipulating Workspace Scope in Human-AI
+%     Software Work
+
+\author{Andrew Sadler}
+\affiliation{%
+  \institution{Michigan Technological University}
+  \department{Department of Computer Science}
+  \city{Houghton}\state{Michigan}\country{USA}}
+\email{asadler@mtu.edu}
+
+\author{Jie Wu}
+\affiliation{%
+  \institution{Michigan Technological University}
+  \department{Department of Computer Science}
+  \city{Houghton}\state{Michigan}\country{USA}}
+\email{jie.jw.wu@mtu.edu}
+
+\renewcommand{\shortauthors}{Sadler and Wu}
+
+\begin{abstract}
+\todo{Rewrite once results land. Structure below; keep to 200--250 words.}
+
+AI assistants are increasingly embedded in the tools developers already work
+in, yet how much of that workspace an assistant should be able to see and act
+on remains an open design question. We report a controlled study
+($N=\NUM{N}$) that manipulates exactly this variable. Participants worked in
+Weld, a workspace that unifies a task board, team chat, and GitHub issues and
+pull-request review, on a seeded software project. Each participant first
+completed six tasks manually, establishing a per-person baseline, then completed
+six matched tasks with an in-app AI agent whose scope over the workspace was
+randomly assigned to one of three levels: chat only (advise), chat and board
+(act), or chat, board, and GitHub (act). Task content was identical across
+conditions; only the agent's scope differed. We logged task time, correctness,
+delegation and override behaviour, and a per-invocation snapshot of exactly
+what context the agent received, and collected NASA-TLX before and after the
+agent phase together with a trust-in-automation block.
+\NUM{Headline RQ1 result: where wider scope did and did not shorten
+baseline-adjusted task time.}
+\NUM{Headline RQ2 result: how delegation and verification shifted with scope.}
+\NUM{Headline RQ3 result: whether trust tracked measured effectiveness.}
+Our findings inform how much workspace access to grant assistants embedded in
+software engineering tools, and \NUM{implication}.
+\end{abstract}
+
+\begin{CCSXML}
+<ccs2012>
+<concept>
+<concept_id>10011007.10011074.10011099</concept_id>
+<concept_desc>Software and its engineering~Software verification and validation</concept_desc>
+<concept_significance>300</concept_significance>
+</concept>
+<concept>
+<concept_id>10003120.10003121</concept_id>
+<concept_desc>Human-centered computing~Human computer interaction (HCI)</concept_desc>
+<concept_significance>500</concept_significance>
+</concept>
+<concept>
+<concept_id>10003120.10003121.10003124.10010870</concept_id>
+<concept_desc>Human-centered computing~Empirical studies in HCI</concept_desc>
+<concept_significance>500</concept_significance>
+</concept>
+</ccs2012>
+\end{CCSXML}
+
+\ccsdesc[500]{Human-centered computing~Empirical studies in HCI}
+\ccsdesc[300]{Software and its engineering~Software verification and validation}
+
+\keywords{AI assistants, human-AI collaboration, controlled experiment,
+developer tools, agent context, trust in automation, reliance}
+
+\maketitle
+
+% =====================================================================
+\section{Introduction}
+% =====================================================================
+
+\skel{Five paragraphs, roughly one page. (1)~Software work is spread across
+issue trackers, chat, and code hosts, and assistants are being embedded into
+each of them. (2)~The open design question: assistants are increasingly given
+wider access to that surrounding context, but the field has little controlled
+evidence on what that access buys, or where. Prior work shows repository-level
+context improves model output on benchmarks, and that developers' perceptions
+of assistance diverge from measured behaviour --- but those are separate
+literatures, tested separately, and neither manipulates a live assistant's
+workspace scope with real users. (3)~This study: one workspace, one task set,
+one variable --- how much of the workspace the agent can see and act on --- and
+a per-person manual baseline. (4)~What we found. (5)~Contributions.}
+
+\todo{Write after the results are in, so the framing matches the findings
+rather than the hypotheses.}
+
+\paragraph{Contributions.}
+\begin{itemize}
+  \item A controlled, pre-registered experiment isolating \emph{agent scope}
+        over a shared developer workspace as an independent variable, with a
+        within-person manual baseline and a per-invocation record proving the
+        manipulation held.
+  \item Evidence on \emph{where} scope matters: \NUM{result} across
+        comprehension, single-surface, and cross-surface task types.
+  \item Evidence on reliance: how delegation, verification, and override
+        behaviour shift as the agent's scope widens.
+  \item A characterisation of the perception--behaviour gap --- whether trust
+        tracks measured effectiveness or the visible volume of agent activity.
+  \item An open study apparatus (workspace, seeded project, task scripts,
+        telemetry schema, scoring rubric) and anonymised data, enabling
+        replication at other scope levels or with other models.
+\end{itemize}
+
+% =====================================================================
+\section{Background and Related Work}
+% =====================================================================
+
+\skel{Four subsections, about 1.5 pages total. Each ends with the specific gap
+this study fills --- not a survey. Cite the TOSEM SI's own framing where it
+fits (human-AI collaboration, division of labour, trust and reliance).}
+
+\subsection{AI assistants in software engineering practice}
+\skel{Copilot-era usability and interaction studies: what developers do with
+assistants, acceptance/rejection, validation and repair
+\cite{vaithilingam2022expectation,barke2023grounded,liang2024largescale,mozannar2024reading}.
+Gap: these study code completion inside an editor; almost none study an agent
+acting across the \emph{project management} surfaces where much developer
+coordination actually happens.}
+
+\subsection{Context and agent capability}
+\skel{Repository-level context improves generation and issue resolution
+\cite{zhang2023repocoder,ding2023crosscodeeval,jimenez2024swebench}. Gap: these
+are benchmark results about model output. Whether more context makes the
+\emph{human} faster, more accurate, or more trusting is a separate question and
+is not answered by benchmark gains.}
+
+\subsection{Fragmentation, context switching, and coordination cost}
+\skel{Developer time is fragmented across tools and interruptions carry a
+measurable resumption cost \cite{meyer2014perceptions,meyer2017worklife,mark2008cost}.
+Motivates the integrated workspace as apparatus. Be careful: this motivates the
+setting, it does not license a claim that integration beats separate tools ---
+we have no fragmented-tools arm (\S\ref{sec:threats}).}
+
+\subsection{Trust, reliance, and the perception--behaviour gap}
+\skel{Appropriate reliance and its failure modes
+\cite{lee2004trust,parasuraman1997humans}; AI-assisted decision making where
+explanations or visible activity raise trust without raising accuracy
+\cite{bansal2021whole,bucinca2021trust}; measured-vs-perceived productivity for
+coding assistants \cite{ziegler2022productivity}. Gap, and our RQ3: no prior
+work varies an assistant's \emph{scope} and asks whether trust follows scope or
+follows effectiveness. This is the study's most transferable finding and should
+be foregrounded here.}
+
+% =====================================================================
+\section{Study Design}\label{sec:design}
+% =====================================================================
+
+\subsection{Research questions and hypotheses}
+
+The study manipulates one variable: how much of the workspace an in-app AI
+agent can see and act on. All questions stay within what that manipulation
+supports.
+
+\begin{description}
+  \item[RQ1 (primary)] \textbf{Agent scope $\rightarrow$ effectiveness.} Does
+    widening the agent's scope over the workspace (chat $\rightarrow$ +board
+    $\rightarrow$ +GitHub) make the user more effective, and on which tasks?
+  \item[RQ2] \textbf{Reliance.} How much do users delegate to versus verify
+    and override the agent, and does that shift with its scope?
+  \item[RQ3] \textbf{Trust versus reality.} Does users' trust in the agent
+    track its measured effectiveness, or diverge from it?
+\end{description}
+
+\noindent Hypotheses:
+
+\begin{description}
+  \item[H1 (RQ1)] Wider scope yields shorter baseline-adjusted agent-task times
+    \emph{across conditions}. Deliberately not stated as an absolute gain over
+    the manual baseline: phase order is fixed, so an agent$-$baseline delta also
+    contains ordinary practice (\S\ref{sec:timing}).
+  \item[H2 (RQ1)] The gain is \emph{task-dependent} --- minimal on comprehension
+    and single-surface tasks, substantial on cross-surface tasks spanning chat
+    $\rightarrow$ board $\rightarrow$ GitHub.
+  \item[H3 (RQ1)] Wider scope reduces self-reported cognitive load relative to
+    baseline more than narrow scope does.
+  \item[H4 (RQ2)] Delegation rises with scope, but reliance is imperfectly
+    calibrated: users do not verify or override precisely where the agent is
+    actually wrong.
+  \item[H5 (RQ3)] Trust and perceived speedup need not track measured
+    effectiveness --- users may trust an agent that \emph{does more} even when
+    it is not faster, or is occasionally wrong.
+\end{description}
+
+\subsection{Design}
+
+The design is hybrid: a within-subjects manual baseline followed by a
+between-subjects agent condition.
+
+Every participant first completes six manual baseline tasks (B1--B6, condition
+C0) with no agent available, establishing their own manual speed and cognitive
+load on each task type. NASA-TLX is collected at this point, before any agent
+exposure. Each participant is then randomly assigned to one agent condition and
+completes six agent tasks (T1--T6) in that fixed condition. Table~\ref{tab:conditions}
+gives the three conditions.
+
+\begin{table}[t]
+\caption{The three agent scope conditions (between-subjects).}
+\label{tab:conditions}
+\begin{tabularx}{\linewidth}{@{}lLL@{}}
+\toprule
+\textbf{Condition} & \textbf{The agent can SEE} & \textbf{The agent can DO} \\
+\midrule
+C1 --- Chat only     & Chat                    & Advise only; the user executes \\
+C2 --- Chat + board  & Chat, board             & Advise and act on board and chat \\
+C3 --- Full scope    & Chat, board, GitHub     & Act across chat, board, and GitHub \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Why hybrid.} The per-person C0 baseline lets each participant's
+agent-task performance be analysed as a delta from their own manual speed,
+absorbing individual skill differences that would otherwise sit between the
+between-subjects conditions and sap power. Six baseline tasks --- one per agent
+task type, four of them cross-surface --- give a type-matched, stable per-person
+anchor rather than a single generic warm-up.
+
+\paragraph{Why between-subjects on condition.} Holding the agent's access fixed
+per person avoids within-person contamination: once a participant has seen a
+full-scope agent solve a task, they cannot un-see how it should go. It also
+keeps the session inside a self-serve 55--65 minute budget.
+
+\paragraph{Capability scales with scope, by design.} An agent cannot act on a
+board it cannot see, so visibility and capability are intentionally coupled.
+This bundling is the phenomenon under study --- whether giving the agent more
+access to the shared workspace helps the user --- and we therefore name the
+variable \emph{agent scope} rather than \emph{context breadth} throughout. The
+interpretive consequence is stated in \S\ref{sec:threats}.
+
+\subsection{Apparatus}
+
+\skel{One paragraph plus a screenshot figure. Describe Weld only as far as the
+study needs: the surfaces, one seeded project, the agent panel. Do not turn this
+into a tool paper.}
+
+All participants work in \emph{Weld}, a workspace for coordinating and reviewing
+software work: a Kanban task board, channel-based team chat, and GitHub
+integration in a single application. Weld deliberately covers the coordination
+and review layer around code rather than authoring or execution --- there is no
+editor and no build --- which bounds what the study generalises to
+(\S\ref{sec:threats}). GitHub is not a separate destination in the interface:
+issues and pull requests are attached to the board cards they belong to, so a
+participant reaches a pull request by opening its card, and reviews it in an
+in-app review surface (description, files-changed diffs, and approve, comment,
+or request-changes, plus merge). Merging moves the linked card exactly as a
+GitHub webhook would in production use.
+
+Every participant receives a private clone of the same fictional seed project,
+``PetTracker'': 12 cards across 3 columns, 2 chat channels with 18 seeded
+messages, and 3 pull requests, all 3 of which carry diffs. GitHub is mocked
+from fixtures inside the application --- no live API, no
+real repository, and outbound write controls hidden --- so participation is
+fully self-serve and no participant's actions can affect another's environment
+or leak into a real repository. Review verdicts and comments therefore exist
+only in our event log, which is what makes them scorable
+(\S\ref{sec:measures}).
+
+The agent is presented as a panel inside the workspace. It runs on a single
+pinned, dated model snapshot (\code{gpt-5.4-2026-03-05} --- matches the
+\code{OPENAI\_MODEL} default in \code{config.rs}; confirm the deploy does not
+override it via env var before the run starts) at a fixed
+temperature of 0.2 with versioned prompts, held constant for the entire study.
+A context gate assembles the agent's prompt per invocation under a default-deny
+policy keyed to the participant's condition, and the same gate governs which
+tools are exposed --- C1 has no tools at all, C2 may write to the board and post
+to chat, and C3 may additionally link cards to issues and pull requests. Every
+invocation records a snapshot of exactly what the agent received
+(\S\ref{sec:manipcheck}).
+
+\paragraph{The workspace re-presents GitHub; it does not replace it.} Issues,
+pull requests, and diffs in Weld are a view onto data that lives in GitHub, and
+we make no claim that this view is novel. That is deliberate on both sides. As
+apparatus, a familiar GitHub-shaped review surface keeps the manipulation from
+being confounded with learning an unfamiliar review tool. As a claim, what the
+study varies is \emph{what the agent can reach}, not \emph{how it reaches it}:
+the same contrast could be built by handing a C3 agent a GitHub API token or a
+tool server, and we would expect the same result. The finding is therefore about
+reach across the surfaces developer work spans, not about this particular
+integration --- and it transfers to any assistant that can be granted or denied
+that reach, however it is plumbed.
+
+\begin{figure}[t]
+\figplaceholder{Figure 1. The Weld workspace with the agent panel open.
+Annotate the three surfaces (board, chat, GitHub) and show one agent turn.}
+\caption{The study apparatus. \todo{Replace with a real screenshot; blur or
+regenerate any content that could identify a participant.}}
+\label{fig:apparatus}
+\end{figure}
+
+\subsection{Task set}
+
+Twelve tasks --- six manual baselines then six agent tasks --- of roughly 4--5
+minutes each. Task content is held constant across conditions; only the agent's
+scope differs.
+
+The agent tasks span three use-case types so we can locate \emph{where} scope
+matters. Comprehension and single-surface tasks act as controls: they
+demonstrate that wider scope does not \emph{universally} help, which is what
+makes the cross-surface result credible rather than a blanket ``more is
+better.'' Table~\ref{tab:tasks} summarises them; full scripts are in the
+replication package.
+
+\begin{table}[t]
+\caption{The six agent tasks and what each is designed to test.}
+\label{tab:tasks}
+\begin{tabularx}{\linewidth}{@{}llL@{}}
+\toprule
+\textbf{Task} & \textbf{Type} & \textbf{What it tests} \\
+\midrule
+T1 ``What needs doing?''      & Comprehension  & Chat-only should be competitive \\
+T2 ``Catch me up''            & Comprehension  & Do richer summaries reduce follow-up work? \\
+T3 Draft a status message     & Single-surface (chat)  & Control: extra scope should not help \\
+T4 Set priorities on the board& Single-surface (board) & Advising (C1) vs.\ acting (C2/C3) \\
+T5 Bug from chat to the board & Cross-surface  & C2/C3 can act, C1 cannot --- core H1/H2 \\
+T6 Review and link the PR, tell the team & Cross-surface & Only C3 has the scope to do it end to end \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Each baseline task matches an agent task type --- B1 single-surface, B6
+comprehension, B2--B5 cross-surface --- while using disjoint content, so it
+anchors normalisation without teaching the agent tasks' answers.
+
+T6 is constructed so the correct pull request is identifiable \emph{only} with
+GitHub scope: chat refers to it vaguely, and the PR's title and body
+disambiguate it. It is therefore the single cleanest test of the top of the
+ladder --- if C3 does not beat C2 on T6, the GitHub scope is not pulling its
+weight, and the data will say so. T6 also carries the most work: the
+participant must identify the pull request, read its diff and record a review
+verdict, connect it to the right card, and tell the team in chat. Its matched
+baseline B4 requires the same review step on a different, unrelated pull
+request, so the review cost is anchored per person rather than confounded with
+the agent condition.
+
+Task wording is load-bearing and was fixed in advance. Agent tasks state a goal
+and never a route, and state that the assistant \emph{is available} rather than
+instructing its use: naming the surfaces would let participants navigate without
+the agent, collapsing the manipulation into UI mechanics, and instructing use
+would turn RQ2's delegation measure into a compliance measure. T6 reads, in
+full: \emph{``The vaccination reminders work isn't connected to its code yet,
+and it hasn't been reviewed. Sort that out and let the team know in
+\#pettracker. The assistant is available if you want it.''} Baseline tasks are
+by contrast deliberately explicit about the route --- they are a per-person
+normaliser, equally explicit for every condition, and their purpose is a stable
+anchor rather than a test of navigation.
+
+\subsection{Participants and procedure}
+
+\skel{Fill the realised numbers from \code{study\_participants} plus the
+demographics block; keep the planned targets in the pre-registration and report
+deviations honestly.}
+
+We target 20--30 participants (roughly 7--10 per condition), each contributing
+six baseline and six agent observations. Eligibility: adults 18 or over, at
+least one year of programming experience, and basic familiarity with issue
+trackers, team chat, and GitHub. Recruitment is by self-serve link through
+course lists, departmental channels, and developer communities; recruitment is
+student-focused but not student-limited.
+
+Sessions are unproctored and self-serve. The flow is: consent and eligibility
+screening $\rightarrow$ a brief orientation to the workspace $\rightarrow$ six
+manual baseline tasks $\rightarrow$ a post-baseline NASA-TLX $\rightarrow$ six
+agent tasks in the assigned condition $\rightarrow$ the exit survey. Condition
+assignment uses adaptive minimisation at provisioning time (each participant
+goes to the least-filled condition, ties broken at random) rather than simple
+randomisation, which keeps the cells balanced at this sample size.
+
+Realised sample: $N=\NUM{N}$ (\NUM{n} C1, \NUM{n} C2, \NUM{n} C3),
+\NUM{n} excluded (\NUM{reasons}). \todo{CONSORT-style participant flow diagram
+from \code{study\_participants.status} and \code{session\_abandoned}.}
+
+\subsection{Ethics}
+
+\skel{One paragraph. State the IRB determination (number or exemption), consent
+mechanics, the data-handling regime, and --- importantly --- the exclusion list,
+which is a design commitment and not just boilerplate.}
+
+This study was determined exempt from further review by Michigan Technological
+University's Institutional Review Board. Participants consent before provisioning; consent is
+recorded with the participant record. We deliberately do not collect keystroke
+logs (only final submitted text), mouse movement or hover traces, screen or
+camera recordings, data from other browser tabs, or any data about projects
+other than the participant's own seeded instance. Data are pseudonymous
+throughout and held in encrypted institutional storage; optional follow-up
+contact details are stored separately, linked only by token, and deleted after
+the follow-up window; open-ended text is screened for identifying content before
+release.
+
+% =====================================================================
+\section{Measures}\label{sec:measures}
+% =====================================================================
+
+Every measure below names its source field, so the analysis is reproducible from
+the event log and survey export. Table~\ref{tab:measures} summarises.
+
+\begin{table}[t]
+\caption{Measures and their sources.}
+\label{tab:measures}
+\begin{tabularx}{\linewidth}{@{}lLL@{}}
+\toprule
+\textbf{Construct} & \textbf{Source} & \textbf{Notes} \\
+\midrule
+Task completion time (primary) & \code{task\_completed.task\_time\_ms} &
+  Active engaged time, not wall clock (\S\ref{sec:timing}). The clock stops
+  before the per-task rating. \\
+Away time, interruptions & \code{wall\_ms}, \code{away\_ms},
+  \code{pause\_count}, \code{was\_interrupted} & Audit and exclusion flags. \\
+Time to first action & first surface event after \code{task\_shown} & Derived. \\
+Correctness (0--3) & manual coding of final state, agent transcript, DB &
+  Two coders, blind to condition. \\
+PR review behaviour & \code{pr\_review\_opened}, \code{pr\_review\_submitted}
+  (verdict and comment), \code{pr\_merged} & B4/T6 only. Review comments are
+  never written to GitHub, so this event is their only record and the rubric
+  depends on it. \\
+Per-task effort & \code{task\_rating.effort} (1--7, every task) &
+  Within-person, baseline-anchored. \\
+Global cognitive load & NASA-TLX, collected twice (post-baseline and exit) &
+  The agent$-$baseline delta is the H3 measure. \\
+Usability & SUS, \code{sus\_01}--\code{sus\_10} & Comparable to published norms. \\
+Trust and reliance & 8-item trust block & H5; \code{trust\_verify} is
+  reverse-valenced. \\
+Agent effectiveness & \code{agent\_response} (latency, response type, tool
+  calls, tokens), \code{agent\_tool\_call} & Effort and cost. \\
+Delegation & executed agent tool calls vs.\ user actions; accept / reject /
+  edit / undo events; \code{agent\_panel\_opened} & RQ2. Panel-open is the
+  coarsest measure of all: did the participant reach for the agent? \\
+Cross-reference usage & card-from-chat, PR-from-card, PR-from-chat,
+  card-from-PR, issue-from-card & Integration-usage measure. \\
+View-switch rate & \code{view\_changed} count per unit active time &
+  Context-switching between board and chat only --- see below. \\
+Scoping proof & \code{agent\_context\_sent} & Manipulation check
+  (\S\ref{sec:manipcheck}). \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Baseline-normalised time.} The headline derived measure is each agent
+task's active time relative to that participant's own type-matched baseline:
+comprehension tasks (T1, T2) against B6, single-surface tasks (T3, T4) against
+B1, and cross-surface tasks (T5, T6) against the mean of B2--B5. Every agent
+task type therefore has a like-for-like anchor, and the cross-surface anchor ---
+where the hypotheses live --- averages four baselines and is the most stable. In
+the models the baseline enters as a covariate rather than as a pre-computed
+ratio (\S\ref{sec:models}).
+
+\paragraph{What the view-switch rate does and does not cover.} Because GitHub is
+reached from the card it belongs to rather than from a separate destination, a
+route-level view change fires for board, chat, and settings navigation but never
+for opening a pull request. The view-switch rate is therefore a board--chat
+context-switching measure, and traversal into GitHub is captured by the
+cross-reference events and \code{github\_view\_opened} instead. The two are
+reported together rather than summed, and the perceived-switching survey item is
+paired with the board--chat rate only. \todo{Confirm this is still true of the
+build used in the run --- it is a consequence of a UI decision, not a study
+setting, so a later interface change silently changes the measure.}
+
+\paragraph{Correctness.} Speed without correctness is not effectiveness, so
+correctness is scored for every task on a 0--3 rubric and always reported beside
+time. Scoring procedure is fixed in advance because it is the one primary
+measure produced by judgement rather than instrumentation: two coders score all
+tasks from a final-state export with condition, agent transcript, and timing
+stripped --- blinding is mandatory, since knowing a participant was in C3 while
+judging their output is a direct route to confirming H1. We report
+quadratic-weighted Cohen's $\kappa$ \emph{before} adjudication, then resolve
+disagreements to consensus, still blind. The rubric is piloted and frozen before
+any real session is scored.
+
+% =====================================================================
+\section{Analysis Plan}\label{sec:analysis}
+% =====================================================================
+
+This plan was fixed before data collection. Deviations are reported explicitly
+in \S\ref{sec:results}.
+
+\subsection{Manipulation check}\label{sec:manipcheck}
+
+Reported first, before any inferential result. From the \code{agent\_context\_sent}
+snapshot recorded at every invocation, we verify that 100\% of C1 snapshots
+contain no board or GitHub content and 100\% of C2 snapshots contain no GitHub
+content. This converts the independent variable from an assumption into
+evidence; without it the scoping manipulation rests on trust.
+
+\subsection{Primary models}\label{sec:models}
+
+RQ1/H1/H2 are tested with a linear mixed model on log task time,
+\[
+\log(\mathit{time}) \sim \mathit{condition} \times \mathit{task\_type}
+  + \log(\mathit{baseline}) + (1 \mid \mathit{participant}),
+\]
+with H2 as the \code{condition}~$\times$~\code{task\_type} interaction: does the
+condition effect concentrate on the cross-surface tasks? At this sample size the
+full interaction is underpowered, so the confirmatory analysis is a
+pre-registered focused contrast --- C3 versus C1 on cross-surface tasks --- with
+the omnibus interaction reported as supporting evidence and everything else
+flagged exploratory. We lead with effect sizes and 95\% confidence intervals
+rather than $p$-values throughout.
+
+Correctness is modelled in parallel with an ordinal cumulative-link mixed model,
+\code{correctness \textasciitilde{} condition * task\_type + (1 | participant)},
+and reported beside every timing result.
+
+\subsection{Cognitive load (H3)}
+
+NASA-TLX is collected twice, so load is a within-person phase-to-phase delta
+rather than a single end-of-session snapshot. The headline test is
+$\Delta\mathrm{TLX} = \mathrm{TLX}_{\text{agent}} - \mathrm{TLX}_{\text{baseline}}$
+on the composite and per subscale, compared between conditions (Welch ANOVA or
+Kruskal--Wallis given the sample size). A finer-grained secondary analysis models
+per-task effort with each participant's baseline effort as the anchor.
+
+\subsection{Reliance (RQ2) and the perception--behaviour gap (RQ3)}
+
+RQ2 is answered descriptively from telemetry: delegation ratio by condition; the
+agent funnel from invocation through attempted and executed tool calls to
+accepted, edited, or undone outcomes; tool error and rejection rates; and
+cross-reference traversal counts. H4's calibration claim is tested by crossing
+override behaviour against coded agent-error type --- do users override where the
+agent is actually wrong?
+
+RQ3 correlates the trust composite and \code{trust\_speed\_perceived} (Spearman)
+against measured normalised time and correctness, and characterises any
+divergence. \code{trust\_rely} crossed with \code{trust\_verify} gives reliance
+calibration; perceived context-switching is paired with the behavioural
+view-switch rate. Four open-ended items are thematically coded by two coders with
+$\kappa$ reported on a shared subset.
+
+\subsection{Timing validity}\label{sec:timing}
+
+Task time is \emph{active engaged time}: the client clock runs only while the tab
+is visible, pauses on background or close, resumes on return, and persists across
+reloads, so away-time is excluded by construction rather than after the fact.
+Each task additionally logs away time, pause count, and an interruption flag. We
+analyse active time as primary, run a sensitivity analysis excluding interrupted
+tasks, and report the interruption rate.
+
+Because the clock catches stepping away from the tab but not stepping away from a
+tab left in front, one further rule was pre-specified: within a task, 180 seconds
+or more of visible time containing zero telemetry events is treated as idle and
+subtracted. The threshold sits well above a natural pause for reading a channel
+or a diff --- tasks run 4--5 minutes and emit events throughout --- and well
+below a genuine walk-away. We report how many tasks trigger it and fit the
+primary model with and without the correction.
+
+Phase order is fixed: the six manual baselines always precede the six agent
+tasks, since agent exposure cannot be undone. An agent$-$baseline delta therefore
+contains ordinary practice as well as agent help. Between-condition inferences
+are unaffected --- every arm has the identical ordering --- but we never claim
+the agent beat manual work.
+
+% =====================================================================
+\section{Results}\label{sec:results}
+% =====================================================================
+
+\skel{Results go here in this order --- manipulation check first, then RQ1, RQ2,
+RQ3. Every subsection is currently a placeholder naming the exact table or
+figure it will contain. Report the realised sample and any deviation from
+\S\ref{sec:analysis} at the top.}
+
+\subsection{Manipulation check}
+
+\NUM{Table: per-condition counts of agent invocations and the proportion of
+context snapshots containing board / GitHub content. Expect 0\% off-scope.}
+\todo{If any snapshot leaked off-scope context, report it here and state how the
+affected observations were handled --- do not quietly drop them.}
+
+\subsection{RQ1 --- Agent scope and effectiveness}
+
+\NUM{Figure 2: normalised time by condition $\times$ task type --- the H2
+interaction plot.}
+\NUM{Figure 3: correctness on the same axes.}
+\NUM{Table: model coefficients with 95\% CIs, plus cell-level Cohen's $d$.}
+\NUM{The pre-registered focused contrast, C3 vs.\ C1 on cross-surface tasks.}
+\NUM{T6 specifically: C3 vs.\ C2, the cleanest top-of-ladder test.}
+
+\subsection{RQ2 --- Reliance and the division of labour}
+
+\NUM{Figure 4: delegation ratio by condition.}
+\NUM{Table: the agent funnel --- invoked, tool attempted, executed, accepted,
+edited, undone --- by condition.}
+\NUM{Calibration: override rate crossed with coded agent-error type.}
+
+\subsection{RQ3 --- Trust versus measured effectiveness}
+
+\NUM{Figure 5: perception--behaviour scatter, trust composite against measured
+normalised time, points coloured by condition.}
+\NUM{Correlations with CIs; trust\_rely $\times$ trust\_verify cross-tab.}
+
+\subsection{Cognitive load and usability}
+
+\NUM{$\Delta$TLX composite and subscales by condition; SUS score against
+published norms.}
+
+\subsection{Qualitative findings}
+
+\NUM{Themes from the four open-ended items with $\kappa$; two or three
+representative quotes per theme, screened for identifying content.}
+
+% =====================================================================
+\section{Discussion}
+% =====================================================================
+
+\skel{Three or four subsections, each anchored to a result. Resist writing this
+before the data --- the placeholders below are angles, not conclusions.}
+
+\subsection{Where scope pays, and where it does not}
+\skel{If the interaction holds: scope is not a monotone good, and tool builders
+should widen an assistant's access along the seams the work actually crosses
+rather than uniformly. If it does not hold: say so plainly, and use the T6
+contrast to say whether the ceiling was the scope or the model.}
+
+\subsection{Implications for designers of workspace-embedded assistants}
+\skel{Concrete, actionable: what to grant, what to gate, what to surface to the
+user about what the assistant can see. Tie back to the TOSEM SI's
+human-AI-collaboration framing --- this is the section the special issue is
+asking for.}
+
+\subsection{Trust as a design risk}
+\skel{If trust tracks visible activity rather than effectiveness, an assistant
+that does more is trusted more regardless of whether it is right --- a design
+hazard, since widening scope is exactly what makes an assistant visibly do
+more. Connect to appropriate-reliance work \cite{lee2004trust,bucinca2021trust}.}
+
+\subsection{Implications for research}
+\skel{Benchmark context gains do not transfer automatically to user outcomes;
+name what a future study with a fragmented-tools arm, or with capability held
+fixed across scope levels, would need to look like.}
+
+% =====================================================================
+\section{Threats to Validity}\label{sec:threats}
+% =====================================================================
+
+\skel{Write these honestly and early --- several are known now and are stronger
+stated up front than extracted by a reviewer.}
+
+\paragraph{Scope confounds seeing with doing.} Visibility and capability rise
+together by construction, so the C3-versus-C1 contrast confounds seeing with
+doing: C1 only advises while C3 acts across three surfaces, and the simplest
+reading of any gap is that the agent did the clicking. We report that contrast as
+evidence the manipulation works, not as evidence about context per se. The
+contrast that isolates context is C2 versus C3 --- both act, and differ only in
+GitHub scope --- which this sample can estimate but not decisively test; T6
+sharpens it. RQ3 is untouched by this confound, since it compares each
+condition's trust against that same condition's own measured effectiveness.
+
+\paragraph{No fragmented-tools arm.} The study cannot speak to whether an
+integrated workspace beats separate tools. Integration motivates the apparatus;
+it is not a claim we test.
+
+\paragraph{The top rung is small, even though it is real.} Participants do
+genuinely review in C3 --- they read a diff, record a verdict and a comment,
+link the pull request, and can merge it, with the merge moving the linked card
+as a webhook would. But the diffs are seeded fixtures of one to two files, so
+review here costs a fraction of what review costs on a real change set. That
+caps the detectable C2$\rightarrow$C3 effect --- if reviewing is cheap, help
+with reviewing is worth little --- and it limits generalisation to real
+repositories, where the reading is the expensive part and the effect could
+plausibly be larger. \todo{After the run, report the actual median time spent in
+the review surface; if it is very short, say so here rather than letting a
+reviewer compute it.}
+
+\paragraph{Coordination, not authoring.} Weld covers the coordination and review
+layer around code. Participants never write or run code, so the findings speak to
+agents embedded in the tools \emph{around} an editor, not to in-editor coding
+assistants, which is where most existing evidence sits.
+
+\paragraph{One model, one moment.} A single pinned snapshot at fixed temperature
+buys internal validity at the cost of external validity. The snapshot must also
+be capable enough that the top rung is floored by the design rather than by the
+model; we verified this in piloting.
+
+\paragraph{Fixed phase order.} Practice effects are bundled into any
+agent$-$baseline delta (\S\ref{sec:timing}), which is why H1 is stated as a
+between-condition difference.
+
+\paragraph{Sample size and setting.} Roughly 7--10 participants per cell, on a
+seeded fictional project, in unproctored self-serve sessions, with a
+student-weighted sample. \todo{State the realised sample's demographics and be
+specific about what it does and does not generalise to.}
+
+% =====================================================================
+\section{Conclusion}
+% =====================================================================
+
+\skel{Half a page. Restate the manipulation, the headline finding, and the one
+design lesson worth carrying away. Write last.}
+
+\todo{Write after the discussion.}
+
+\section*{Data Availability}
+
+The study apparatus (workspace source, seed project, task scripts, telemetry
+schema, correctness rubric, and survey instrument) and the anonymised data and
+analysis scripts are available at \todo{archival DOI}.
+
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{weld-tosem}
+
+\end{document}
