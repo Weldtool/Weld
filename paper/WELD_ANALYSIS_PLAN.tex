@@ -41,7 +41,7 @@ the survey export. It is a plan, not yet results: numbers and figures are
 placeholders to be filled after data collection.
 \end{abstract}
 
-\section{The spine of the argument}
+\section{The spine of the argument}\label{sec:spine}
 
 The whole analysis ladders up to one claim: \emph{unifying task, communication,
 and code context and making it accessible to an AI agent helps---and the benefit
@@ -49,42 +49,65 @@ appears exactly where it should (cross-surface work), not everywhere.} Showing
 where the effect is \emph{absent} (comprehension and single-surface control
 tasks) is what makes the place it \emph{is} present credible.
 
-The independent variable is a three-rung \emph{context ladder}:
+The independent variable is a three-rung \emph{agent-scope ladder}:
 \begin{itemize}[nosep]
-  \item \textbf{C1} --- agent sees chat only;
-  \item \textbf{C2} --- agent sees chat $+$ board;
-  \item \textbf{C3} --- agent sees chat $+$ board $+$ GitHub.
+  \item \textbf{C1} --- agent sees chat only, and advises only;
+  \item \textbf{C2} --- agent sees chat $+$ board, and can act on both;
+  \item \textbf{C3} --- agent sees chat $+$ board $+$ GitHub, and can act across all three.
 \end{itemize}
 Moving up the ladder \emph{is} increasing integration, so ``does integration
 help?'' becomes the concrete, testable ``does $\text{C3} > \text{C2} >
 \text{C1}$, and on which tasks?''
 
+\paragraph{Scope, not context breadth alone --- and why the naming matters.}
+Visibility and capability rise together across the ladder: an agent cannot act on
+a board it cannot see, so the two are coupled by construction rather than by
+oversight. We therefore name the manipulated variable \emph{agent scope}
+throughout, and not ``context breadth,'' which would imply capability was held
+fixed. The consequence for interpretation is specific and we state it up front:
+\textbf{C3-vs-C1 confounds seeing with doing.} C1 can only talk; C3 can act
+across three surfaces. On cross-surface tasks that contrast can hardly fail, and
+its most parsimonious explanation is that an agent which performs the steps saves
+the user from performing them --- a real and worthwhile finding about agent
+scope, but not evidence that \emph{context} is what did the work. The contrast
+that isolates context is \textbf{C2-vs-C3}: both act, and they differ only in
+whether GitHub is in scope. At $\sim$7--10 per cell that comparison is
+underpowered, and we report it as an estimate with its interval rather than a
+test. Read together: C3-vs-C1 establishes that agent scope matters and functions
+largely as a manipulation check; C2-vs-C3 is the theoretically clean but
+imprecise estimate of the GitHub rung; and the study's distinctive contribution
+is H5, where the confound does not apply at all, since trust is compared against
+each condition's \emph{own} measured effectiveness.
+
 \subsection*{Research questions and hypotheses}
 
 The study manipulates one variable---how much of the workspace the in-app agent
-can see and act on (the C1$\rightarrow$C2$\rightarrow$C3 ladder)---measured
+can see and act on (the C1$\rightarrow$C2$\rightarrow$C3 scope ladder)---measured
 against each participant's own no-agent baseline (C0). The questions stay inside
-what that supports: the agent's context breadth and how users work with it, not
-whether an all-in-one workspace beats separate tools (there is no
-fragmented-tools arm to test that).
+what that supports: the agent's scope over the workspace and how users work with
+it, not whether an all-in-one workspace beats separate tools (there is no
+fragmented-tools arm to test that), and not context breadth with capability held
+constant (the two rise together by construction).
 
 \begin{description}[leftmargin=2.6em,style=nextline,nosep]
-  \item[RQ1] \emph{(primary)} Does broadening the agent's context
+  \item[RQ1] \emph{(primary)} Does widening the agent's scope over the workspace
   (chat $\rightarrow$ $+$board $\rightarrow$ $+$GitHub) make the user more
   effective, and on which tasks?
   \item[RQ2] How much do users delegate to vs.\ verify the agent, and does that
-  shift with its context breadth?
+  shift with its scope?
   \item[RQ3] Does trust in the agent track its measured effectiveness, or diverge?
 \end{description}
 
 \begin{description}[leftmargin=3.0em,style=nextline,nosep]
-  \item[H1] (RQ1) Broader context yields larger improvements over the user's
-  manual baseline (faster completion).
+  \item[H1] (RQ1) Wider scope yields shorter baseline-adjusted agent-task times
+  \emph{across conditions}. (Stated between conditions, never as an absolute gain
+  over C0: phase order is fixed, so an agent$-$baseline delta also contains
+  ordinary practice --- see \S\ref{sec:timing}.)
   \item[H2] (RQ1) The gain is \emph{task-dependent}: minimal on comprehension and
   single-surface tasks, substantial on cross-surface tasks.
-  \item[H3] (RQ1) Broader context lowers self-reported cognitive load relative to
-  baseline more than narrow context.
-  \item[H4] (RQ2) Delegation rises with context breadth, but reliance is
+  \item[H3] (RQ1) Wider scope lowers self-reported cognitive load relative to
+  baseline more than narrow scope.
+  \item[H4] (RQ2) Delegation rises with scope, but reliance is
   imperfectly calibrated to where the agent is actually correct.
   \item[H5] (RQ3) Trust and perceived speedup need not track the agent's measured
   effectiveness (the perception--behavior gap).
@@ -200,15 +223,44 @@ Fig.~\ref{fig:interaction} plots; standardized effect sizes are reported
 secondarily. We lead with effect sizes and CIs rather than $p$-values given the
 sample size.
 
-\paragraph{Confirmatory vs.\ supporting (pre-registered).} At
+\paragraph{Confirmatory vs.\ supporting (fixed in advance).} At
 $N\approx20$--$30$ the full $3\times3$ interaction is the most data-hungry term
-in the model and will be estimated imprecisely. We therefore pre-register a
+in the model and will be estimated imprecisely. We therefore fix, before any data
+are collected, a
 single \emph{focused contrast} as the confirmatory primary test---C3 vs.\ C1 on
 cross-surface tasks (the rung and task type where H1/H2 predict the largest gap,
 sharpened by T6, \S\ref{sec:t6})---and treat the omnibus
 \code{condition$\times$task\_type} interaction as supporting evidence reported
 alongside it. Everything past H3 (the trust/perception analyses, H5) is labeled
 \emph{exploratory / hypothesis-generating}, not confirmatory.
+
+\emph{What that contrast can and cannot establish.} C3-vs-C1 varies scope on both
+axes at once --- C1 advises, C3 acts across three surfaces --- so a gap there is
+evidence that widening agent scope helps, and is \emph{not} evidence that the
+extra context specifically is what helped (``Scope, not context breadth alone,''
+\S\ref{sec:spine}). We choose it
+as the confirmatory test because it is the one contrast this sample can estimate
+with any precision, and we report it in those terms: as the study's manipulation
+working, with the mechanism left to the underpowered C2-vs-C3 estimate and to
+T6 (\S\ref{sec:t6}), where the correct PR is identifiable only with GitHub
+context. A reader should come away able to distinguish ``scope helped'' (which we
+can show) from ``context breadth helped'' (which we can only estimate).
+
+\paragraph{Sensitivity: what this design can detect.} For the confirmatory
+contrast (C3 vs.\ C1, two cross-surface agent tasks, eight participants per
+cell), the minimum detectable effect at $\alpha=0.05$ two-sided and 80\,\% power
+is $d\approx1.1$--$1.4$ across plausible values of the total log-time SD
+($\sigma\in[0.4,0.6]$), the within-participant ICC ($\rho\in[0.4,0.6]$), and the
+baseline--outcome correlation ($r\in[0,0.7]$). Under central assumptions
+($\sigma=0.5$, $\rho=0.5$, $r=0.5$) it is $d=1.20$---a 45\,\% reduction in task
+time---with a 20\,000-replication Monte Carlo check recovering 80--83\,\% power
+there. Detecting a 20\,\% reduction would require roughly 50 participants per
+cell. Two consequences are pre-committed: a non-significant C2-vs-C3 result is
+reported as an interval, never as evidence of absence; and because the
+between-participant component dominates, more tasks per person is not a remedy
+(doubling cross-surface tasks from two to four moves the detectable effect only
+from 45\,\% to 42\,\%). Computed by \code{sensitivity.py}; parameters are assumed
+pending pilot estimates and are re-run against realised data.
 
 \subsection{Correctness}
 
@@ -227,6 +279,24 @@ logistic model where it converges and a permutation/exact test where it does not
 Correctness is \emph{always} reported beside time: a condition that is faster but
 less correct is not ``better.'' Speed without correctness is meaningless.
 
+\paragraph{Scoring procedure and reliability (pre-specified).} Correctness is the
+one primary measure produced by human judgement rather than instrumentation, so
+the procedure is fixed in advance. (a) \emph{Blinding.} Scoring works from a
+final-state export --- board state, posted messages, PR-review verdict and
+comment --- with \code{agent\_condition}, the agent transcript, and all timing
+stripped. Knowing a participant was in C3 while judging their output is a direct
+route to confirming H1, and the export makes blinding cheap, so it is mandatory
+rather than aspirational. (b) \emph{Two independent coders} score all
+$12\times N$ tasks; there is no sampling shortcut, as the total is small enough
+to double-code entirely. (c) \emph{Reliability} is reported as quadratic-weighted
+Cohen's $\kappa$ on the 0--3 scale (weighted because the score is ordinal --- a
+3-vs-2 disagreement is not a 3-vs-0 disagreement), with exact agreement rate
+alongside it. (d) \emph{Disagreements} are resolved by discussion to consensus,
+still blind to condition; the pre-adjudication $\kappa$ is what gets reported,
+not the post-consensus one. (e) The rubric is fixed and piloted on the pilot
+participants' data before any real session is scored, and is not revised once
+scoring of the real sample has begun.
+
 \subsection{Cognitive load (H3) --- two measures, two analyses}
 
 NASA-TLX is collected \emph{twice}---once in a post-baseline interstitial (manual
@@ -235,7 +305,13 @@ it now yields a within-person, phase-to-phase delta. We test H3 two ways:
 \begin{enumerate}[nosep,label=(\alph*)]
   \item \emph{global TLX delta} (primary): per participant,
   $\Delta\textit{TLX} = \textit{TLX}_{\text{agent}} - \textit{TLX}_{\text{baseline}}$
-  on the composite (and per subscale), then compare $\Delta\textit{TLX}$
+  on the composite (and per subscale)---%
+  \footnote{\code{tlx\_performance} (and \code{tlx\_performance\_baseline}) is
+  anchored Failure$\rightarrow$Perfect, i.e.\ high $=$ good performance, the
+  opposite of the other five items. Reverse-score it once
+  ($\text{MAX}+\text{MIN}-\text{raw}$) so higher $=$ more load before it enters
+  the composite; leave the other five as stored.}
+  then compare $\Delta\textit{TLX}$
   \emph{between} conditions (Welch ANOVA / Kruskal--Wallis at small $N$). H3
   predicts a larger drop (more negative $\Delta$) under broader context. The
   paired baseline removes the between-person level differences that a single
@@ -351,6 +427,31 @@ and \code{was\_interrupted}. Pre-specified handling: analyze active time as
 primary; run a sensitivity analysis excluding \code{was\_interrupted} tasks;
 report the interruption rate.
 
+\paragraph{Visible-idle rule (pre-specified).} The clock pauses when the tab is
+hidden, which catches the common way of stepping away but not all of it: a
+participant who leaves the tab in front and walks off is still banking active
+time. Because sessions are unproctored and $n\approx8$ per cell, one such task
+can carry a condition. We therefore pre-specify, before any data are seen: within
+a task, a stretch of $\geq$\,180\,s of visible time containing \emph{zero}
+telemetry events is treated as idle and subtracted from active time. The
+threshold sits well above the natural gap for reading a channel or a diff
+(tasks run $\sim$4--5\,min in total and emit view, card, message, and agent
+events throughout) and well below the scale of a genuine walk-away. We report how
+many tasks trigger the rule, and give the primary model both with and without the
+correction; a result that depends on which is used will be reported as such
+rather than resolved in the direction we prefer.
+
+\paragraph{Practice effects bound what the baseline can claim.} Phase order is
+fixed --- the six manual baselines always precede the six agent tasks, because
+seeing the agent cannot be undone. So by T1 every participant is six tasks more
+fluent in Weld, and the agent$-$baseline delta confounds agent help with ordinary
+learning. This does not threaten the study's inferences, which are all
+\emph{between} conditions where the ordering is identical by construction. It
+does mean one sentence is unavailable to us: we never claim that the agent made
+participants faster than working manually. H1 is stated and tested as a
+difference in the baseline-adjusted agent-task time \emph{across conditions}
+(Eq.~\eqref{eq:primary}), never as an absolute improvement over C0.
+
 \section{Reporting order (Results section skeleton)}
 
 \begin{enumerate}[nosep]
@@ -394,10 +495,42 @@ Mitigations: condition assignment is balanced by adaptive minimization---each
 participant is assigned to the currently least-filled condition, ties broken at
 random (implemented in \code{provision.rs::pick\_agent\_condition}), which keeps
 the cells near-equal and breaks the confound between condition and enrollment
-order; pre-registration on OSF naming the confirmatory focused contrast (\S\ref{sec:t6})
-and the exploratory remainder; and reporting effect sizes and confidence
+order; this plan itself, which fixes the confirmatory focused contrast
+(\S\ref{sec:t6}) and the exploratory remainder in advance and is archived with the
+replication package rather than deposited in a public registry; and reporting
+effect sizes and confidence
 intervals---and, where appropriate, permutation or Bayesian estimation---rather
 than relying on null-hypothesis significance tests. We state plainly that this is
 a focused study, not a large trial.
+
+\paragraph{The top rung is a narrow rung.} Under study mode GitHub is served from
+fixtures and is read-only: pull requests carry one or two files of diff, and the
+write endpoints are locked. C3's capability beyond C2 therefore amounts to
+reading small diffs and linking a PR to a card. This bounds the size of any
+C2$\rightarrow$C3 effect we could detect, and it bounds generalization: in a real
+repository, review is the expensive part of the work, and that is precisely where
+GitHub-scoped agents might earn or lose their keep. The lockdown is deliberate
+(no participant action can reach a real repository) and we would make the same
+choice again, but the resulting claim is about a GitHub rung of modest depth, not
+about code review at realistic scale.
+
+\paragraph{One model, one moment.} The agent is a single pinned model snapshot,
+fixed temperature, held constant for the whole run and named exactly in the
+methods. That buys internal validity --- no mid-study capability drift --- at the
+cost of external validity: results describe how users worked with \emph{this}
+agent, and a materially stronger or weaker model could move both effectiveness
+and the trust calibration H5 measures. The snapshot is also chosen to be capable
+enough that the top rung is not floored by the model rather than by the design;
+a null under a weak agent would be uninterpretable.
+
+\paragraph{Availability, not instruction.} Agent-task wording tells participants
+the assistant \emph{is available}, never to use it, precisely so RQ2 measures
+chosen delegation rather than compliance. The cost is exposure: a participant may
+complete agent tasks with little or no agent use, which is informative for RQ2
+but reduces the effective sample for the effectiveness contrasts. We report agent
+uptake per condition alongside the flow numbers, and pre-specify that
+effectiveness models are fit on all tasks as assigned (intention-to-treat), with a
+secondary as-used analysis restricted to tasks with at least one
+\code{agent\_invoked}; divergence between the two is reported, not resolved.
 
 \end{document}
