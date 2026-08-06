@@ -1,0 +1,7 @@
+# Analysis pipeline for the Weld agent-scope study.
+#   python3 -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt
+pandas>=2.0
+numpy>=1.24
+scipy>=1.10
+statsmodels>=0.14
+matplotlib>=3.7

@@ -1,0 +1,391 @@
+"""
+The models and tests named in the paper's Analysis Plan.
+
+Order matters and mirrors the Results section: manipulation check first, then
+RQ1, RQ2, RQ3, then load and usability. Nothing here decides anything that was
+not fixed in advance; where a tool limitation forces a deviation it is stated
+loudly in the returned object and in the printed report.
+"""
+
+from __future__ import annotations
+
+import warnings
+from dataclasses import dataclass, field
+
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+import derive
+from load import StudyData, of_type
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    import statsmodels.formula.api as smf
+
+
+# --- Manipulation check -----------------------------------------------------
+
+
+def _mentions(obj: object, needle: str) -> bool:
+    """Recursively test whether any key or string value mentions `needle`."""
+    if isinstance(obj, dict):
+        return any(
+            needle in str(k).lower() or _mentions(v, needle) for k, v in obj.items()
+        )
+    if isinstance(obj, list):
+        return any(_mentions(v, needle) for v in obj)
+    if isinstance(obj, str):
+        return needle in obj.lower()
+    return False
+
+
+def manipulation_check(data: StudyData) -> pd.DataFrame:
+    """Prove the scoping held, from the `agent_context_sent` snapshots.
+
+    Expectation (paper Section 5.1): 100% of C1 snapshots contain no board and no
+    GitHub content, and 100% of C2 snapshots contain no GitHub content. Any
+    non-zero cell is a leak and must be reported, not dropped.
+    """
+    snaps = of_type(data.events, "agent_context_sent")
+    if snaps.empty:
+        return pd.DataFrame(
+            columns=["agent_condition", "snapshots", "with_board", "with_github",
+                     "pct_board", "pct_github", "violations"]
+        )
+
+    rows = []
+    for cond, grp in snaps.groupby("agent_condition"):
+        has_board = grp["payload"].map(lambda p: _mentions(p, "board") or _mentions(p, "column"))
+        has_gh = grp["payload"].map(lambda p: _mentions(p, "github") or _mentions(p, "pull_request"))
+        n = len(grp)
+        # What counts as a violation depends on the condition's allowlist.
+        if cond == "C1":
+            violations = int((has_board | has_gh).sum())
+        elif cond == "C2":
+            violations = int(has_gh.sum())
+        else:
+            violations = 0
+        rows.append(
+            {
+                "agent_condition": cond,
+                "snapshots": n,
+                "with_board": int(has_board.sum()),
+                "with_github": int(has_gh.sum()),
+                "pct_board": 100.0 * has_board.mean(),
+                "pct_github": 100.0 * has_gh.mean(),
+                "violations": violations,
+            }
+        )
+    return pd.DataFrame(rows).sort_values("agent_condition").reset_index(drop=True)
+
+
+# --- RQ1: primary timing model ---------------------------------------------
+
+
+@dataclass
+class ModelResult:
+    name: str
+    summary: str
+    table: pd.DataFrame
+    notes: list[str] = field(default_factory=list)
+
+
+def primary_time_model(tasks: pd.DataFrame, idle_adjusted: bool = False) -> ModelResult:
+    """log(time) ~ condition * task_type + log(baseline) + (1 | participant).
+
+    Fitted on agent-phase tasks only; the baseline enters as a covariate rather
+    than as a pre-computed ratio (paper Section 5.2).
+    """
+    agent = tasks[(tasks["phase"] == "agent")].copy()
+    if idle_adjusted:
+        agent["log_time"] = np.log(
+            agent["task_time_ms_idle_adj"].where(agent["task_time_ms_idle_adj"] > 0)
+        )
+    agent = agent.dropna(subset=["log_time", "log_baseline", "agent_condition", "task_type"])
+
+    notes = []
+    if agent["participant_code"].nunique() < 3 or len(agent) < 10:
+        return ModelResult("primary_time", "insufficient data to fit", pd.DataFrame(),
+                           ["Too few observations to fit the mixed model."])
+
+    model = smf.mixedlm(
+        "log_time ~ C(agent_condition, Treatment('C1')) * C(task_type, Treatment('cross_surface')) + log_baseline",
+        data=agent,
+        groups=agent["participant_code"],
+    )
+    # statsmodels' default tries a sequence of optimizers; a single forced
+    # choice can hit a singular Hessian on well-conditioned data (lbfgs does on
+    # ours). Fall back explicitly rather than let the whole run die.
+    fit = None
+    for method in (None, "powell", "cg", "nm"):
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                fit = model.fit(reml=True) if method is None else model.fit(
+                    reml=True, method=method
+                )
+            if method is not None:
+                notes.append(f"Primary optimizer failed; converged with '{method}'.")
+            break
+        except Exception as exc:  # noqa: BLE001 - report, do not mask
+            last = f"{type(exc).__name__}: {exc}"
+    if fit is None:
+        return ModelResult("primary_time", f"model did not converge ({last})",
+                           pd.DataFrame(), notes + ["Mixed model failed to converge."])
+    if not getattr(fit, "converged", True):
+        notes.append("WARNING: optimizer reported non-convergence; treat with caution.")
+
+    tbl = pd.DataFrame(
+        {
+            "coef": fit.params,
+            "se": fit.bse,
+            "z": fit.tvalues,
+            "p": fit.pvalues,
+            "ci_low": fit.conf_int()[0],
+            "ci_high": fit.conf_int()[1],
+        }
+    )
+    # log coefficients are multiplicative effects on time; report both.
+    tbl["time_ratio"] = np.exp(tbl["coef"])
+    tbl["ratio_ci_low"] = np.exp(tbl["ci_low"])
+    tbl["ratio_ci_high"] = np.exp(tbl["ci_high"])
+    if idle_adjusted:
+        notes.append("Fitted on idle-adjusted task time (pre-specified sensitivity).")
+    return ModelResult("primary_time", str(fit.summary()), tbl, notes)
+
+
+def focused_contrast(tasks: pd.DataFrame) -> pd.DataFrame:
+    """The confirmatory test: C3 vs C1 on cross-surface agent tasks.
+
+    Fitted per participant first (mean of their cross-surface normalised times),
+    so each person contributes one value and the between-subjects comparison is
+    not inflated by treating two tasks as independent.
+    """
+    cross = tasks[(tasks["phase"] == "agent") & (tasks["task_type"] == "cross_surface")]
+    per_p = (
+        cross.groupby(["participant_code", "agent_condition"])["normalised_time"]
+        .mean()
+        .reset_index()
+        .dropna()
+    )
+    rows = []
+    for a, b in (("C1", "C3"), ("C1", "C2"), ("C2", "C3")):
+        x = per_p.loc[per_p["agent_condition"] == a, "normalised_time"]
+        y = per_p.loc[per_p["agent_condition"] == b, "normalised_time"]
+        if len(x) < 2 or len(y) < 2:
+            continue
+        t, p = stats.ttest_ind(y, x, equal_var=False)
+        pooled = np.sqrt((x.var(ddof=1) + y.var(ddof=1)) / 2)
+        d = (y.mean() - x.mean()) / pooled if pooled > 0 else np.nan
+        # Welch CI on the difference in means.
+        se = np.sqrt(x.var(ddof=1) / len(x) + y.var(ddof=1) / len(y))
+        dfree = (x.var(ddof=1) / len(x) + y.var(ddof=1) / len(y)) ** 2 / (
+            (x.var(ddof=1) / len(x)) ** 2 / (len(x) - 1)
+            + (y.var(ddof=1) / len(y)) ** 2 / (len(y) - 1)
+        )
+        crit = stats.t.ppf(0.975, dfree)
+        diff = y.mean() - x.mean()
+        rows.append(
+            {
+                "contrast": f"{b} - {a}",
+                "n_a": len(x), "n_b": len(y),
+                "mean_a": x.mean(), "mean_b": y.mean(),
+                "diff": diff,
+                "ci_low": diff - crit * se, "ci_high": diff + crit * se,
+                "cohens_d": d, "t": t, "p": p,
+                "confirmatory": (a, b) == ("C1", "C3"),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def correctness_model(tasks: pd.DataFrame) -> ModelResult:
+    """Correctness by condition x task type.
+
+    DEVIATION, stated openly: the plan specifies an ordinal cumulative-link
+    *mixed* model. statsmodels has no CLMM, and R is not a dependency of this
+    pipeline. We fit an ordinal model without the participant random effect and
+    report it as approximate; `r_snippet()` emits the exact clmm call to run in R
+    for the version of record.
+    """
+    agent = tasks[tasks["phase"] == "agent"].dropna(subset=["correctness"])
+    notes = [
+        "Approximate: no participant random effect (statsmodels lacks a CLMM). "
+        "Run the emitted R snippet with ordinal::clmm for the reported model."
+    ]
+    if agent.empty or agent["correctness"].nunique() < 2:
+        return ModelResult("correctness", "no correctness coding available",
+                           pd.DataFrame(), notes)
+
+    tab = (
+        agent.groupby(["agent_condition", "task_type"])["correctness"]
+        .agg(["count", "mean", "std"])
+        .reset_index()
+    )
+    # Kruskal-Wallis across conditions within each task type: distribution-free
+    # and appropriate at this sample size.
+    tests = []
+    for ttype, grp in agent.groupby("task_type"):
+        arrays = [g["correctness"].values for _, g in grp.groupby("agent_condition")]
+        if len(arrays) >= 2 and all(len(a) > 0 for a in arrays):
+            try:
+                h, p = stats.kruskal(*arrays)
+            except ValueError:
+                h, p = np.nan, np.nan
+            tests.append({"task_type": ttype, "H": h, "p": p})
+    return ModelResult("correctness", "", tab.merge(pd.DataFrame(tests), on="task_type",
+                                                    how="left"), notes)
+
+
+def r_snippet() -> str:
+    """The exact R for the cumulative-link mixed model of record."""
+    return (
+        "# Correctness model of record (paper Section 5.2).\n"
+        "library(ordinal)\n"
+        'd <- read.csv("tables/task_table.csv")\n'
+        'd <- subset(d, phase == "agent")\n'
+        "d$correctness <- factor(d$correctness, ordered = TRUE)\n"
+        "d$agent_condition <- relevel(factor(d$agent_condition), ref = \"C1\")\n"
+        "m <- clmm(correctness ~ agent_condition * task_type + (1 | participant_code), data = d)\n"
+        "summary(m)\n"
+    )
+
+
+# --- RQ1 / H3: cognitive load ----------------------------------------------
+
+
+def tlx_delta_by_condition(participants: pd.DataFrame) -> pd.DataFrame:
+    """Between-condition comparison of the within-person TLX change."""
+    if "tlx_delta" not in participants.columns:
+        return pd.DataFrame()
+    d = participants.dropna(subset=["tlx_delta"])
+    if d.empty:
+        return pd.DataFrame()
+    rows = [
+        {
+            "agent_condition": cond,
+            "n": len(g),
+            "mean_delta": g["tlx_delta"].mean(),
+            "sd": g["tlx_delta"].std(ddof=1),
+        }
+        for cond, g in d.groupby("agent_condition")
+    ]
+    out = pd.DataFrame(rows)
+    arrays = [g["tlx_delta"].values for _, g in d.groupby("agent_condition")]
+    if len(arrays) >= 2 and all(len(a) >= 2 for a in arrays):
+        h, p = stats.kruskal(*arrays)
+        out.attrs["kruskal_H"] = h
+        out.attrs["kruskal_p"] = p
+    return out
+
+
+# --- RQ2: reliance ----------------------------------------------------------
+
+
+def agent_funnel(data: StudyData, tasks: pd.DataFrame) -> pd.DataFrame:
+    """Invocation -> tool attempted -> executed -> accepted / edited / undone."""
+    ev = data.events
+    steps = {
+        "invoked": "agent_invoked",
+        "panel_opened": "agent_panel_opened",
+        "tool_attempted": "agent_tool_call",
+        "suggestion_accepted": "agent_suggestion_accepted",
+        "suggestion_rejected": "agent_suggestion_rejected",
+        "output_edited": "agent_output_edited",
+        "action_undone": "agent_action_undone",
+        "tool_rejected": "agent_tool_rejected",
+        "error": "agent_error",
+    }
+    rows = []
+    for cond, grp in ev.groupby("agent_condition"):
+        row = {"agent_condition": cond,
+               "participants": grp["participant_code"].nunique()}
+        for label, etype in steps.items():
+            row[label] = int((grp["event_type"] == etype).sum())
+        calls = grp[grp["event_type"] == "agent_tool_call"]
+        row["tool_executed"] = int(calls["payload"].map(lambda p: bool(p.get("executed"))).sum())
+        row["tool_blocked"] = int(calls["payload"].map(lambda p: p.get("allowed") is False).sum())
+        rows.append(row)
+    return pd.DataFrame(rows).sort_values("agent_condition").reset_index(drop=True)
+
+
+def delegation_by_condition(participants: pd.DataFrame) -> pd.DataFrame:
+    if "delegation_ratio" not in participants.columns:
+        return pd.DataFrame()
+    d = participants.dropna(subset=["delegation_ratio"])
+    return (
+        d.groupby("agent_condition")["delegation_ratio"]
+        .agg(["count", "mean", "std", "median"])
+        .reset_index()
+    )
+
+
+# --- RQ3: perception vs measurement ----------------------------------------
+
+
+def perception_correlations(participants: pd.DataFrame) -> pd.DataFrame:
+    """Spearman correlations of perception against measured performance.
+
+    Pooled across conditions (headline) and repeated within each condition (the
+    version immune to the seeing-vs-doing confound, but thinly powered).
+    """
+    perception = ["trust_composite", "trust_speed_perceived", "trust_rely",
+                  "trust_verify", "trust_context"]
+    measured = ["mean_normalised_time_cross", "mean_correctness_cross",
+                "mean_normalised_time_all", "mean_correctness_all"]
+    rows = []
+
+    def _corr(frame: pd.DataFrame, scope: str) -> None:
+        for pcol in perception:
+            for mcol in measured:
+                if pcol not in frame.columns or mcol not in frame.columns:
+                    continue
+                sub = frame[[pcol, mcol]].dropna()
+                if len(sub) < 4:
+                    continue
+                rho, p = stats.spearmanr(sub[pcol], sub[mcol])
+                rows.append({"scope": scope, "perception": pcol, "measured": mcol,
+                             "n": len(sub), "spearman_rho": rho, "p": p})
+
+    _corr(participants, "pooled")
+    for cond, grp in participants.groupby("agent_condition"):
+        _corr(grp, cond)
+    return pd.DataFrame(rows)
+
+
+def reliance_calibration(participants: pd.DataFrame) -> pd.DataFrame:
+    """trust_rely crossed with trust_verify -- over- vs under-reliance."""
+    if not {"trust_rely", "trust_verify"}.issubset(participants.columns):
+        return pd.DataFrame()
+    d = participants.dropna(subset=["trust_rely", "trust_verify"])
+    if d.empty:
+        return pd.DataFrame()
+    return (
+        d.groupby("agent_condition")[["trust_rely", "trust_verify"]]
+        .agg(["count", "mean", "std"])
+        .reset_index()
+    )
+
+
+# --- Orchestration ----------------------------------------------------------
+
+
+def run_all(data: StudyData) -> dict[str, object]:
+    tasks = derive.task_table(data)
+    participants = derive.participant_table(data, tasks)
+    return {
+        "task_table": tasks,
+        "participant_table": participants,
+        "manipulation_check": manipulation_check(data),
+        "primary_time_model": primary_time_model(tasks),
+        "primary_time_model_idle_adjusted": primary_time_model(tasks, idle_adjusted=True),
+        "focused_contrast": focused_contrast(tasks),
+        "correctness": correctness_model(tasks),
+        "tlx_delta": tlx_delta_by_condition(participants),
+        "agent_funnel": agent_funnel(data, tasks),
+        "delegation": delegation_by_condition(participants),
+        "perception_correlations": perception_correlations(participants),
+        "reliance_calibration": reliance_calibration(participants),
+        "trust_alpha": derive.trust_alpha(data),
+    }

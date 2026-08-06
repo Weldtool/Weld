@@ -1,0 +1,6 @@
+# Local environment and generated output — never commit study data.
+.venv/
+__pycache__/
+out/
+data/
+data_synthetic/
