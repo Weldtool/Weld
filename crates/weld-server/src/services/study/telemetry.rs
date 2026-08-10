@@ -89,6 +89,9 @@ const ALLOWED_EVENT_TYPES: &[&str] = &[
     "agent_error",
     "agent_panel_opened",
     "agent_panel_collapsed",
+    // Server-side backstop firing: the model echoed a raw card id and we
+    // rewrote it. Recorded so the rate is auditable rather than invisible.
+    "agent_id_leak_sanitized",
     // GitHub cross-reference (from card)
     "issue_referenced_from_card",
     // In-app PR review (B4 / T6). `pr_review_submitted` carries the verdict and

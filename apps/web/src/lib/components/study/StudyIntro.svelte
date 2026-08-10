@@ -51,7 +51,7 @@
 			Thanks for your interest in this research study. Here's what to expect:
 		</p>
 		<ul class="mt-4 list-disc space-y-2 pl-6 text-sm text-[var(--muted-foreground)]">
-			<li><strong>About 40 minutes</strong>, done online at your own pace.</li>
+			<li><strong>About an hour</strong>, done online at your own pace.</li>
 			<li>
 				You'll work through realistic tasks in <strong>Weld</strong>, a developer workspace, using a
 				<strong>practice project</strong> — none of your real code or accounts are involved.
@@ -78,7 +78,7 @@
 		>
 			<p>
 				You are invited to take part in a research study about how developers work in an integrated
-				workspace assisted by an AI agent. Participation is voluntary and takes about 40 minutes.
+				workspace assisted by an AI agent. Participation is voluntary and takes about an hour.
 			</p>
 			<p class="mt-3">
 				You will complete a set of tasks in a practice project and answer a short survey. We log
