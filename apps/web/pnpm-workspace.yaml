@@ -1,0 +1,15 @@
+# pnpm settings. These lived in package.json under a `pnpm` key until pnpm 11
+# stopped reading that field — silently, so the overrides below were being
+# ignored and the lockfile drifted back to vulnerable versions on any install.
+# Keep them here.
+#
+# Each entry pins a transitive dependency past a published advisory. Ranges are
+# the *fixed* version, not the first patched-ish one: brace-expansion sat at
+# >=5.0.7 while the advisory covered <5.0.9, so the pin looked present and did
+# nothing.
+overrides:
+  markdown-it@<14.2.0: '>=14.2.0'
+  linkify-it@<5.0.2: '>=5.0.2 <6'
+  cookie@<0.7.0: '>=0.7.0'
+  brace-expansion@<5.0.9: '>=5.0.9'
+  postcss@<8.5.18: '>=8.5.18'
