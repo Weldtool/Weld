@@ -131,9 +131,15 @@ def generate(out_dir: Path, n: int, seed: int = 7) -> None:
                             "prompt_version": "v1", "total_tokens": int(rng.integers(700, 3000)),
                         })
                     for _ in range(n_agent):
+                        # `post_message` only ever drafts -- the participant
+                        # sends. derive.py keeps drafts out of the delegation
+                        # numerator, so the synthetic data has to produce some
+                        # or that split goes untested until real data lands.
+                        tool = random.choice(["move_card", "update_card", "post_message"])
                         emit("agent_tool_call", task, {
-                            "tool": random.choice(["move_card", "update_card", "post_message"]),
-                            "allowed": True, "executed": True, "drafted": False,
+                            "tool": tool,
+                            "allowed": True, "executed": True,
+                            "drafted": tool == "post_message",
                         })
                     if rng.random() < 0.3:
                         emit("agent_suggestion_accepted", task, {})
