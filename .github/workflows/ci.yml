@@ -94,10 +94,14 @@ jobs:
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
         working-directory: .
+      # Version comes from `packageManager` in apps/web/package.json so CI and
+      # local can't drift. They had: CI pinned pnpm 9, which reads overrides
+      # from package.json, while developers ran pnpm 11, which reads them from
+      # pnpm-workspace.yaml and ignores the package.json field entirely.
       - if: steps.check.outputs.skip != 'true'
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          package_json_file: apps/web/package.json
       - if: steps.check.outputs.skip != 'true'
         uses: actions/setup-node@v4
         with:
@@ -115,6 +119,11 @@ jobs:
       - if: steps.check.outputs.skip != 'true'
         name: Unit tests
         run: pnpm test
+      # The Rust side has audited since day one; the npm side never did, so the
+      # only thing catching advisories here was Dependabot filing a PR.
+      - if: steps.check.outputs.skip != 'true'
+        name: Audit npm dependencies
+        run: pnpm audit
 
   security-audit:
     name: Security Audit
