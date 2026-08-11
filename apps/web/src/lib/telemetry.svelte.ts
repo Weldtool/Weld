@@ -1,15 +1,17 @@
 import { browser } from '$app/environment';
 import { env } from '$env/dynamic/public';
 import { study as studyApi, type TelemetryEvent } from '$lib/api';
+import { ApiError } from '$lib/api/client';
 import { auth } from '$lib/auth.svelte';
 import { appConfig } from '$lib/config.svelte';
 
 /**
  * Client-side behavioral telemetry for the research study (Category A,
- * research-paper/CLAUDE_STUDY.md §5). Buffers events and flushes them in
- * batches to `POST /api/v1/study/events`. Completely inert unless the backend
- * is in study mode (`appConfig.studyMode`), so it has zero effect on the normal
- * product.
+ * paper/instrument/CLAUDE_STUDY.md §5 — `paper/` is tracked on the
+ * `paper/tosm-journal-writing` branch, not this one). Buffers events and
+ * flushes them in batches to `POST /api/v1/study/events`. Completely inert
+ * unless the backend is in study mode (`appConfig.studyMode`), so it has zero
+ * effect on the normal product.
  *
  * Privacy: only the discrete events instrumented in the app are recorded — no
  * keystrokes, mouse movement, or screen capture (§5 exclusions). `log()` takes
@@ -77,14 +79,24 @@ class Telemetry {
 		this.#teardown();
 	}
 
-	/** Send buffered events. Re-queues on failure so nothing is silently dropped. */
+	/**
+	 * Send buffered events. Re-queues on a network error or a server fault so a
+	 * flaky connection doesn't lose data — but a 4xx is the server refusing this
+	 * batch's *content*, and retrying it forever would poison the buffer and cost
+	 * the participant every later event of the session. Drop those and move on.
+	 */
 	async flush(): Promise<void> {
 		if (!this.active || this.#buffer.length === 0) return;
 		const batch = this.#buffer;
 		this.#buffer = [];
 		try {
 			await studyApi.events({ events: batch });
-		} catch {
+		} catch (err) {
+			const status = err instanceof ApiError ? err.status : 0;
+			if (status >= 400 && status < 500) {
+				console.warn(`[telemetry] server rejected a batch of ${batch.length} events`, err);
+				return;
+			}
 			this.#buffer = batch.concat(this.#buffer);
 		}
 	}

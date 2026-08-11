@@ -37,6 +37,7 @@ pub async fn create_project(
         VALUES ($1, $2, $3, $4)
         RETURNING id, team_id, name, slug, description, github_repo, done_column_id,
                   in_progress_column_id, review_column_id, auto_close_on_issue_closed,
+               github_comment_on_move,
                   created_at, updated_at, deleted_at
         "#,
         team_id,
@@ -78,6 +79,7 @@ pub async fn create_project(
         WHERE id = $1
         RETURNING id, team_id, name, slug, description, github_repo, done_column_id,
                   in_progress_column_id, review_column_id, auto_close_on_issue_closed,
+               github_comment_on_move,
                   created_at, updated_at, deleted_at
         "#,
         project.id,

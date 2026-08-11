@@ -5,7 +5,7 @@ pub struct Config {
     pub jwt_secret: String,
     pub secure_cookies: bool,
     pub frontend_url: String,
-    /// When true, the server runs in research-study mode (see `research-paper/`):
+    /// When true, the server runs in research-study mode (see `paper/instrument/`):
     /// study provisioning/telemetry/agent endpoints are active, GitHub writes are
     /// locked down, and the frontend renders the study flow. Off = normal product.
     pub study_mode: bool,
@@ -14,6 +14,13 @@ pub struct Config {
     pub openai_api_key: Option<String>,
     /// Pinned, dated model snapshot — a mid-study change is a confound, so this
     /// is held constant for the whole study (CLAUDE_AGENT_BUILD.md §6).
+    ///
+    /// Capability matters to the design, not just to cost: the C3 arm can only
+    /// convert its wider context into performance if the model is strong enough
+    /// to use it. A weak model floors exactly the condition the study is about
+    /// and yields a null that says nothing about context breadth. Verify this
+    /// snapshot is still served before a run and record the exact string in the
+    /// paper's methods.
     pub openai_model: String,
     /// Bearer token guarding the study data-export endpoint. When unset the
     /// endpoint is disabled (404), so exports are off unless explicitly enabled.
@@ -54,7 +61,7 @@ impl Config {
                 .unwrap_or(false),
             openai_api_key: std::env::var("OPENAI_API_KEY").ok(),
             openai_model: std::env::var("OPENAI_MODEL")
-                .unwrap_or_else(|_| "gpt-4o-mini-2024-07-18".to_string()),
+                .unwrap_or_else(|_| "gpt-5.4-2026-03-05".to_string()),
             study_export_token: std::env::var("STUDY_EXPORT_TOKEN").ok(),
             study_require_access_code: std::env::var("STUDY_REQUIRE_ACCESS_CODE")
                 .unwrap_or_else(|_| "false".to_string())

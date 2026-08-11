@@ -22,6 +22,7 @@ pub async fn list_team_projects(
             r#"
             SELECT id, team_id, name, slug, description, github_repo, done_column_id,
                    in_progress_column_id, review_column_id, auto_close_on_issue_closed,
+               github_comment_on_move,
                    created_at, updated_at, deleted_at
             FROM projects
             WHERE team_id = $1 AND deleted_at IS NULL
@@ -37,7 +38,8 @@ pub async fn list_team_projects(
             r#"
             SELECT p.id, p.team_id, p.name, p.slug, p.description, p.github_repo,
                    p.done_column_id, p.in_progress_column_id, p.review_column_id,
-                   p.auto_close_on_issue_closed, p.created_at, p.updated_at, p.deleted_at
+                   p.auto_close_on_issue_closed, p.github_comment_on_move,
+                   p.created_at, p.updated_at, p.deleted_at
             FROM projects p
             JOIN project_memberships pm ON pm.project_id = p.id AND pm.user_id = $2
             WHERE p.team_id = $1 AND p.deleted_at IS NULL

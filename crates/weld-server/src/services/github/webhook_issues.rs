@@ -2,6 +2,8 @@ use std::sync::Arc;
 
 use sqlx::PgPool;
 
+use uuid::Uuid;
+
 use crate::errors::ApiError;
 use crate::realtime::Hub;
 
@@ -13,6 +15,7 @@ pub async fn handle(
     hub: &Arc<Hub>,
     event: &str,
     payload: &serde_json::Value,
+    teams: &[Uuid],
 ) -> Result<(), ApiError> {
     let action = payload["action"].as_str().unwrap_or("");
     let repo = payload["repository"]["full_name"].as_str().unwrap_or("");
@@ -21,8 +24,8 @@ pub async fn handle(
     tracing::info!(event, action, repo, issue_number, "GitHub issue event");
 
     if event == "issues" {
-        sync::on_issue_event(db, hub, repo, issue_number, action).await?;
-        activity_feed::post_issue_event(db, hub, repo, payload, action).await?;
+        sync::on_issue_event(db, hub, repo, issue_number, action, payload, teams).await?;
+        activity_feed::post_issue_event(db, hub, repo, payload, action, teams).await?;
     }
 
     Ok(())

@@ -1,5 +1,5 @@
 /**
- * Exit-survey instrument (research-paper/WELD_EXIT_SURVEY.md + the trust block
+ * Exit-survey instrument (paper/replication/WELD_EXIT_SURVEY.md + the trust block
  * from WELD_AGENT_TASK_SCRIPTS.md §3). Config-driven so wording/scales change
  * without touching the renderer. Stored keyed by `item_id`, never question text.
  */
@@ -56,11 +56,14 @@ export const TLX_ITEMS: SurveyItem[] = [
 		required: true
 	},
 	{
+		// Anchored Failure(low)→Perfect(high): high = good performance, opposite the
+		// other five TLX items. Analysis must reverse-score this (101 - raw) before
+		// it enters the NASA-TLX workload composite. See WELD_EXIT_SURVEY.md.
 		id: 'tlx_performance',
 		type: 'slider100',
 		label: 'How successful were you in accomplishing what you were asked to do?',
-		lowAnchor: 'Perfect',
-		highAnchor: 'Failure',
+		lowAnchor: 'Failure',
+		highAnchor: 'Perfect',
 		required: true
 	},
 	{

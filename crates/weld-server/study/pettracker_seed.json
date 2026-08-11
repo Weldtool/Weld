@@ -148,7 +148,7 @@
       "id": "card_db_decision",
       "column_id": "col_backlog",
       "title": "Decide local cache database",
-      "description": "We need to settle on a local cache DB for offline support. Discussion ongoing in #pettracker (thread started by Alex). NOTE: this is intentionally a placeholder; the decision card the participant creates in task p2_decision is separate.",
+      "description": "We need to settle on a local cache DB for offline support. Discussion ongoing in #pettracker (thread started by Alex).",
       "labels": ["lbl_backend"],
       "assignee_id": "user_alex",
       "priority": "Medium",
@@ -326,7 +326,8 @@
       "channel_id": "chan_pettracker",
       "sender_id": "user_alex",
       "content": "Side note — can someone take a look at the nearby vet directory card? [[card:card_vet_directory]] It's been sitting in the backlog and keeps slipping. Let's bump its priority so it doesn't get lost.",
-      "created_offset": -160
+      "created_offset": -160,
+      "task_anchor": "B3"
     },
     {
       "id": "msg_d1",
@@ -391,6 +392,22 @@
         "author": "user_priya",
         "body": "Adds the screen for setting daily feeding times and portions. Still polishing the time picker.",
         "labels": ["feature", "frontend"],
+        "files": [
+          {
+            "filename": "app/src/screens/FeedingScheduleEditor.tsx",
+            "status": "added",
+            "additions": 16,
+            "deletions": 0,
+            "patch": "@@ -0,0 +1,16 @@\n+import React, { useState } from 'react';\n+import { View, Text } from 'react-native';\n+import { TimePicker } from '../components/TimePicker';\n+\n+export function FeedingScheduleEditor({ petId }: { petId: string }) {\n+  const [times, setTimes] = useState<string[]>(['08:00', '18:00']);\n+  const update = (i: number, v: string) =>\n+    setTimes((prev) => prev.map((t, idx) => (idx === i ? v : t)));\n+  return (\n+    <View>\n+      <Text>Daily feeding times</Text>\n+      {times.map((t, i) => (\n+        <TimePicker key={i} value={t} onChange={(v) => update(i, v)} />\n+      ))}\n+    </View>\n+  );\n+}"
+          },
+          {
+            "filename": "app/src/components/TimePicker.tsx",
+            "status": "modified",
+            "additions": 3,
+            "deletions": 1,
+            "patch": "@@ -12,7 +12,9 @@ export function TimePicker({ value, onChange }: Props) {\n-  const [open, setOpen] = useState(false);\n+  const [open, setOpen] = useState(false);\n+  // TODO: still polishing — snap to 5-minute increments\n+  const step = 5;\n   return (\n-    <Pressable onPress={() => setOpen(true)}>\n+    <Pressable accessibilityRole=\"button\" onPress={() => setOpen(true)}>\n       <Text>{value}</Text>"
+          }
+        ],
         "linked_card": "card_feeding_schedule_ui",
         "created_offset": -5760
       },
@@ -402,6 +419,15 @@
         "author": "user_marcus",
         "body": "Cleans up the feeding schedule endpoints and adds retry-with-backoff to outbound sync calls. Ready for review.",
         "labels": ["backend"],
+        "files": [
+          {
+            "filename": "server/src/api/feeding.rs",
+            "status": "modified",
+            "additions": 14,
+            "deletions": 3,
+            "patch": "@@ -22,11 +22,22 @@ pub async fn sync_feeding_schedule(client: &Client, payload: &Schedule) -> Result<(), SyncError> {\n-    let resp = client.post(url).json(payload).send().await?;\n-    resp.error_for_status()?;\n-    Ok(())\n+    // Retry outbound sync with exponential backoff (100ms, 200ms, 400ms).\n+    let mut delay = Duration::from_millis(100);\n+    for attempt in 0..3 {\n+        match client.post(url).json(payload).send().await {\n+            Ok(resp) if resp.status().is_success() => return Ok(()),\n+            Ok(resp) if attempt == 2 => return Err(SyncError::Status(resp.status())),\n+            Err(e) if attempt == 2 => return Err(SyncError::Transport(e)),\n+            _ => tokio::time::sleep(delay).await,\n+        }\n+        delay *= 2;\n+    }\n+    Ok(())\n }"
+          }
+        ],
         "linked_card": "card_api_refactor",
         "created_offset": -2880
       },
@@ -413,6 +439,22 @@
         "author": "user_priya",
         "body": "Implements advance vaccination reminders so owners get a heads-up a week before the due date, per issue #14. Adds the reminder scheduling and notification wiring for the 'Add vaccination reminders' board card. Ready for review.",
         "labels": ["feature", "backend"],
+        "files": [
+          {
+            "filename": "server/src/reminders/vaccination.rs",
+            "status": "added",
+            "additions": 20,
+            "deletions": 0,
+            "patch": "@@ -0,0 +1,20 @@\n+use chrono::{Duration, NaiveDate};\n+\n+/// Advance vaccination reminders fire 7 days before the due date.\n+pub const LEAD_DAYS: i64 = 7;\n+\n+pub fn reminder_date(due: NaiveDate) -> NaiveDate {\n+    due - Duration::days(LEAD_DAYS)\n+}\n+\n+pub async fn schedule_advance_reminders(db: &Db, pet_id: Uuid) -> Result<(), Error> {\n+    for vac in due_vaccinations(db, pet_id).await? {\n+        let when = reminder_date(vac.due_date);\n+        enqueue_notification(db, Notification {\n+            pet_id,\n+            kind: NotificationKind::VaccinationDue,\n+            deliver_on: when,\n+            body: format!(\"{} is due on {}\", vac.name, vac.due_date),\n+        }).await?;\n+    }\n+    Ok(())\n+}"
+          },
+          {
+            "filename": "server/src/reminders/mod.rs",
+            "status": "modified",
+            "additions": 2,
+            "deletions": 0,
+            "patch": "@@ -1,6 +1,8 @@\n mod feeding;\n+mod vaccination;\n mod scheduler;\n \n+pub use vaccination::{schedule_advance_reminders, LEAD_DAYS};\n pub use feeding::sync_feeding_schedule;"
+          }
+        ],
         "linked_card": "card_vaccination_reminders",
         "created_offset": -1440
       }

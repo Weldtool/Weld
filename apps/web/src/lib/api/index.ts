@@ -12,6 +12,8 @@ import type {
 	GitHubIssue,
 	GitHubIssueDetail,
 	GitHubPR,
+	MergeMethod,
+	ReviewVerdict,
 	IssueTemplate,
 	Label,
 	RepoBranches,
@@ -220,6 +222,7 @@ export const projects = {
 			in_progress_column_id?: string | null;
 			review_column_id?: string | null;
 			auto_close_on_issue_closed?: boolean;
+			github_comment_on_move?: boolean;
 		},
 		opts?: RequestOptions
 	) => authStore.fetch<Project>(`/api/v1/projects/${id}`, { ...opts, method: 'PATCH', body }),
@@ -385,6 +388,33 @@ export const github = {
 
 	listPRs: (projectId: string, opts?: RequestOptions) =>
 		authStore.fetch<GitHubPR[]>(`/api/v1/projects/${projectId}/github/prs`, opts),
+
+	/** A single PR *with* its file diffs — the list endpoint does not include them. */
+	getPR: (projectId: string, number: number, opts?: RequestOptions) =>
+		authStore.fetch<GitHubPR>(`/api/v1/projects/${projectId}/github/prs/${number}`, opts),
+
+	submitReview: (
+		projectId: string,
+		number: number,
+		body: { verdict: ReviewVerdict; body: string },
+		opts?: RequestOptions
+	) =>
+		authStore.fetch<unknown>(`/api/v1/projects/${projectId}/github/prs/${number}/reviews`, {
+			...opts,
+			method: 'POST',
+			body: JSON.stringify(body)
+		}),
+
+	mergePR: (
+		projectId: string,
+		number: number,
+		method: MergeMethod = 'merge',
+		opts?: RequestOptions
+	) =>
+		authStore.fetch<{ merged: boolean; message: string }>(
+			`/api/v1/projects/${projectId}/github/prs/${number}/merge`,
+			{ ...opts, method: 'PUT', body: JSON.stringify({ method }) }
+		),
 
 	listBranches: (projectId: string, opts?: RequestOptions) =>
 		authStore.fetch<RepoBranches>(`/api/v1/projects/${projectId}/github/branches`, opts),

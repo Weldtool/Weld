@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { tasks as tasksApi, github as githubApi } from '$lib/api';
+	import { modal } from '$lib/modal';
 	import type { GitHubIssue, Priority } from '$lib/api/types';
 	import { boardStore } from '$lib/board.svelte';
 	import { appConfig } from '$lib/config.svelte';
@@ -113,10 +114,6 @@
 		goto(resolve('/board') + url.search, { replaceState: false, keepFocus: false });
 	}
 
-	function onKey(e: KeyboardEvent) {
-		if (e.key === 'Escape') close();
-	}
-
 	async function submit() {
 		const trimmed = title.trim();
 		if (!trimmed || creating) return;
@@ -165,161 +162,149 @@
 	}
 </script>
 
-<svelte:window onkeydown={onKey} />
-
-<div
-	class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-	role="presentation"
-	onclick={close}
+<dialog
+	use:modal={close}
+	aria-labelledby="task-draft-title"
+	class="m-auto flex h-[85vh] w-full max-w-2xl flex-col rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--card-foreground)] shadow-xl backdrop:bg-black/40"
 >
-	<div
-		role="dialog"
-		aria-modal="true"
-		aria-labelledby="task-draft-title"
-		class="flex h-[85vh] w-full max-w-2xl flex-col rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--card-foreground)] shadow-xl"
-		onclick={(e) => e.stopPropagation()}
-	>
-		<header class="flex shrink-0 items-start gap-3 border-b border-[var(--border)] px-6 py-4">
-			<input
-				id="task-draft-title"
-				bind:this={titleInput}
-				type="text"
-				bind:value={title}
-				placeholder="Task title…"
-				class="flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-lg font-semibold focus:border-[var(--border)] focus:outline-none"
-			/>
-			<button
-				type="button"
-				class="text-sm text-[var(--muted-foreground)] hover:underline"
-				onclick={close}
-				aria-label="Close"
+	<header class="flex shrink-0 items-start gap-3 border-b border-[var(--border)] px-6 py-4">
+		<input
+			id="task-draft-title"
+			bind:this={titleInput}
+			type="text"
+			bind:value={title}
+			placeholder="Task title…"
+			class="flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-lg font-semibold focus:border-[var(--border)] focus:outline-none"
+		/>
+		<button
+			type="button"
+			class="text-sm text-[var(--muted-foreground)] hover:underline"
+			onclick={close}
+			aria-label="Close"
+		>
+			Close
+		</button>
+	</header>
+
+	<div class="flex min-h-0 flex-1 flex-col gap-4 px-6 py-4">
+		{#if error}
+			<p
+				role="alert"
+				class="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-400"
 			>
-				Close
-			</button>
-		</header>
+				{error}
+			</p>
+		{/if}
 
-		<div class="flex min-h-0 flex-1 flex-col gap-4 px-6 py-4">
-			{#if error}
-				<p
-					role="alert"
-					class="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-400"
-				>
-					{error}
-				</p>
-			{/if}
-
-			{#if hasRepo}
-				<div class="space-y-1 rounded-md border border-[var(--border)] bg-[var(--muted)]/30 p-3">
-					{#if importedIssue !== null}
-						<div class="flex items-center justify-between gap-2 text-sm">
-							<span class="text-[var(--muted-foreground)]">
-								Imported from <code>{projects.current?.github_repo}</code> issue
-								<span class="font-medium text-[var(--foreground)]">#{importedIssue}</span>
-							</span>
-							<button
-								type="button"
-								class="text-xs text-[var(--muted-foreground)] hover:underline"
-								onclick={clearImport}
-							>
-								Clear
-							</button>
-						</div>
-					{:else}
-						<label class="text-xs text-[var(--muted-foreground)]" for="import-issue">
-							Import from GitHub issue
-						</label>
-						<select
-							id="import-issue"
-							disabled={issuesLoading || ghIssues.length === 0}
-							onchange={(e) => {
-								const v = (e.currentTarget as HTMLSelectElement).value;
-								if (v) void importIssue(parseInt(v, 10));
-								(e.currentTarget as HTMLSelectElement).value = '';
-							}}
-							class="w-full rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-sm focus:ring-1 focus:ring-[var(--ring)] focus:outline-none disabled:opacity-60"
+		{#if hasRepo}
+			<div class="space-y-1 rounded-md border border-[var(--border)] bg-[var(--muted)]/30 p-3">
+				{#if importedIssue !== null}
+					<div class="flex items-center justify-between gap-2 text-sm">
+						<span class="text-[var(--muted-foreground)]">
+							Imported from <code>{projects.current?.github_repo}</code> issue
+							<span class="font-medium text-[var(--foreground)]">#{importedIssue}</span>
+						</span>
+						<button
+							type="button"
+							class="text-xs text-[var(--muted-foreground)] hover:underline"
+							onclick={clearImport}
 						>
-							<option value="">
-								{#if issuesLoading}
-									Loading open issues…
-								{:else if ghIssues.length === 0}
-									No open issues
-								{:else}
-									Select an issue to autofill…
-								{/if}
-							</option>
-							{#each ghIssues as issue (issue.number)}
-								<option value={issue.number}>#{issue.number} — {issue.title}</option>
-							{/each}
-						</select>
-					{/if}
-				</div>
-			{/if}
+							Clear
+						</button>
+					</div>
+				{:else}
+					<label class="text-xs text-[var(--muted-foreground)]" for="import-issue">
+						Import from GitHub issue
+					</label>
+					<select
+						id="import-issue"
+						disabled={issuesLoading || ghIssues.length === 0}
+						onchange={(e) => {
+							const v = (e.currentTarget as HTMLSelectElement).value;
+							if (v) void importIssue(parseInt(v, 10));
+							(e.currentTarget as HTMLSelectElement).value = '';
+						}}
+						class="w-full rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-sm focus:ring-1 focus:ring-[var(--ring)] focus:outline-none disabled:opacity-60"
+					>
+						<option value="">
+							{#if issuesLoading}
+								Loading open issues…
+							{:else if ghIssues.length === 0}
+								No open issues
+							{:else}
+								Select an issue to autofill…
+							{/if}
+						</option>
+						{#each ghIssues as issue (issue.number)}
+							<option value={issue.number}>#{issue.number} — {issue.title}</option>
+						{/each}
+					</select>
+				{/if}
+			</div>
+		{/if}
 
-			<DescriptionEditor value={description} fill onInput={(next) => (description = next)} />
+		<DescriptionEditor value={description} fill onInput={(next) => (description = next)} />
 
-			<div class="grid gap-4 sm:grid-cols-2">
-				<div class="space-y-1">
-					<p class="text-xs text-[var(--muted-foreground)]">Assignee</p>
-					<AssigneePicker
-						value={assigneeId}
-						members={boardStore.members}
-						onChange={(next) => (assigneeId = next)}
-					/>
-				</div>
-
-				<div class="space-y-1">
-					<p class="text-xs text-[var(--muted-foreground)]">Priority</p>
-					<PriorityPicker value={priority} onChange={(next) => (priority = next)} />
-				</div>
-
-				<div class="space-y-1">
-					<p class="text-xs text-[var(--muted-foreground)]">Due date</p>
-					<DueDatePicker value={dueDate} onChange={(next) => (dueDate = next)} />
-				</div>
-
-				<div class="space-y-1">
-					<p class="text-xs text-[var(--muted-foreground)]">Estimate (hours)</p>
-					<EstimateInput value={estimate} onChange={(next) => (estimate = next)} />
-				</div>
+		<div class="grid gap-4 sm:grid-cols-2">
+			<div class="space-y-1">
+				<p class="text-xs text-[var(--muted-foreground)]">Assignee</p>
+				<AssigneePicker
+					value={assigneeId}
+					members={boardStore.members}
+					onChange={(next) => (assigneeId = next)}
+				/>
 			</div>
 
 			<div class="space-y-1">
-				<p class="text-xs text-[var(--muted-foreground)]">Labels</p>
-				<LabelPicker value={labels} onChange={(next) => (labels = next)} />
+				<p class="text-xs text-[var(--muted-foreground)]">Priority</p>
+				<PriorityPicker value={priority} onChange={(next) => (priority = next)} />
+			</div>
+
+			<div class="space-y-1">
+				<p class="text-xs text-[var(--muted-foreground)]">Due date</p>
+				<DueDatePicker value={dueDate} onChange={(next) => (dueDate = next)} />
+			</div>
+
+			<div class="space-y-1">
+				<p class="text-xs text-[var(--muted-foreground)]">Estimate (hours)</p>
+				<EstimateInput value={estimate} onChange={(next) => (estimate = next)} />
 			</div>
 		</div>
 
-		<div class="shrink-0 space-y-3 border-t border-[var(--border)] px-6 py-4">
-			{#if canPushToGithub && importedIssue === null}
-				<label
-					class="flex cursor-pointer items-center gap-2 text-xs text-[var(--muted-foreground)]"
-				>
-					<input type="checkbox" bind:checked={pushToGithub} class="rounded" />
-					Also create issue on <code>{projects.current?.github_repo}</code>
-				</label>
-			{:else if importedIssue !== null}
-				<p class="text-xs text-[var(--muted-foreground)]">
-					Will link to issue <span class="font-medium">#{importedIssue}</span> on
-					<code>{projects.current?.github_repo}</code>.
-				</p>
-			{/if}
-			<div class="flex items-center justify-end gap-2">
-				<button
-					type="button"
-					onclick={close}
-					class="rounded-md px-3 py-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-				>
-					Cancel
-				</button>
-				<button
-					type="button"
-					onclick={submit}
-					disabled={creating || !title.trim()}
-					class="rounded-md bg-[var(--primary)] px-3 py-1.5 text-sm font-medium text-[var(--primary-foreground)] disabled:opacity-50"
-				>
-					{creating ? 'Creating…' : 'Create task'}
-				</button>
-			</div>
+		<div class="space-y-1">
+			<p class="text-xs text-[var(--muted-foreground)]">Labels</p>
+			<LabelPicker value={labels} onChange={(next) => (labels = next)} />
 		</div>
 	</div>
-</div>
+
+	<div class="shrink-0 space-y-3 border-t border-[var(--border)] px-6 py-4">
+		{#if canPushToGithub && importedIssue === null}
+			<label class="flex cursor-pointer items-center gap-2 text-xs text-[var(--muted-foreground)]">
+				<input type="checkbox" bind:checked={pushToGithub} class="rounded" />
+				Also create issue on <code>{projects.current?.github_repo}</code>
+			</label>
+		{:else if importedIssue !== null}
+			<p class="text-xs text-[var(--muted-foreground)]">
+				Will link to issue <span class="font-medium">#{importedIssue}</span> on
+				<code>{projects.current?.github_repo}</code>.
+			</p>
+		{/if}
+		<div class="flex items-center justify-end gap-2">
+			<button
+				type="button"
+				onclick={close}
+				class="rounded-md px-3 py-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+			>
+				Cancel
+			</button>
+			<button
+				type="button"
+				onclick={submit}
+				disabled={creating || !title.trim()}
+				class="rounded-md bg-[var(--primary)] px-3 py-1.5 text-sm font-medium text-[var(--primary-foreground)] disabled:opacity-50"
+			>
+				{creating ? 'Creating…' : 'Create task'}
+			</button>
+		</div>
+	</div>
+</dialog>

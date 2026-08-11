@@ -115,7 +115,7 @@ async fn relocate_tasks(pool: &PgPool, source: Uuid, target: Uuid) -> Result<Vec
                   t.assignee_id, t.reporter_id,
                   t.priority as "priority: Priority",
                   t.position, t.due_date, t.estimate_hours,
-                  t.short_id, t.github_issue_id, t.github_pr_id, t.github_repo,
+                  t.short_id, t.github_issue_id, t.github_pr_id, t.github_repo, t.github_check_status,
                   t.deleted_at, t.created_at, t.updated_at
         "#,
         source,

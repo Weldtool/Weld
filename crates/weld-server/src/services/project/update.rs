@@ -14,6 +14,7 @@ pub struct UpdateProjectInput {
     pub in_progress_column_id: Option<Option<Uuid>>,
     pub review_column_id: Option<Option<Uuid>>,
     pub auto_close_on_issue_closed: Option<bool>,
+    pub github_comment_on_move: Option<bool>,
 }
 
 /// Update a project. Caller must be Admin or Owner of the owning team.
@@ -60,6 +61,9 @@ pub async fn update_project(
     let new_auto_close = input
         .auto_close_on_issue_closed
         .unwrap_or(project.auto_close_on_issue_closed);
+    let new_comment_on_move = input
+        .github_comment_on_move
+        .unwrap_or(project.github_comment_on_move);
 
     let updated = sqlx::query_as!(
         Project,
@@ -72,11 +76,12 @@ pub async fn update_project(
             auto_close_on_issue_closed = $5,
             in_progress_column_id = $7,
             review_column_id = $8,
+            github_comment_on_move = $9,
             updated_at = NOW()
         WHERE id = $6 AND deleted_at IS NULL
         RETURNING id, team_id, name, slug, description, github_repo, done_column_id,
                   in_progress_column_id, review_column_id,
-                  auto_close_on_issue_closed, created_at, updated_at, deleted_at
+                  auto_close_on_issue_closed, github_comment_on_move, created_at, updated_at, deleted_at
         "#,
         new_name,
         new_description,
@@ -86,6 +91,7 @@ pub async fn update_project(
         project_id,
         new_in_progress_column_id,
         new_review_column_id,
+        new_comment_on_move,
     )
     .fetch_one(pool)
     .await?;

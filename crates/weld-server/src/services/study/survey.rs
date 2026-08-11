@@ -1,4 +1,4 @@
-//! Exit-survey persistence (Category B, research-paper/WELD_EXIT_SURVEY.md).
+//! Exit-survey persistence (Category B, paper/replication/WELD_EXIT_SURVEY.md).
 //! Responses are stored one row per item; the optional follow-up email goes to
 //! a separate access-restricted table so it never enters the analysis dataset.
 

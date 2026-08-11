@@ -22,6 +22,7 @@
 		FolderOpen
 	} from '@lucide/svelte';
 	import { mode, toggleMode } from 'mode-watcher';
+	import { modal } from '$lib/modal';
 
 	const COLLAPSED_KEY = 'weld:sidebar-collapsed';
 
@@ -437,86 +438,76 @@
 
 <!-- ── Rename workspace dialog ───────────────────────────────────────────── -->
 {#if showRenameWorkspace}
-	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-		role="dialog"
-		aria-modal="true"
+	<dialog
+		use:modal={() => (showRenameWorkspace = false)}
 		aria-labelledby="rename-workspace-title"
+		class="m-auto w-full max-w-sm rounded-lg border border-[var(--border)] bg-[var(--card)] p-5 shadow-xl backdrop:bg-black/40"
 	>
-		<div
-			class="w-full max-w-sm rounded-lg border border-[var(--border)] bg-[var(--card)] p-5 shadow-xl"
-		>
-			<h2 id="rename-workspace-title" class="text-base font-semibold">Rename workspace</h2>
-			<form onsubmit={submitRenameWorkspace} class="mt-3">
-				<input
-					bind:this={renameInputEl}
-					type="text"
-					bind:value={renameWorkspaceName}
-					placeholder="Workspace name"
-					class="w-full rounded-md border border-[var(--input)] bg-[var(--background)] px-3 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-				/>
-				{#if renameError}
-					<p class="mt-1.5 text-xs text-red-500">{renameError}</p>
-				{/if}
-				<div class="mt-4 flex justify-end gap-2">
-					<button
-						type="button"
-						onclick={() => (showRenameWorkspace = false)}
-						class="rounded-md border border-[var(--border)] px-3 py-1.5 text-sm hover:bg-[var(--accent)]"
-					>
-						Cancel
-					</button>
-					<button
-						type="submit"
-						disabled={renameBusy}
-						class="rounded-md bg-[var(--primary)] px-3 py-1.5 text-sm font-medium text-[var(--primary-foreground)] disabled:opacity-50"
-					>
-						{renameBusy ? 'Saving…' : 'Save'}
-					</button>
-				</div>
-			</form>
-		</div>
-	</div>
-{/if}
-
-<!-- ── Delete workspace dialog ───────────────────────────────────────────── -->
-{#if showDeleteWorkspace}
-	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-		role="dialog"
-		aria-modal="true"
-		aria-labelledby="delete-workspace-title"
-	>
-		<div
-			class="w-full max-w-sm rounded-lg border border-[var(--border)] bg-[var(--card)] p-5 shadow-xl"
-		>
-			<h2 id="delete-workspace-title" class="text-base font-semibold">
-				Delete "{currentTeam?.name}"?
-			</h2>
-			<p class="mt-2 text-sm text-[var(--muted-foreground)]">
-				This will permanently delete the workspace and all its projects, tasks, and channels. This
-				cannot be undone.
-			</p>
-			{#if deleteWorkspaceError}
-				<p class="mt-2 text-xs text-red-500">{deleteWorkspaceError}</p>
+		<h2 id="rename-workspace-title" class="text-base font-semibold">Rename workspace</h2>
+		<form onsubmit={submitRenameWorkspace} class="mt-3">
+			<input
+				bind:this={renameInputEl}
+				type="text"
+				bind:value={renameWorkspaceName}
+				placeholder="Workspace name"
+				class="w-full rounded-md border border-[var(--input)] bg-[var(--background)] px-3 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+			/>
+			{#if renameError}
+				<p class="mt-1.5 text-xs text-red-500">{renameError}</p>
 			{/if}
 			<div class="mt-4 flex justify-end gap-2">
 				<button
 					type="button"
-					onclick={() => (showDeleteWorkspace = false)}
+					onclick={() => (showRenameWorkspace = false)}
 					class="rounded-md border border-[var(--border)] px-3 py-1.5 text-sm hover:bg-[var(--accent)]"
 				>
 					Cancel
 				</button>
 				<button
-					type="button"
-					onclick={confirmDeleteWorkspace}
-					disabled={deleteWorkspaceBusy}
-					class="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+					type="submit"
+					disabled={renameBusy}
+					class="rounded-md bg-[var(--primary)] px-3 py-1.5 text-sm font-medium text-[var(--primary-foreground)] disabled:opacity-50"
 				>
-					{deleteWorkspaceBusy ? 'Deleting…' : 'Delete workspace'}
+					{renameBusy ? 'Saving…' : 'Save'}
 				</button>
 			</div>
+		</form>
+	</dialog>
+{/if}
+
+<!-- ── Delete workspace dialog ───────────────────────────────────────────── -->
+{#if showDeleteWorkspace}
+	<dialog
+		use:modal={() => (showDeleteWorkspace = false)}
+		aria-labelledby="delete-workspace-title"
+		class="m-auto w-full max-w-sm rounded-lg border border-[var(--border)] bg-[var(--card)] p-5 shadow-xl backdrop:bg-black/40"
+	>
+		<h2 id="delete-workspace-title" class="text-base font-semibold">
+			Delete "{currentTeam?.name}"?
+		</h2>
+		<p class="mt-2 text-sm text-[var(--muted-foreground)]">
+			This will permanently delete the workspace and all its projects, tasks, and channels. This
+			cannot be undone.
+		</p>
+		{#if deleteWorkspaceError}
+			<p class="mt-2 text-xs text-red-500">{deleteWorkspaceError}</p>
+		{/if}
+		<div class="mt-4 flex justify-end gap-2">
+			<button
+				type="button"
+				onclick={() => (showDeleteWorkspace = false)}
+				class="rounded-md border border-[var(--border)] px-3 py-1.5 text-sm hover:bg-[var(--accent)]"
+			>
+				Cancel
+			</button>
+			<button
+				type="button"
+				onclick={confirmDeleteWorkspace}
+				disabled={deleteWorkspaceBusy}
+				class="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+			>
+				{deleteWorkspaceBusy ? 'Deleting…' : 'Delete workspace'}
+			</button>
 		</div>
-	</div>
+	</dialog>
 {/if}

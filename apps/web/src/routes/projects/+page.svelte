@@ -3,6 +3,7 @@
 	import { ApiError } from '$lib/api/client';
 	import { projects } from '$lib/projects.svelte';
 	import { Plus } from '@lucide/svelte';
+	import { modal } from '$lib/modal';
 
 	let creating = $state(false);
 	let submitting = $state(false);
@@ -138,71 +139,68 @@
 </div>
 
 {#if creating}
-	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-		role="dialog"
-		aria-modal="true"
+	<dialog
+		use:modal={() => (creating = false)}
 		aria-labelledby="create-project-title"
+		class="m-auto w-full max-w-md rounded-lg border border-[var(--border)] bg-[var(--card)] p-6 backdrop:bg-black/50"
 	>
-		<div class="w-full max-w-md rounded-lg border border-[var(--border)] bg-[var(--card)] p-6">
-			<h2 id="create-project-title" class="text-lg font-semibold tracking-tight">Create project</h2>
-			<form class="mt-4 flex flex-col gap-4" onsubmit={onSubmit} novalidate>
-				<label class="flex flex-col gap-1.5 text-sm">
-					<span class="font-medium">Name</span>
-					<input
-						type="text"
-						required
-						bind:value={name}
-						class="rounded-md border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-					/>
-				</label>
+		<h2 id="create-project-title" class="text-lg font-semibold tracking-tight">Create project</h2>
+		<form class="mt-4 flex flex-col gap-4" onsubmit={onSubmit} novalidate>
+			<label class="flex flex-col gap-1.5 text-sm">
+				<span class="font-medium">Name</span>
+				<input
+					type="text"
+					required
+					bind:value={name}
+					class="rounded-md border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+				/>
+			</label>
 
-				<label class="flex flex-col gap-1.5 text-sm">
-					<span class="font-medium">Description (optional)</span>
-					<textarea
-						rows={3}
-						bind:value={description}
-						class="rounded-md border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-					></textarea>
-				</label>
+			<label class="flex flex-col gap-1.5 text-sm">
+				<span class="font-medium">Description (optional)</span>
+				<textarea
+					rows={3}
+					bind:value={description}
+					class="rounded-md border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+				></textarea>
+			</label>
 
-				<label class="flex flex-col gap-1.5 text-sm">
-					<span class="font-medium">GitHub repo (optional)</span>
-					<input
-						type="text"
-						placeholder="owner/repo"
-						bind:value={githubRepo}
-						class="rounded-md border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-					/>
-				</label>
+			<label class="flex flex-col gap-1.5 text-sm">
+				<span class="font-medium">GitHub repo (optional)</span>
+				<input
+					type="text"
+					placeholder="owner/repo"
+					bind:value={githubRepo}
+					class="rounded-md border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+				/>
+			</label>
 
-				{#if formError}
-					<p
-						role="alert"
-						class="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400"
-					>
-						{formError}
-					</p>
-				{/if}
+			{#if formError}
+				<p
+					role="alert"
+					class="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400"
+				>
+					{formError}
+				</p>
+			{/if}
 
-				<div class="mt-2 flex justify-end gap-2">
-					<button
-						type="button"
-						onclick={closeCreate}
-						disabled={submitting}
-						class="rounded-md px-3 py-2 text-sm font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:opacity-60"
-					>
-						Cancel
-					</button>
-					<button
-						type="submit"
-						disabled={submitting}
-						class="rounded-md bg-[var(--primary)] px-3 py-2 text-sm font-medium text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:opacity-60"
-					>
-						{submitting ? 'Creating…' : 'Create project'}
-					</button>
-				</div>
-			</form>
-		</div>
-	</div>
+			<div class="mt-2 flex justify-end gap-2">
+				<button
+					type="button"
+					onclick={closeCreate}
+					disabled={submitting}
+					class="rounded-md px-3 py-2 text-sm font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:opacity-60"
+				>
+					Cancel
+				</button>
+				<button
+					type="submit"
+					disabled={submitting}
+					class="rounded-md bg-[var(--primary)] px-3 py-2 text-sm font-medium text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:opacity-60"
+				>
+					{submitting ? 'Creating…' : 'Create project'}
+				</button>
+			</div>
+		</form>
+	</dialog>
 {/if}

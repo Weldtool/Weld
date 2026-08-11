@@ -407,17 +407,23 @@ pub async fn summary(pool: &PgPool) -> Result<StudySummary, ApiError> {
     };
 
     let participant_rows = sqlx::query!(
+        // Survey items are a scalar subquery, NOT a second LEFT JOIN: joining both
+        // study_events and study_survey_responses fans out (Cartesian) and would
+        // multiply the SUM below by the survey-row count. COUNT(DISTINCT) hides
+        // that on the counts, but the un-DISTINCT-able SUM(task_time_ms) would be
+        // inflated ~N-survey-rows-fold.
         r#"SELECT p.participant_code, p.agent_condition, p.status,
                   p.provisioned_at, p.completed_at,
                   EXTRACT(EPOCH FROM (p.completed_at - p.provisioned_at))::bigint AS duration_seconds,
                   COUNT(DISTINCT e.id)::bigint AS "event_count!",
-                  COUNT(DISTINCT s.item_id)::bigint AS "survey_items!",
+                  (SELECT COUNT(DISTINCT s.item_id)
+                     FROM study_survey_responses s
+                    WHERE s.participant_id = p.id)::bigint AS "survey_items!",
                   MAX(e.server_ts) AS last_event_at,
                   SUM((e.payload->>'task_time_ms')::bigint)
                     FILTER (WHERE e.event_type = 'task_completed')::bigint AS active_task_ms
            FROM study_participants p
            LEFT JOIN study_events e ON e.participant_id = p.id
-           LEFT JOIN study_survey_responses s ON s.participant_id = p.id
            GROUP BY p.id
            ORDER BY p.participant_code"#
     )
@@ -497,6 +503,11 @@ async fn charts(pool: &PgPool) -> Result<StudyCharts, ApiError> {
                   COUNT(*) FILTER (
                       WHERE e.event_type = 'agent_tool_call'
                         AND e.payload->>'executed' = 'true'
+                        -- A drafted chat message is not an agent-completed
+                        -- action: the participant reviews and sends it, which
+                        -- already lands as a `message_sent` user action. Counting
+                        -- both would put one outcome on both sides of the ratio.
+                        AND COALESCE(e.payload->>'drafted', 'false') <> 'true'
                   )::bigint AS "agent_actions!",
                   COUNT(*) FILTER (
                       WHERE e.event_type IN ('card_created','card_moved','card_edited',

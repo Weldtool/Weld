@@ -4,7 +4,9 @@ use uuid::Uuid;
 
 use super::list::resolve_repo_and_token;
 use crate::errors::ApiError;
+use crate::services::github::helpers::gh_client;
 use crate::state::GithubConfig;
+use weld_core::models::enums::TeamRole;
 
 /// Candidate locations GitHub recognises for a pull-request template.
 const PR_TEMPLATE_PATHS: &[&str] = &[
@@ -35,7 +37,8 @@ pub async fn get_pr_template(
     project_id: Uuid,
     caller_id: Uuid,
 ) -> Result<Option<String>, ApiError> {
-    let (repo, token) = resolve_repo_and_token(pool, github, project_id, caller_id).await?;
+    let (repo, token) =
+        resolve_repo_and_token(pool, github, project_id, caller_id, TeamRole::Viewer).await?;
     for path in PR_TEMPLATE_PATHS {
         if let Some(content) = fetch_raw_file(&token, &repo, path).await? {
             return Ok(Some(content));
@@ -53,7 +56,8 @@ pub async fn list_issue_templates(
     project_id: Uuid,
     caller_id: Uuid,
 ) -> Result<Vec<IssueTemplate>, ApiError> {
-    let (repo, token) = resolve_repo_and_token(pool, github, project_id, caller_id).await?;
+    let (repo, token) =
+        resolve_repo_and_token(pool, github, project_id, caller_id, TeamRole::Viewer).await?;
 
     let mut templates = Vec::new();
 
@@ -94,7 +98,8 @@ pub async fn list_branches(
     project_id: Uuid,
     caller_id: Uuid,
 ) -> Result<RepoBranches, ApiError> {
-    let (repo, token) = resolve_repo_and_token(pool, github, project_id, caller_id).await?;
+    let (repo, token) =
+        resolve_repo_and_token(pool, github, project_id, caller_id, TeamRole::Viewer).await?;
 
     let repo_meta =
         github_get_json(&token, &format!("https://api.github.com/repos/{repo}")).await?;
@@ -135,14 +140,12 @@ pub struct RepoBranches {
 /// Fetches a file's raw text via the contents API. Returns `None` on 404 so
 /// callers can probe several candidate paths.
 async fn fetch_raw_file(token: &str, repo: &str, path: &str) -> Result<Option<String>, ApiError> {
-    let client = reqwest::Client::new();
-    let resp = client
+    let resp = gh_client()
         .get(format!(
             "https://api.github.com/repos/{repo}/contents/{path}"
         ))
         .bearer_auth(token)
         .header("Accept", "application/vnd.github.raw+json")
-        .header("User-Agent", "Weld/1.0")
         .send()
         .await?;
 
@@ -166,14 +169,12 @@ async fn fetch_dir_listing(
     repo: &str,
     path: &str,
 ) -> Result<Option<Vec<serde_json::Value>>, ApiError> {
-    let client = reqwest::Client::new();
-    let resp = client
+    let resp = gh_client()
         .get(format!(
             "https://api.github.com/repos/{repo}/contents/{path}"
         ))
         .bearer_auth(token)
         .header("Accept", "application/vnd.github.v3+json")
-        .header("User-Agent", "Weld/1.0")
         .send()
         .await?;
 
@@ -196,12 +197,10 @@ async fn fetch_dir_listing(
 }
 
 async fn github_get_json(token: &str, url: &str) -> Result<serde_json::Value, ApiError> {
-    let client = reqwest::Client::new();
-    let resp = client
+    let resp = gh_client()
         .get(url)
         .bearer_auth(token)
         .header("Accept", "application/vnd.github.v3+json")
-        .header("User-Agent", "Weld/1.0")
         .send()
         .await?;
 

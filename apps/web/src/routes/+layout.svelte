@@ -16,6 +16,7 @@
 	import TaskPanel from '$lib/components/study/TaskPanel.svelte';
 	import AgentPanel from '$lib/components/study/AgentPanel.svelte';
 	import ExitSurvey from '$lib/components/study/ExitSurvey.svelte';
+	import TaskDetailOverlay from '$lib/components/board/TaskDetailOverlay.svelte';
 	import { ModeWatcher } from 'mode-watcher';
 
 	/** Coarse view name for the `view_changed` telemetry metric. */
@@ -138,6 +139,7 @@
 			{/if}
 		</div>
 		<TaskPanel />
+		<TaskDetailOverlay />
 	{/if}
 {:else if !auth.ready}
 	<div class="flex min-h-screen items-center justify-center text-sm text-[var(--muted-foreground)]">
@@ -154,4 +156,5 @@
 			{@render children()}
 		</main>
 	</div>
+	<TaskDetailOverlay />
 {/if}

@@ -1,0 +1,146 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT t.id, t.project_id, t.column_id, t.title, t.description,\n               t.assignee_id, t.reporter_id,\n               t.priority as \"priority: Priority\",\n               t.position, t.due_date, t.estimate_hours,\n               t.short_id, t.github_issue_id, t.github_pr_id, t.github_repo, t.github_check_status,\n               t.deleted_at, t.created_at, t.updated_at\n        FROM tasks t\n        JOIN projects p ON p.id = t.project_id AND p.deleted_at IS NULL\n        WHERE t.github_repo = $1\n          AND t.deleted_at IS NULL\n          AND p.team_id = ANY($2)\n          AND (($3::bigint IS NOT NULL AND t.github_issue_id = $3)\n            OR ($4::bigint IS NOT NULL AND t.github_pr_id = $4))\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "project_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "column_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "title",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "assignee_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 6,
+        "name": "reporter_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 7,
+        "name": "priority: Priority",
+        "type_info": {
+          "Custom": {
+            "name": "priority",
+            "kind": {
+              "Enum": [
+                "critical",
+                "high",
+                "medium",
+                "low",
+                "none"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "position",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 9,
+        "name": "due_date",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 10,
+        "name": "estimate_hours",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 11,
+        "name": "short_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 12,
+        "name": "github_issue_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 13,
+        "name": "github_pr_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 14,
+        "name": "github_repo",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 15,
+        "name": "github_check_status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 16,
+        "name": "deleted_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 17,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 18,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "UuidArray",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "1acb436ece4810e582f22390a7d34ae6ddbd36fcff18dec3009e3fae478d0497"
+}

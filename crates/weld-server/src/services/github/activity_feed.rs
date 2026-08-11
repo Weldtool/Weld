@@ -22,12 +22,17 @@ pub async fn post_pr_event(
     payload: &serde_json::Value,
     action: &str,
     merged: bool,
+    teams: &[Uuid],
 ) -> Result<(), ApiError> {
     let kind = match (action, merged) {
         ("opened", _) => "pr.opened",
         ("closed", true) => "pr.merged",
         ("closed", false) => "pr.closed",
         ("reopened", _) => "pr.reopened",
+        // A draft becoming ready is when the team is actually being asked to
+        // look at it — previously this event was dropped on the floor.
+        ("ready_for_review", _) => "pr.ready",
+        ("review_requested", _) => "pr.review_requested",
         _ => return Ok(()),
     };
 
@@ -44,10 +49,21 @@ pub async fn post_pr_event(
         "pr.opened" => "opened",
         "pr.merged" => "merged",
         "pr.closed" => "closed",
+        "pr.ready" => "marked ready for review",
+        "pr.review_requested" => "requested review on",
         _ => "reopened",
     };
-    let content =
-        format!("**[#{number} {title}]({url})** {verb} by @{author} (+{additions} -{deletions})");
+
+    // "requested review on #12" reads backwards with the author-last phrasing
+    // the other verbs use, so that one kind gets its own sentence.
+    let content = if kind == "pr.review_requested" {
+        let reviewer = payload["requested_reviewer"]["login"]
+            .as_str()
+            .unwrap_or("someone");
+        format!("**@{author}** requested review from **@{reviewer}** on [#{number} {title}]({url})")
+    } else {
+        format!("**[#{number} {title}]({url})** {verb} by @{author} (+{additions} -{deletions})")
+    };
     let metadata = json!({
         "kind": kind,
         "repo": repo,
@@ -60,7 +76,7 @@ pub async fn post_pr_event(
         "deletions": deletions,
     });
 
-    post_to_subscribed_channels(db, hub, repo, "pr", content, metadata).await
+    post_to_subscribed_channels(db, hub, repo, "pr", content, metadata, teams).await
 }
 
 /// Post an issue event as a system message to subscribed channels.
@@ -71,6 +87,7 @@ pub async fn post_issue_event(
     repo: &str,
     payload: &serde_json::Value,
     action: &str,
+    teams: &[Uuid],
 ) -> Result<(), ApiError> {
     let kind = match action {
         "opened" => "issue.opened",
@@ -114,7 +131,7 @@ pub async fn post_issue_event(
         "labels": labels,
     });
 
-    post_to_subscribed_channels(db, hub, repo, "issue", content, metadata).await
+    post_to_subscribed_channels(db, hub, repo, "issue", content, metadata, teams).await
 }
 
 /// Post a PR review event as a system message to subscribed channels.
@@ -124,6 +141,7 @@ pub async fn post_review_event(
     hub: &Arc<Hub>,
     repo: &str,
     payload: &serde_json::Value,
+    teams: &[Uuid],
 ) -> Result<(), ApiError> {
     let review = &payload["review"];
     let state = review["state"].as_str().unwrap_or("");
@@ -159,7 +177,7 @@ pub async fn post_review_event(
         "verdict": verdict,
     });
 
-    post_to_subscribed_channels(db, hub, repo, "review", content, metadata).await
+    post_to_subscribed_channels(db, hub, repo, "review", content, metadata, teams).await
 }
 
 async fn post_to_subscribed_channels(
@@ -169,18 +187,24 @@ async fn post_to_subscribed_channels(
     filter_key: &str,
     content: String,
     metadata: serde_json::Value,
+    teams: &[Uuid],
 ) -> Result<(), ApiError> {
-    // Find channels subscribed to this repo with the event type enabled
+    // Find channels subscribed to this repo with the event type enabled.
+    // Scoped to the teams that own the installation: a channel subscribing to
+    // the string "acme/api" must not receive events from someone else's repo
+    // that happens to share the name.
     let channels = sqlx::query!(
         r#"
         SELECT id
         FROM channels
         WHERE $1 = ANY(github_repos)
           AND deleted_at IS NULL
+          AND team_id = ANY($3)
           AND (github_event_filter->>$2)::boolean IS TRUE
         "#,
         repo,
         filter_key,
+        teams,
     )
     .fetch_all(db)
     .await?;

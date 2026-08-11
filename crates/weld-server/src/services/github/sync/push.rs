@@ -5,7 +5,8 @@ use weld_core::models::enums::{Priority, TeamRole};
 use weld_core::models::task::Task;
 
 use crate::errors::ApiError;
-use crate::services::github::helpers::create_installation_token;
+use crate::services::github::helpers::{gh_client, github_error};
+use crate::services::github::user_token::acting_token_for_team;
 use crate::services::project::helpers::{fetch_active_project, require_project_team_role};
 use crate::services::task::helpers::{TaskWithLabels, fetch_active_task, fetch_task_label_ids};
 use crate::state::GithubConfig;
@@ -17,6 +18,7 @@ use crate::state::GithubConfig;
 pub async fn push_task_to_github(
     pool: &PgPool,
     github: &GithubConfig,
+    master_key: Option<&str>,
     task_id: Uuid,
     caller_id: Uuid,
     title_override: Option<String>,
@@ -36,15 +38,8 @@ pub async fn push_task_to_github(
         ApiError::Validation("Project has no GitHub repository configured".into())
     })?;
 
-    let conn = sqlx::query!(
-        "SELECT installation_id FROM github_connections WHERE team_id = $1",
-        project.team_id
-    )
-    .fetch_optional(pool)
-    .await?
-    .ok_or_else(|| ApiError::Validation("Team has no GitHub connection".into()))?;
-
-    let token = create_installation_token(github, conn.installation_id).await?;
+    let acting =
+        acting_token_for_team(pool, github, master_key, caller_id, project.team_id).await?;
 
     // Pull the names of any Weld labels attached to the task — GitHub
     // matches labels by name and will create missing labels on its end.
@@ -76,22 +71,16 @@ pub async fn push_task_to_github(
         labels: label_names.clone(),
     };
 
-    let client = reqwest::Client::new();
-    let resp = client
+    let resp = gh_client()
         .post(format!("https://api.github.com/repos/{repo}/issues"))
-        .bearer_auth(&token)
+        .bearer_auth(&acting.token)
         .header("Accept", "application/vnd.github.v3+json")
-        .header("User-Agent", "Weld/1.0")
         .json(&payload)
         .send()
         .await?;
 
     if !resp.status().is_success() {
-        let status = resp.status();
-        let body = resp.text().await.unwrap_or_default();
-        return Err(ApiError::Internal(format!(
-            "GitHub create-issue request failed ({status}): {body}"
-        )));
+        return Err(github_error("create issue", resp).await);
     }
 
     let created: CreatedIssue = resp
@@ -109,7 +98,7 @@ pub async fn push_task_to_github(
                   assignee_id, reporter_id,
                   priority as "priority: Priority",
                   position, due_date, estimate_hours,
-                  short_id, github_issue_id, github_pr_id, github_repo,
+                  short_id, github_issue_id, github_pr_id, github_repo, github_check_status,
                   deleted_at, created_at, updated_at
         "#,
         task_id,

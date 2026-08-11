@@ -1,0 +1,5 @@
+.venv/
+figures/
+exports/
+correctness_template.csv
+coding_sheet.md

@@ -5,7 +5,7 @@ use weld_core::models::enums::TeamRole;
 use weld_core::models::task::Label;
 
 use crate::errors::ApiError;
-use crate::services::github::helpers::create_installation_token;
+use crate::services::github::helpers::{create_installation_token, gh_client, github_error};
 use crate::services::project::helpers::{fetch_active_project, require_project_team_role};
 use crate::state::GithubConfig;
 
@@ -41,23 +41,17 @@ pub async fn sync_labels_from_github(
 
     let token = create_installation_token(github, conn.installation_id).await?;
 
-    let client = reqwest::Client::new();
-    let resp = client
+    let resp = gh_client()
         .get(format!(
             "https://api.github.com/repos/{repo}/labels?per_page=100"
         ))
         .bearer_auth(&token)
         .header("Accept", "application/vnd.github.v3+json")
-        .header("User-Agent", "Weld/1.0")
         .send()
         .await?;
 
     if !resp.status().is_success() {
-        let status = resp.status();
-        let body = resp.text().await.unwrap_or_default();
-        return Err(ApiError::Internal(format!(
-            "GitHub list-labels request failed ({status}): {body}"
-        )));
+        return Err(github_error("list labels", resp).await);
     }
 
     let gh_labels: Vec<GhLabel> = resp

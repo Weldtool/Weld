@@ -60,7 +60,8 @@
 	"pnpm": {
 		"overrides": {
 			"markdown-it@<14.2.0": ">=14.2.0",
-			"brace-expansion@>=5.0.0 <5.0.6": ">=5.0.6",
+			"brace-expansion@<5.0.7": ">=5.0.7",
+			"linkify-it@<5.0.2": ">=5.0.2 <6",
 			"cookie@<0.7.0": ">=0.7.0"
 		}
 	}

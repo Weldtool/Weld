@@ -1,0 +1,103 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO projects (team_id, name, slug, description)\n        VALUES ($1, $2, $3, $4)\n        RETURNING id, team_id, name, slug, description, github_repo, done_column_id,\n                  in_progress_column_id, review_column_id, auto_close_on_issue_closed,\n               github_comment_on_move,\n                  created_at, updated_at, deleted_at\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "team_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "slug",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "github_repo",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "done_column_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 7,
+        "name": "in_progress_column_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 8,
+        "name": "review_column_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 9,
+        "name": "auto_close_on_issue_closed",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 10,
+        "name": "github_comment_on_move",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 11,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 12,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 13,
+        "name": "deleted_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "4e446607d89c2b9ef5136af91bccaf7004cdbfacd17ca737164ebab8a2b7171f"
+}

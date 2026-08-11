@@ -2,7 +2,7 @@
 
 # Weld
 
-**The all-in-one developer workspace.**
+**One workspace for coordinating and reviewing software work.**
 
 Task boards, team chat, GitHub integration, secrets management, and time tracking — unified in a single product.
 
@@ -27,6 +27,8 @@ Task boards, team chat, GitHub integration, secrets management, and time trackin
 Developers juggle too many tools — Jira for tasks, Slack for chat, 1Password for secrets, Toggl for time, GitHub for code. Context-switching between them kills productivity.
 
 Weld welds them together into one workspace with a shared Rust core and native UI on every platform.
+
+Weld covers the coordination and review layer around your code — planning, communication, tracking, and pull-request review — and leaves authoring and execution to your editor. It's the workspace next to the IDE, not a replacement for it.
 
 ## Features
 

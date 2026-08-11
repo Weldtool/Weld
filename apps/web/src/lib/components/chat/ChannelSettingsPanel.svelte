@@ -14,11 +14,18 @@
 
 	const GITHUB_BOT_ID = '00000000-0000-0000-0000-000000000002';
 
-	let reposInput = $state((channel.github_repos ?? []).join(', '));
-	let prEnabled = $state(channel.github_event_filter?.pr ?? false);
-	let issueEnabled = $state(channel.github_event_filter?.issue ?? false);
-	let reviewEnabled = $state(channel.github_event_filter?.review ?? false);
-	let pushEnabled = $state(channel.github_event_filter?.push ?? false);
+	// The form is seeded from the channel once and then owned by the user — an
+	// inbound channel update must not clobber what they're typing. Safe because
+	// the call site keys this component on `channel.id`, so switching channels
+	// remounts it with a fresh seed rather than leaving a stale form pointed at a
+	// different channel.
+	// svelte-ignore state_referenced_locally
+	const seed = channel;
+	let reposInput = $state((seed.github_repos ?? []).join(', '));
+	let prEnabled = $state(seed.github_event_filter?.pr ?? false);
+	let issueEnabled = $state(seed.github_event_filter?.issue ?? false);
+	let reviewEnabled = $state(seed.github_event_filter?.review ?? false);
+	let pushEnabled = $state(seed.github_event_filter?.push ?? false);
 	let saving = $state(false);
 	let error = $state<string | null>(null);
 

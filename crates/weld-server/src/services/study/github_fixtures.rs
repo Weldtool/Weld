@@ -2,7 +2,7 @@
 //!
 //! The product's GitHub view proxies the live GitHub API; for the study we must
 //! render identical, deterministic content with no network calls and no writes
-//! (per `research-paper/CLAUDE_STUDY.md` §4). These functions reshape the seed's
+//! (per `paper/instrument/CLAUDE_STUDY.md` §4). These functions reshape the seed's
 //! `github` section into the exact GitHub-API JSON the frontend already
 //! consumes, so the view renders unchanged. The content is the same for every
 //! participant, so no per-participant storage is needed.
@@ -57,6 +57,20 @@ struct FxPr {
     body: String,
     #[serde(default)]
     labels: Vec<String>,
+    #[serde(default)]
+    files: Vec<FxFile>,
+}
+
+#[derive(Debug, Deserialize)]
+struct FxFile {
+    filename: String,
+    status: String,
+    #[serde(default)]
+    additions: i64,
+    #[serde(default)]
+    deletions: i64,
+    #[serde(default)]
+    patch: String,
 }
 
 fn fixtures() -> Result<GithubFixtures, ApiError> {
@@ -118,6 +132,19 @@ fn issue_value(repo: &str, issue: &FxIssue, include_body: bool) -> Value {
 }
 
 fn pr_value(repo: &str, pr: &FxPr) -> Value {
+    let files: Vec<Value> = pr
+        .files
+        .iter()
+        .map(|f| {
+            json!({
+                "filename": f.filename,
+                "status": f.status,
+                "additions": f.additions,
+                "deletions": f.deletions,
+                "patch": f.patch,
+            })
+        })
+        .collect();
     json!({
         "number": pr.number,
         "title": pr.title,
@@ -127,6 +154,10 @@ fn pr_value(repo: &str, pr: &FxPr) -> Value {
         "body": pr.body,
         "user": { "login": login_for(&pr.author), "avatar_url": "" },
         "labels": label_objects(&pr.labels),
+        "additions": pr.files.iter().map(|f| f.additions).sum::<i64>(),
+        "deletions": pr.files.iter().map(|f| f.deletions).sum::<i64>(),
+        "changed_files": pr.files.len(),
+        "files": files,
     })
 }
 
