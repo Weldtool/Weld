@@ -1,6 +1,6 @@
 {
 	"name": "web",
-	"packageManager": "pnpm@11.21.0",
+	"packageManager": "pnpm@10.34.5",
 	"private": true,
 	"version": "0.0.1",
 	"type": "module",
@@ -57,5 +57,15 @@
 		"@tiptap/starter-kit": "^3.22.5",
 		"svelte-dnd-action": "^0.9.69",
 		"tiptap-markdown": "^0.9.0"
+	},
+	"pnpm": {
+		"comment": "Mirror of overrides in pnpm-workspace.yaml — read only by pnpm 9. See that file.",
+		"overrides": {
+			"markdown-it@<14.2.0": ">=14.2.0",
+			"linkify-it@<5.0.2": ">=5.0.2 <6",
+			"cookie@<0.7.0": ">=0.7.0",
+			"brace-expansion@<5.0.9": ">=5.0.9",
+			"postcss@<8.5.18": ">=8.5.18"
+		}
 	}
 }
