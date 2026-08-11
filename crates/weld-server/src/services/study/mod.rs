@@ -3,7 +3,9 @@
 //!
 //! `paper/` — manuscript, replication package, and the build/operator docs this
 //! module and its siblings cite — is tracked on the `paper/tosm-journal-writing`
-//! branch, so those paths resolve there rather than on this one until it merges.
+//! branch and deliberately kept off this one, so the product line carries no
+//! research material. Those paths resolve on that branch, which carries this
+//! code too. Check it out there rather than going looking here.
 
 pub mod access_code;
 pub mod agent;
