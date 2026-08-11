@@ -91,7 +91,7 @@ By checking the box below and clicking "I consent — continue," you confirm tha
 
 **[ I consent — continue ]** **[ No thanks ]**
 
-*Consent version: v1.1. A record that you consented (the version identifier and timestamp) is stored with your session data. You may save or print a copy of this page for your records.*
+*Consent version: v1.2. A record that you consented (the version identifier and timestamp) is stored with your session data. You may save or print a copy of this page for your records.*
 
 ---
 
