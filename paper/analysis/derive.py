@@ -71,6 +71,11 @@ CROSS_REFERENCE_EVENTS = [
 
 TLX_SUBSCALES = ["mental", "physical", "temporal", "performance", "effort", "frustration"]
 
+#: Endpoints of the TLX sliders as the app actually renders them (ExitSurvey.svelte
+#: and BaselineTlx.svelte both use min=1, max=100). Used to reverse-score
+#: `tlx_performance`; see tlx_composite.
+TLX_SLIDER_MIN, TLX_SLIDER_MAX = 1, 100
+
 #: The three attitudinal items that form the trust composite (paper Section 4,
 #: "Trust, and what we mean by it"). The other trust_* items are reported
 #: individually and deliberately excluded -- do not add them here.
@@ -134,7 +139,20 @@ def task_table(data: StudyData) -> pd.DataFrame:
         idle_ms = _idle_adjustment(in_task, ev["away_ms"])
 
         agent_calls = in_task[in_task["event_type"] == "agent_tool_call"]
-        executed = agent_calls["payload"].map(lambda p: bool(p.get("executed"))).sum()
+        # An executed `post_message` call only *drafts* a message -- the agent
+        # never posts. The participant reviews, edits and sends it, which lands
+        # as its own `message_sent` user action. Counting the draft as an agent
+        # action too would put one outcome on both sides of the delegation
+        # ratio; the server flags exactly this case with `drafted` so the
+        # analysis can tell them apart. Drafts are kept separately below, since
+        # "the agent wrote it and I sent it" is real delegation -- it is just not
+        # an action the agent completed.
+        executed = agent_calls["payload"].map(
+            lambda p: bool(p.get("executed")) and not p.get("drafted")
+        ).sum()
+        drafted = agent_calls["payload"].map(
+            lambda p: bool(p.get("executed")) and bool(p.get("drafted"))
+        ).sum()
         user_actions = int(in_task["event_type"].isin(USER_ACTION_EVENTS).sum())
 
         rows.append(
@@ -154,6 +172,7 @@ def task_table(data: StudyData) -> pd.DataFrame:
                 "was_interrupted": ev["was_interrupted"],
                 "agent_invocations": int((in_task["event_type"] == "agent_invoked").sum()),
                 "agent_tool_calls_executed": int(executed),
+                "agent_chat_drafts": int(drafted),
                 "agent_tool_calls_attempted": int(len(agent_calls)),
                 "user_actions": user_actions,
                 "cross_references": int(
@@ -241,13 +260,27 @@ def _numeric(wide: pd.DataFrame, items: list[str]) -> pd.DataFrame:
 def tlx_composite(wide: pd.DataFrame, suffix: str = "") -> pd.Series:
     """Raw (unweighted) NASA-TLX: the mean of the six subscales, 0-100.
 
-    `tlx_performance` is authored anchored Perfect(low) -> Failure(high) in
-    survey-config.ts, i.e. already in the workload direction, so no subscale is
-    reverse-scored here. Check that anchoring before changing this.
+    `tlx_performance` is authored anchored Failure(low) -> Perfect(high) in
+    survey-config.ts -- high means *good* performance, the opposite of the other
+    five items, which run low-to-high in the workload direction. It is therefore
+    reverse-scored here before compositing, exactly as WELD_ANALYSIS_PLAN.tex
+    Sec. "Cognitive load (H3)" pre-specifies (MAX + MIN - raw). The item's own
+    comment in survey-config.ts says the same. Verify those anchors before
+    changing this: getting the direction wrong silently corrupts every TLX
+    number in the paper, in both phases and therefore in the delta as well.
     """
     items = [f"tlx_{s}{suffix}" for s in TLX_SUBSCALES]
-    vals = _numeric(wide, items)
-    return vals.mean(axis=1, skipna=False) if not vals.empty else pd.Series(dtype=float)
+    vals = _numeric(wide, items).copy()
+    return _reverse_performance(vals, suffix).mean(axis=1, skipna=False) if not vals.empty \
+        else pd.Series(dtype=float)
+
+
+def _reverse_performance(vals: pd.DataFrame, suffix: str = "") -> pd.DataFrame:
+    """Flip `tlx_performance` into the workload direction (see tlx_composite)."""
+    perf = f"tlx_performance{suffix}"
+    if perf in vals.columns:
+        vals[perf] = (TLX_SLIDER_MAX + TLX_SLIDER_MIN) - vals[perf]
+    return vals
 
 
 def sus_score(wide: pd.DataFrame) -> pd.Series:
@@ -286,8 +319,11 @@ def participant_table(data: StudyData, tasks: pd.DataFrame) -> pd.DataFrame:
         out["tlx_agent"] = tlx_composite(wide)
         out["tlx_delta"] = out["tlx_agent"] - out["tlx_baseline"]
         for s in TLX_SUBSCALES:
-            b = _numeric(wide, [f"tlx_{s}_baseline"])
-            a = _numeric(wide, [f"tlx_{s}"])
+            # Reverse-scored on both sides for `performance`, so every subscale
+            # delta reads in the same direction as the composite: positive =
+            # more workload under the agent.
+            b = _reverse_performance(_numeric(wide, [f"tlx_{s}_baseline"]), "_baseline")
+            a = _reverse_performance(_numeric(wide, [f"tlx_{s}"]))
             if not b.empty and not a.empty:
                 out[f"tlx_{s}_delta"] = a.iloc[:, 0] - b.iloc[:, 0]
         out["sus"] = sus_score(wide)
@@ -307,7 +343,13 @@ def participant_table(data: StudyData, tasks: pd.DataFrame) -> pd.DataFrame:
         grp = agent.groupby("participant_code")
         out["agent_invocations"] = grp["agent_invocations"].sum()
         out["tool_calls_executed"] = grp["agent_tool_calls_executed"].sum()
+        out["chat_drafts"] = grp["agent_chat_drafts"].sum()
         out["user_actions"] = grp["user_actions"].sum()
+        # Numerator = actions the agent actually completed. Chat drafts are
+        # excluded (see task_table): the participant is the one who posted, so
+        # the send is already counted on the user side. `chat_drafts` is carried
+        # alongside so the drafting channel of delegation stays visible, and so
+        # a reader can recompute the ratio the other way if they disagree.
         denom = out["tool_calls_executed"] + out["user_actions"]
         out["delegation_ratio"] = (out["tool_calls_executed"] / denom).where(denom > 0)
 

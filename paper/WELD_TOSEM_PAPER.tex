@@ -418,8 +418,9 @@ override it via env var before the run starts) at a fixed
 temperature of 0.2 with versioned prompts, held constant for the entire study.
 A context gate assembles the agent's prompt per invocation under a default-deny
 policy keyed to the participant's condition, and the same gate governs which
-tools are exposed --- C1 has no tools at all, C2 may write to the board and post
-to chat, and C3 may additionally link cards to issues and pull requests. Every
+tools are exposed --- C1 has no tools at all, C2 may write to the board and draft
+chat messages for the participant to send, and C3 may additionally link cards to
+issues and pull requests. Every
 invocation records a snapshot of exactly what the agent received
 (\S\ref{sec:manipcheck}).
 
@@ -503,8 +504,8 @@ request, so the review cost is anchored per person rather than confounded with
 the agent condition.
 
 No condition completes T6 end to end on the participant's behalf. The agent's
-tools are card creation, card movement, card editing, posting to chat, and
-linking a card to an issue or pull request; submitting a review verdict and
+tools are card creation, card movement, card editing, drafting a chat message,
+and linking a card to an issue or pull request; submitting a review verdict and
 merging are not among them, in any condition. Reading the diff and deciding the
 verdict is therefore always the participant's work, and what widens with scope
 is only the agent's ability to find the right pull request and connect it. This
@@ -512,6 +513,20 @@ is deliberate --- an agent that reviews on the user's behalf would make T6 a
 test of automation acceptance rather than of scope --- but it caps how much of
 T6's cost the top rung can remove, alongside the fixture-sized diffs
 (\S\ref{sec:threats}).
+
+\paragraph{The agent drafts chat messages; it never posts them.} The chat tool
+produces a draft that the participant reviews, edits if they wish, and sends
+themselves. This is a deliberate asymmetry with the board tools, which do write
+directly: posting in a teammate's name is the one action here with a social cost
+that cannot be undone by a click, and an agent that speaks for the user without
+review is a different intervention from the one we set out to study. It has two
+consequences the reader should carry. Substantively, every chat outcome in every
+condition passes through a human edit-and-send step, so the chat surface is where
+scope can help least by construction --- which is worth remembering when reading
+T3, the chat-only single-surface task. Methodologically, a draft is an agent
+contribution but not an agent-completed action: the participant's send is
+recorded as an ordinary user action, so drafts are excluded from the numerator of
+the delegation ratio and reported separately (\S\ref{sec:measures}).
 
 Task wording is load-bearing and was fixed in advance. Agent tasks state a goal
 and never a route, and state that the assistant \emph{is available} rather than
@@ -612,8 +627,9 @@ Perceived context sufficiency & \code{trust\_context} & Manipulation-adjacent;
 Agent effectiveness & \code{agent\_response} (latency, response type, tool
   calls, tokens), \code{agent\_tool\_call} & Effort and cost. \\
 Delegation & executed agent tool calls vs.\ user actions; accept / reject /
-  edit / undo events; \code{agent\_panel\_opened} & RQ2. Panel-open is the
-  coarsest measure of all: did the participant reach for the agent? \\
+  edit / undo events; \code{agent\_panel\_opened} & RQ2. Chat drafts are
+  excluded from the agent side and reported separately (below). Panel-open is
+  the coarsest measure of all: did the participant reach for the agent? \\
 Cross-reference usage & card-from-chat, chat-from-card, PR-from-card,
   PR-from-chat, card-from-PR, issue-from-card & Integration-usage measure. \\
 View-switch rate & \code{view\_changed} count per unit active time &
@@ -632,6 +648,29 @@ task type therefore has a like-for-like anchor, and the cross-surface anchor ---
 where the hypotheses live --- averages four baselines and is the most stable. In
 the models the baseline enters as a covariate rather than as a pre-computed
 ratio (\S\ref{sec:models}).
+
+\paragraph{Delegation, and what counts as an agent action.} The delegation ratio
+is the share of surface actions during the agent phase that the agent itself
+carried out: executed tool calls over executed tool calls plus participant
+actions. Two definitional choices are worth stating, because a reader cannot
+recover them from the name. First, a drafted chat message is not an agent action.
+The agent never posts (\S\ref{sec:design}); the participant sends, and that send
+is already counted on the user side, so counting the draft as well would place a
+single outcome on both sides of the ratio and inflate delegation exactly where
+the agent did the least. Drafts are counted and reported separately, so the
+drafting channel remains visible. Second, C1 has no tools, so its delegation
+ratio is $0$ by construction rather than by participant choice; the measure that
+carries C1's reliance signal is whether participants invoked the agent at all and
+acted on its advice, not the ratio.
+
+\paragraph{Scoring the TLX.} We report the raw (unweighted) NASA-TLX, the mean of
+the six subscales. \code{tlx\_performance} is the one item whose scale runs
+against the workload direction --- it is presented anchored Failure to Perfect,
+so a high rating means good performance --- and it is reverse-scored before
+entering the composite or any subscale delta, in both administrations. The rule
+was fixed in the archived analysis plan rather than chosen after seeing the data,
+which matters here: the same item is collected twice and the delta is the H3
+measure, so a sign error would propagate silently into every load result.
 
 \paragraph{What the view-switch rate does and does not cover.} Because GitHub is
 reached from the card it belongs to rather than from a separate destination, a

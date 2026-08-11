@@ -58,7 +58,7 @@ python run_all.py --data data --out out
 | `score` | consensus score, 0–3 |
 | `coder_1`, `coder_2` | pre-adjudication scores, for quadratic-weighted κ |
 
-The rubric and anchors are in `research-paper/WELD_AGENT_TASK_SCRIPTS.md` §2.
+The rubric and anchors are in `paper/replication/WELD_AGENT_TASK_SCRIPTS.md` §2.
 Coders work from the `task_final_state` snapshot with condition, agent
 transcript, and timing stripped — blinding is mandatory.
 
@@ -74,7 +74,7 @@ If the file is absent the pipeline still runs; correctness outputs are empty.
 | `figures.py` | Figures 2–5. |
 | `synthesize.py` | Fake exports for testing the pipeline. |
 | `run_all.py` | Orchestrates everything and writes the report. |
-| `../sensitivity.py` | Minimum-detectable-effect calculation quoted in §5.3. |
+| `sensitivity.py` | Minimum-detectable-effect calculation quoted in §5.3. |
 
 ## Decisions worth knowing about
 
@@ -99,9 +99,21 @@ deliberately excluded; `trust_context` especially, since it is a perception of
 the manipulation and would build the IV into the outcome. Cronbach's α is
 reported, and the report shouts if it falls below the pre-committed 0.70.
 
-**TLX** is raw (unweighted) 0–100. `tlx_performance` is authored anchored
-Perfect→Failure, i.e. already in the workload direction, so nothing is
-reverse-scored. Verify that anchoring before changing it.
+**TLX** is raw (unweighted) 0–100. `tlx_performance` is the one item authored
+against the workload direction — the app anchors it Failure(low)→Perfect(high),
+so high means *good* performance — and `derive.py` reverse-scores it
+(`MAX + MIN − raw`, the sliders being 1–100) before it enters the composite or
+any subscale delta. This is what `../WELD_ANALYSIS_PLAN.tex` §"Cognitive load (H3)"
+pre-specifies. Verify the anchors in `survey-config.ts` before touching it: the
+direction being wrong corrupts both phases, and therefore the delta too,
+silently and in a way none of the sanity checks below would catch.
+
+**Delegation** counts only agent-*completed* actions in the numerator. An
+executed `post_message` tool call drafts a message; the participant reviews and
+sends it, and that send is already counted as a user action, so counting the
+draft as well would put one outcome on both sides of the ratio. Drafts are
+carried separately as `agent_chat_drafts` / `chat_drafts` so the drafting
+channel of delegation stays visible.
 
 **Figures** use Okabe-Ito colours validated for colour-vision deficiency (worst
 adjacent pair ΔE 11.4 protan). Marker shape duplicates colour so the figures
@@ -112,6 +124,7 @@ bar of means hides what a reader needs to judge.
 
 - Manipulation check: C1 shows 0% board and 0% GitHub; C2 shows 0% GitHub;
   `violations` is 0 everywhere. Anything else is a leak — report it, never drop it.
-- C1 delegation ratio is exactly 0.00 (C1 has no tools by construction).
+- C1 delegation ratio is exactly 0.00 and `chat_drafts` is 0 (C1 has no tools
+  at all by construction).
 - Every participant has 12 completed tasks; fewer means skips or abandonment,
   which belong in the participant-flow figure.

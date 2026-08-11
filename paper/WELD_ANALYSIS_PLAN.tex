@@ -357,7 +357,16 @@ models, the behavioral telemetry gives a division-of-labor picture --- does the
 user delegate to the agent or take over, and do they check its output?
 Supporting telemetry descriptives:
 \begin{itemize}[nosep]
-  \item \emph{delegation ratio} by condition (agent-executed vs.\ user-performed actions);
+  \item \emph{delegation ratio} by condition (agent-executed vs.\ user-performed
+  actions)---%
+  \footnote{The chat tool \emph{drafts}: the agent never posts, so the
+  participant's send is recorded as an ordinary user action. A drafted message is
+  therefore excluded from the agent-executed numerator---it is flagged
+  \code{drafted} on \code{agent\_tool\_call}---because counting it would put one
+  outcome in the numerator and the denominator at once. Draft counts are reported
+  separately so that channel of delegation stays visible. C1's ratio is $0$ by
+  construction rather than by participant choice, so C1's reliance signal is
+  invocation and advice-following, not this ratio.};
   \item the \emph{agent funnel}: \code{agent\_invoked} $\rightarrow$ tool attempted $\rightarrow$ \code{executed} $\rightarrow$ \code{accepted}/\code{edited}/\code{undone};
   \item tool error / rejection rates; cross-reference traversal counts; view-switch rate;
   \item a CONSORT-style participant flow from \code{study\_participants.status} $+$ \code{session\_abandoned};
