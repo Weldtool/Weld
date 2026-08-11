@@ -1,10 +1,23 @@
-# pnpm settings. These lived in package.json under a `pnpm` key until pnpm 11
-# stopped reading that field — silently, so the overrides below were being
-# ignored and the lockfile drifted back to vulnerable versions on any install.
-# Keep them here.
+# pnpm settings.
+#
+# `packages` is required for pnpm 9 to accept this file at all: seeing it and
+# finding no packages field, pnpm 9 aborts the install outright rather than
+# ignoring the file. Any builder still on 9 -- Railway's, at time of writing --
+# fails at that line without it.
+packages:
+  - '.'
+
+# The overrides below are DUPLICATED in package.json under `pnpm.overrides`, and
+# both copies are load-bearing: pnpm 10+ reads only this file, pnpm 9 reads only
+# package.json, and a mismatch between whichever one the builder reads and the
+# `overrides` block recorded in pnpm-lock.yaml fails --frozen-lockfile with
+# ERR_PNPM_LOCKFILE_CONFIG_MISMATCH. `packageManager` pins pnpm 10 so this should
+# not come up, but a builder that ignores that pin still resolves correctly
+# either way. CI asserts the two lists stay identical; if you edit one, edit the
+# other. Drop the package.json copy once nothing builds this on pnpm 9.
 #
 # Each entry pins a transitive dependency past a published advisory. Ranges are
-# the *fixed* version, not the first patched-ish one: brace-expansion sat at
+# the fixed version, not the first patched-ish one: brace-expansion sat at
 # >=5.0.7 while the advisory covered <5.0.9, so the pin looked present and did
 # nothing.
 overrides:

@@ -94,10 +94,16 @@ jobs:
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
         working-directory: .
-      # Version comes from `packageManager` in apps/web/package.json so CI and
-      # local can't drift. They had: CI pinned pnpm 9, which reads overrides
-      # from package.json, while developers ran pnpm 11, which reads them from
-      # pnpm-workspace.yaml and ignores the package.json field entirely.
+      # Version comes from `packageManager` in apps/web/package.json so CI, the
+      # Railway builder, and developers can't drift. They had: CI pinned pnpm 9,
+      # which reads overrides from package.json, while developers ran pnpm 11,
+      # which reads them from pnpm-workspace.yaml and ignores that field --
+      # so the security overrides were correct for one and dead for the other.
+      #
+      # The pin is pnpm 10, not the newest: pnpm 11 requires Node >=22.13 and
+      # this job runs Node 20. pnpm 10 needs only >=18.12 and still reads
+      # pnpm-workspace.yaml, so it is the version that works everywhere without
+      # forcing a Node bump on every builder at once.
       - if: steps.check.outputs.skip != 'true'
         uses: pnpm/action-setup@v4
         with:
@@ -108,6 +114,12 @@ jobs:
           node-version: 20
           cache: pnpm
           cache-dependency-path: apps/web/pnpm-lock.yaml
+      # The overrides are declared twice (see apps/web/pnpm-workspace.yaml).
+      # Both are load-bearing, so they must not drift.
+      - if: steps.check.outputs.skip != 'true'
+        name: Check pnpm overrides agree
+        run: python3 scripts/check-pnpm-overrides.py
+        working-directory: .
       - if: steps.check.outputs.skip != 'true'
         run: pnpm install --frozen-lockfile
       - if: steps.check.outputs.skip != 'true'
