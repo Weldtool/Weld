@@ -19,6 +19,7 @@
 	// Screening answers (eligibility gate; not stored — demographics come later).
 	let experience = $state<string | null>(null);
 	let familiarity = $state<string | null>(null);
+	let priorWeld = $state<string | null>(null);
 
 	const emailValid = $derived(participantEmail.trim().includes('@'));
 
@@ -27,11 +28,16 @@
 			institution.trim().length > 0 &&
 			experience !== null &&
 			familiarity !== null &&
+			priorWeld !== null &&
 			(!codeRequired || accessCode.trim().length > 0)
 	);
 
 	function submitScreening() {
-		const ineligible = experience === 'lt1' || familiarity === 'none';
+		// Eligibility criteria per WELD_CONSENT_FORM.md ("Who can take part?"):
+		// 18+, ≥1 year programming, has used issue tracker + chat + Git/GitHub, and
+		// has not used Weld extensively before (prior exposure confounds the
+		// time-on-task measure the study turns on).
+		const ineligible = experience === 'lt1' || familiarity === 'none' || priorWeld === 'lots';
 		if (ineligible) {
 			study.markIneligible();
 		} else {
@@ -77,33 +83,99 @@
 			class="mt-4 max-h-72 overflow-y-auto rounded-md border border-[var(--border)] p-4 text-sm text-[var(--muted-foreground)]"
 		>
 			<p>
-				You are invited to take part in a research study about how developers work in an integrated
-				workspace assisted by an AI agent. Participation is voluntary and takes about an hour.
+				<strong>Study title:</strong> The effect of AI agent context scope on productivity and trust in
+				an integrated developer workspace
 			</p>
-			<p class="mt-3">
-				You will complete a set of tasks in a practice project and answer a short survey. We log
-				only your in-app actions (e.g. opening cards, sending messages, navigating) and your survey
-				answers. We do <strong>not</strong> record keystrokes, mouse movement, your screen, or any data
-				outside this study.
+			<p class="mt-2">
+				<strong>Researchers:</strong> Dr. Jie Wu (Principal Investigator), Andrew Sadler (Student
+				Investigator), Computer Science, Michigan Technological University. Approved by the Michigan
+				Technological University IRB, protocol <strong>IRB-2026-111</strong>.
 			</p>
-			<p class="mt-3">
-				Your email and institution are collected so your results can be linked to you. This
-				information is stored securely, separately from your study responses, and used only for
-				research purposes. You may stop at any time by closing the tab.
+
+			<p class="mt-3 font-medium text-[var(--foreground)]">What is this study about?</p>
+			<p class="mt-1">
+				You are invited to take part in a research study about how developers work when their tools
+				(task board, team chat, and code integration) are combined into a single application, and
+				how access to an AI assistant within that workspace affects how quickly and comfortably
+				people complete common development-coordination tasks.
 			</p>
-			<p class="mt-3">
+
+			<p class="mt-3 font-medium text-[var(--foreground)]">What will I do?</p>
+			<p class="mt-1">
+				A single online session of <strong>about an hour</strong>, on your own: a few background
+				questions, a set of guided tasks in a fictional practice project called PetTracker (no real
+				code or accounts of yours are involved), and a short survey about your experience.
+			</p>
+			<p class="mt-2">
+				<strong>Note on the AI assistant.</strong> You will be
+				<strong>randomly assigned to one of three conditions</strong>
+				that differ in how much information the AI assistant can access (e.g. just team chat, or chat
+				plus the task board, or chat plus board plus GitHub).
+				<strong>You will not be told which condition you are in during the session.</strong> After data
+				collection is complete, the researchers can provide more detail if you request it.
+			</p>
+
+			<p class="mt-3 font-medium text-[var(--foreground)]">What information is collected?</p>
+			<p class="mt-1">
+				Your in-app actions and when you took them (e.g. opening cards, sending messages, moving
+				cards, navigating), basic technical info (browser, OS, screen size), the messages you post
+				as part of the tasks, your interactions with the AI assistant, your survey answers, and
+				background categories such as age range and years of experience. We do <strong>not</strong>
+				record keystrokes, mouse movement, your screen, anything from your other apps or tabs, or any
+				of your real projects.
+			</p>
+			<p class="mt-2">
+				Your email and institution are collected so your results can be linked to you. They are
+				stored securely, separately from your study responses, and are not included in exported
+				analysis datasets. Your session is labelled with an anonymised participant code (e.g.
+				<span class="font-mono">P0012</span>), shown to you at the end.
+			</p>
+			<p class="mt-2">
 				The AI assistant is powered by a third-party language-model service (OpenAI). The messages
 				you send to the assistant, and the practice-project content it is given to answer them, are
 				transmitted to that service for processing under their API data terms (not used to train
 				their models). No real personal data or real code of yours is involved.
 			</p>
-			<p class="mt-3">
+			<p class="mt-2">
 				De-identified study data (containing no name, email, or institution) may be retained
-				indefinitely and shared publicly to support reproducibility and future research. Data that
-				has already been published or shared cannot be withdrawn.
+				indefinitely and shared publicly — for example in a public research repository such as OSF
+				or Zenodo — to support reproducibility and future research.
 			</p>
-			<p class="mt-3">By continuing, you confirm you are 18+ and consent to take part.</p>
-			<p class="mt-3 text-xs">Consent version {CONSENT_VERSION}</p>
+
+			<p class="mt-3 font-medium text-[var(--foreground)]">Risks, benefits, and payment</p>
+			<p class="mt-1">
+				Risks are minimal — no more than ordinary computer use; you may feel mild fatigue or
+				frustration. There is no direct benefit to you and <strong>no compensation</strong> for taking
+				part. Your participation helps researchers design better development tools.
+			</p>
+
+			<p class="mt-3 font-medium text-[var(--foreground)]">Is participation voluntary?</p>
+			<p class="mt-1">
+				Yes. You may decline to answer any question and may stop at any time by closing the browser
+				tab, without penalty. To withdraw your data afterwards, email
+				<span class="font-mono">awsadler@mtu.edu</span> with your participant code. Data that has already
+				been published, aggregated, or deposited in a public repository cannot be withdrawn.
+			</p>
+
+			<p class="mt-3 font-medium text-[var(--foreground)]">Who can I contact?</p>
+			<p class="mt-1">
+				About the study: <span class="font-mono">awsadler@mtu.edu</span> or
+				<span class="font-mono">jwu2@mtu.edu</span>. About your rights as a research participant:
+				the MTU Human Research Protection Program, <span class="font-mono">irb@mtu.edu</span> or (906)
+				487-1799.
+			</p>
+
+			<p class="mt-3">
+				By checking the box below and continuing, you confirm that you are 18 years of age or older,
+				have read and understood this information, understand that you will be randomly assigned to
+				one of three AI assistant conditions and will not be told which during the session, and
+				voluntarily agree to take part.
+			</p>
+			<p class="mt-3 text-xs">
+				Consent version {CONSENT_VERSION}. A record that you consented (the version identifier and
+				timestamp) is stored with your session data. You may save or print this page for your
+				records.
+			</p>
 		</div>
 		<label class="mt-4 flex cursor-pointer items-center gap-2 text-sm">
 			<input type="checkbox" bind:checked={consentAffirmed} class="rounded" />
@@ -185,6 +257,21 @@
 					>
 					<label class="flex items-center gap-2"
 						><input type="radio" bind:group={familiarity} value="none" /> None</label
+					>
+				</div>
+			</fieldset>
+
+			<fieldset>
+				<legend class="text-sm font-medium">Have you used Weld before this study?</legend>
+				<div class="mt-2 flex flex-wrap gap-4 text-sm">
+					<label class="flex items-center gap-2"
+						><input type="radio" bind:group={priorWeld} value="never" /> Never</label
+					>
+					<label class="flex items-center gap-2"
+						><input type="radio" bind:group={priorWeld} value="a_little" /> A little</label
+					>
+					<label class="flex items-center gap-2"
+						><input type="radio" bind:group={priorWeld} value="lots" /> Extensively</label
 					>
 				</div>
 			</fieldset>

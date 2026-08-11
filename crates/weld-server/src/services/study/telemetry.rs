@@ -56,12 +56,14 @@ const ALLOWED_EVENT_TYPES: &[&str] = &[
     "thread_opened",
     "mention_clicked",
     "link_clicked",
-    // Cross-reference (headline integration metric). Three of the four
-    // directions have a UI affordance and are emitted: chat→card, card→PR,
-    // PR→card (plus card→issue below). `chat_referenced_from_card` has no
-    // affordance in the current app (cards don't surface clickable chat refs),
-    // so it is reserved but never emitted — treat its absence as N/A in
-    // analysis, not as missing data.
+    // Cross-reference (headline integration metric). Only the directions with a
+    // UI affordance are emitted: chat→card, chat→PR, card→PR (plus card→issue
+    // below). Two are reserved but have no affordance in the current app —
+    // `chat_referenced_from_card` (cards don't surface clickable chat refs) and
+    // `card_referenced_from_pr` (the PR review view doesn't link back to a card).
+    // Treat both as N/A in analysis, not as missing data: `CROSS_REFERENCE_EVENTS`
+    // in `paper/analysis/derive.py` lists all six, so the cross-reference count
+    // is a sum over four live directions, identically for every condition.
     "card_referenced_from_chat",
     "chat_referenced_from_card",
     "pr_referenced_from_card",

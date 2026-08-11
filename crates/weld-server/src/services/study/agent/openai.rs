@@ -57,8 +57,9 @@ pub struct Usage {
 
 /// One Chat Completions call. `messages` is the running conversation (system →
 /// context → user, then assistant/tool turns). `tools` is the condition's
-/// allowed function set (empty for C1 → advise-only). One retry on transport
-/// error; API errors surface cleanly.
+/// allowed function set (empty for C1 → advise-only). One retry on a transient
+/// failure (transport, 429, 5xx); a deterministic rejection (any other 4xx)
+/// surfaces on the first attempt.
 pub async fn chat_completion(
     agent: &AgentConfig,
     messages: &[Value],
@@ -80,42 +81,65 @@ pub async fn chat_completion(
     for attempt in 0..2 {
         match send(&client, agent, &body).await {
             Ok(resp) => return Ok(resp),
-            Err(e) => {
+            Err(SendError::Retryable(e)) => {
                 last_err = Some(e);
                 if attempt == 0 {
                     tokio::time::sleep(std::time::Duration::from_millis(400)).await;
                 }
             }
+            // A rejected request shape (e.g. an unsupported `max_tokens` or
+            // `temperature` on a newer snapshot) fails identically every time.
+            // Retrying it doubles the participant's wait for the same error, so
+            // surface it immediately.
+            Err(SendError::Permanent(e)) => return Err(e),
         }
     }
     Err(last_err.unwrap_or_else(|| ApiError::Internal("OpenAI call failed".into())))
+}
+
+/// Whether a failed call is worth a second attempt. Transport faults, rate
+/// limits and 5xx are transient; every other 4xx is a deterministic rejection.
+enum SendError {
+    Retryable(ApiError),
+    Permanent(ApiError),
 }
 
 async fn send(
     client: &reqwest::Client,
     agent: &AgentConfig,
     body: &Value,
-) -> Result<ChatResponse, ApiError> {
+) -> Result<ChatResponse, SendError> {
     let resp = client
         .post(ENDPOINT)
         .bearer_auth(&agent.api_key)
         .json(body)
         .send()
         .await
-        .map_err(|e| ApiError::Internal(format!("OpenAI request failed: {e}")))?;
+        .map_err(|e| {
+            SendError::Retryable(ApiError::Internal(format!("OpenAI request failed: {e}")))
+        })?;
 
     let status = resp.status();
-    let text = resp
-        .text()
-        .await
-        .map_err(|e| ApiError::Internal(format!("OpenAI response read failed: {e}")))?;
+    let text = resp.text().await.map_err(|e| {
+        SendError::Retryable(ApiError::Internal(format!(
+            "OpenAI response read failed: {e}"
+        )))
+    })?;
 
     if !status.is_success() {
-        return Err(ApiError::Internal(format!(
-            "OpenAI returned {status}: {text}"
-        )));
+        let err = ApiError::Internal(format!("OpenAI returned {status}: {text}"));
+        return Err(
+            if status.is_server_error() || status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                SendError::Retryable(err)
+            } else {
+                SendError::Permanent(err)
+            },
+        );
     }
 
-    serde_json::from_str::<ChatResponse>(&text)
-        .map_err(|e| ApiError::Internal(format!("OpenAI response parse failed: {e}")))
+    serde_json::from_str::<ChatResponse>(&text).map_err(|e| {
+        SendError::Retryable(ApiError::Internal(format!(
+            "OpenAI response parse failed: {e}"
+        )))
+    })
 }
