@@ -1,9 +1,12 @@
 //! PetTracker seed fixture: the frozen team state every study participant is
-//! provisioned from. The canonical content lives in
-//! `research-paper/pettracker_seed.json`; the copy embedded here
-//! (`study/pettracker_seed.json`) is the runtime source of truth — keep them in
-//! sync. Only the fields the provisioner needs are modeled; serde ignores the
-//! rest (e.g. the GitHub fixtures, which load with the GitHub-mock work).
+//! provisioned from. `study/pettracker_seed.json` — embedded below with
+//! `include_str!` — is the only copy, and therefore authoritative. There was a
+//! second "canonical" copy alongside the design docs; it was byte-identical and
+//! has been deleted, because two copies of a fixture can only ever drift.
+//! `paper/replication/pettracker_seed_README.md` documents its design and which
+//! task depends on which card. Only the fields the provisioner needs are
+//! modeled; serde ignores the rest (e.g. the GitHub fixtures, read separately by
+//! `github_fixtures.rs`).
 
 use serde::Deserialize;
 use uuid::Uuid;

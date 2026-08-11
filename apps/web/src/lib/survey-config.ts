@@ -1,5 +1,5 @@
 /**
- * Exit-survey instrument (research-paper/WELD_EXIT_SURVEY.md + the trust block
+ * Exit-survey instrument (paper/replication/WELD_EXIT_SURVEY.md + the trust block
  * from WELD_AGENT_TASK_SCRIPTS.md §3). Config-driven so wording/scales change
  * without touching the renderer. Stored keyed by `item_id`, never question text.
  */

@@ -1,5 +1,5 @@
 //! Telemetry ingest for the study (Category A behavioral events,
-//! research-paper/CLAUDE_STUDY.md §5/§5A). Events are produced client-side as
+//! paper/instrument/CLAUDE_STUDY.md §5/§5A). Events are produced client-side as
 //! the participant works and batched here. Privacy is enforced by construction:
 //! we accept only the fixed allowlist of event types below — there is no
 //! free-form firehose, so keystrokes/mouse/screen/other-tab data can't be

@@ -1,5 +1,5 @@
 //! Single-use access codes that cap study participation to one run per
-//! recruited person (see `research-paper/`). Codes are pre-minted by the
+//! recruited person (see `paper/instrument/`). Codes are pre-minted by the
 //! researcher and handed out one-per-participant; provisioning validates and
 //! spends a code in the same transaction that creates the participant, so a
 //! code can never provision twice even under concurrent requests.

@@ -3,7 +3,7 @@ import { config as configApi } from '$lib/api';
 /**
  * Runtime app config fetched once from the backend's public `/api/v1/config`
  * endpoint. Holds non-sensitive feature flags — currently just `studyMode`,
- * which gates the research-study flow (see `research-paper/`). Load it early
+ * which gates the research-study flow (see `paper/instrument/`). Load it early
  * (root layout) so gating decisions can read `appConfig.studyMode` synchronously.
  */
 class AppConfigStore {

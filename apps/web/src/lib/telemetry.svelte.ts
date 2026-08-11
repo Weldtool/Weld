@@ -7,7 +7,7 @@ import { appConfig } from '$lib/config.svelte';
 
 /**
  * Client-side behavioral telemetry for the research study (Category A,
- * research-paper/CLAUDE_STUDY.md §5). Buffers events and flushes them in
+ * paper/instrument/CLAUDE_STUDY.md §5). Buffers events and flushes them in
  * batches to `POST /api/v1/study/events`. Completely inert unless the backend
  * is in study mode (`appConfig.studyMode`), so it has zero effect on the normal
  * product.
