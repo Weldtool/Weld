@@ -1,5 +1,5 @@
 /**
- * Study task script (research-paper/WELD_AGENT_TASK_SCRIPTS.md). Loaded as
+ * Study task script (paper/replication/WELD_AGENT_TASK_SCRIPTS.md). Loaded as
  * config so wording can change without code edits. Six manual baseline tasks
  * (C0, agent hidden) then six agent tasks in the participant's assigned
  * condition. Order is fixed: baseline → comprehension → single-surface →

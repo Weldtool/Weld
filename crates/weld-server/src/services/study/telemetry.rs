@@ -1,5 +1,5 @@
 //! Telemetry ingest for the study (Category A behavioral events,
-//! research-paper/CLAUDE_STUDY.md §5/§5A). Events are produced client-side as
+//! paper/instrument/CLAUDE_STUDY.md §5/§5A). Events are produced client-side as
 //! the participant works and batched here. Privacy is enforced by construction:
 //! we accept only the fixed allowlist of event types below — there is no
 //! free-form firehose, so keystrokes/mouse/screen/other-tab data can't be
@@ -89,6 +89,9 @@ const ALLOWED_EVENT_TYPES: &[&str] = &[
     "agent_error",
     "agent_panel_opened",
     "agent_panel_collapsed",
+    // Server-side backstop firing: the model echoed a raw card id and we
+    // rewrote it. Recorded so the rate is auditable rather than invisible.
+    "agent_id_leak_sanitized",
     // GitHub cross-reference (from card)
     "issue_referenced_from_card",
     // In-app PR review (B4 / T6). `pr_review_submitted` carries the verdict and

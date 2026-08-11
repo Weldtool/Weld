@@ -2,7 +2,7 @@
 //!
 //! The product's GitHub view proxies the live GitHub API; for the study we must
 //! render identical, deterministic content with no network calls and no writes
-//! (per `research-paper/CLAUDE_STUDY.md` §4). These functions reshape the seed's
+//! (per `paper/instrument/CLAUDE_STUDY.md` §4). These functions reshape the seed's
 //! `github` section into the exact GitHub-API JSON the frontend already
 //! consumes, so the view renders unchanged. The content is the same for every
 //! participant, so no per-participant storage is needed.

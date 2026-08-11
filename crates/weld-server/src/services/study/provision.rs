@@ -1,6 +1,6 @@
 //! Participant provisioning: clone the PetTracker seed into a fresh, isolated
 //! study team so each participant's actions are invisible to every other
-//! participant (per `research-paper/CLAUDE_STUDY.md` §2.2). One transaction —
+//! participant (per `paper/instrument/CLAUDE_STUDY.md` §2.2). One transaction —
 //! either the whole isolated workspace exists or none of it does.
 
 use std::collections::HashMap;

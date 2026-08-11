@@ -503,6 +503,11 @@ async fn charts(pool: &PgPool) -> Result<StudyCharts, ApiError> {
                   COUNT(*) FILTER (
                       WHERE e.event_type = 'agent_tool_call'
                         AND e.payload->>'executed' = 'true'
+                        -- A drafted chat message is not an agent-completed
+                        -- action: the participant reviews and sends it, which
+                        -- already lands as a `message_sent` user action. Counting
+                        -- both would put one outcome on both sides of the ratio.
+                        AND COALESCE(e.payload->>'drafted', 'false') <> 'true'
                   )::bigint AS "agent_actions!",
                   COUNT(*) FILTER (
                       WHERE e.event_type IN ('card_created','card_moved','card_edited',

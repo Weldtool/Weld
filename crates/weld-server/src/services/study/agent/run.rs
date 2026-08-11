@@ -75,6 +75,17 @@ pub async fn run_turn(
             .map_err(|e| ApiError::Internal(format!("agent quota check failed: {e}")))?
             .unwrap_or(0);
     if prior >= MAX_AGENT_MESSAGES {
+        // Record the refusal, but NOT as `agent_invoked` — that event is the
+        // denominator of the RQ2 invocation counts (and of this very quota), so
+        // a turn that never reached the model must not inflate it.
+        record_server_event(
+            pool,
+            pid,
+            "agent_error",
+            current_task_id,
+            json!({ "error": "quota_exceeded", "prior_invocations": prior }),
+        )
+        .await;
         return Err(ApiError::Validation(
             "You've reached the assistant message limit for this session.".into(),
         ));

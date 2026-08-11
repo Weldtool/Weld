@@ -17,7 +17,11 @@ import { telemetry } from '$lib/telemetry.svelte';
  * participant left off (their session itself is recovered via the refresh
  * cookie by auth.bootstrap). Only meaningful when the backend is in study mode.
  */
-export const CONSENT_VERSION = 'v1.1';
+// Bump whenever the consent text in StudyIntro changes. v1.2 corrects the
+// stated session length: the 12-task flow is budgeted at 55-65 minutes plus the
+// survey (WELD_AGENT_STUDY_DESIGN.md), which the earlier "about 40 minutes"
+// understated.
+export const CONSENT_VERSION = 'v1.2';
 
 export type StudyStage = 'intro' | 'tasks' | 'survey' | 'done' | 'ineligible';
 

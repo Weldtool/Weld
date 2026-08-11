@@ -31,6 +31,10 @@ export function buildTaskSnapshot(): Record<string, unknown> {
 			id: t.id,
 			short_id: t.short_id,
 			title: t.title,
+			// Required by the rubric: B5 is scored on whether the card's
+			// description records the decision recovered from chat, so a snapshot
+			// without descriptions can't be scored offline at all.
+			description: t.description,
 			column_id: t.column_id,
 			column: columnName(t.column_id),
 			priority: t.priority,

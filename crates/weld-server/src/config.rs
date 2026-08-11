@@ -5,7 +5,7 @@ pub struct Config {
     pub jwt_secret: String,
     pub secure_cookies: bool,
     pub frontend_url: String,
-    /// When true, the server runs in research-study mode (see `research-paper/`):
+    /// When true, the server runs in research-study mode (see `paper/instrument/`):
     /// study provisioning/telemetry/agent endpoints are active, GitHub writes are
     /// locked down, and the frontend renders the study flow. Off = normal product.
     pub study_mode: bool,
