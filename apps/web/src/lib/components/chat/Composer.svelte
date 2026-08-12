@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import type { TaskRef, TeamMember } from '$lib/api/types';
 	import { chat } from '$lib/chat.svelte';
+	import { chatDrafts, draftKey } from '$lib/chat-drafts.svelte';
 
 	interface Props {
 		channelId: string;
@@ -12,7 +14,25 @@
 	const { channelId, threadParentId, members, placeholder = 'Message…' }: Props = $props();
 
 	let textarea: HTMLTextAreaElement | null = $state(null);
-	let value = $state('');
+	const key = $derived(draftKey(channelId, threadParentId));
+	// Initial value only — later channel changes are picked up by the effect below.
+	let value = $state(untrack(() => chatDrafts.get(key)));
+
+	// Swap in the right draft when the composer changes channel without being
+	// destroyed. Every keystroke is already saved by `onInput`, so this only has
+	// to load — reading `value` here would make the effect re-run on each
+	// keystroke for nothing.
+	let loadedKey = untrack(() => key);
+	$effect(() => {
+		const k = key;
+		untrack(() => {
+			if (k === loadedKey) return;
+			loadedKey = k;
+			value = chatDrafts.get(k);
+			trigger = null;
+			queueMicrotask(autoResize);
+		});
+	});
 	// Which autocomplete is active: '@' members, '#' tasks, 'pr' linked PRs.
 	let trigger = $state<'@' | '#' | 'pr' | null>(null);
 	let query = $state('');
@@ -70,8 +90,15 @@
 		textarea.style.height = Math.min(textarea.scrollHeight, 240) + 'px';
 	}
 
+	// A draft restored on mount arrives after the textarea has sized itself to an
+	// empty box, so size it to the restored content once it binds.
+	$effect(() => {
+		if (textarea) untrack(autoResize);
+	});
+
 	function onInput(e: Event) {
 		value = (e.currentTarget as HTMLTextAreaElement).value;
+		chatDrafts.set(key, value);
 		updateContext();
 		autoResize();
 		if (value.trim()) chat.emitTyping(channelId);
@@ -119,6 +146,7 @@
 		const before = value.slice(0, anchor);
 		const after = value.slice(caret);
 		value = before + insertion + after;
+		chatDrafts.set(key, value);
 		trigger = null;
 		const newCaret = (before + insertion).length;
 		queueMicrotask(() => {
@@ -151,6 +179,7 @@
 		const trimmed = value.trim();
 		if (!trimmed) return;
 		value = '';
+		chatDrafts.clear(key);
 		trigger = null;
 		queueMicrotask(autoResize);
 		await chat.sendMessage(channelId, trimmed, threadParentId);

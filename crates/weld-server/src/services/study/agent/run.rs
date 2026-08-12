@@ -346,7 +346,7 @@ pub async fn run_turn(
             "response_type": response_type,
             "num_tool_calls": total_tool_calls,
             "model": agent.model,
-            "temperature": agent.temperature,
+            "temperature": openai::effective_temperature(agent),
             "prompt_version": agent.prompt_version,
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,

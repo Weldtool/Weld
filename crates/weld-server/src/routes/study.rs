@@ -25,6 +25,8 @@ pub struct ProvisionResponse {
     pub resumed: bool,
     pub resume_stage: Option<String>,
     pub resume_task_index: i32,
+    /// False when a resuming participant still owes the post-baseline TLX.
+    pub baseline_tlx_done: bool,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -138,6 +140,7 @@ pub async fn provision(
             resumed: result.resumed,
             resume_stage: result.resume_stage,
             resume_task_index: result.resume_task_index,
+            baseline_tlx_done: result.baseline_tlx_done,
         }),
     ))
 }
@@ -342,13 +345,7 @@ pub async fn export_data(
         return Err(ApiError::NotFound("Not found".into()));
     }
     // Disabled unless a token is configured.
-    let configured = state
-        .study_export_token
-        .as_deref()
-        .ok_or_else(|| ApiError::NotFound("Not found".into()))?;
-    if bearer_token(&headers).as_deref() != Some(configured) {
-        return Err(ApiError::Unauthorized("Invalid export token".into()));
-    }
+    require_export_token(&state, &headers)?;
 
     let dataset = Dataset::parse(&q.dataset)?;
     let filename = dataset.filename();
@@ -387,13 +384,7 @@ pub async fn generate_codes(
     if !state.study_mode {
         return Err(ApiError::NotFound("Not found".into()));
     }
-    let configured = state
-        .study_export_token
-        .as_deref()
-        .ok_or_else(|| ApiError::NotFound("Not found".into()))?;
-    if bearer_token(&headers).as_deref() != Some(configured) {
-        return Err(ApiError::Unauthorized("Invalid export token".into()));
-    }
+    require_export_token(&state, &headers)?;
 
     if body.count == 0 || body.count > 500 {
         return Err(ApiError::Validation(
@@ -420,13 +411,7 @@ pub async fn get_summary(
     if !state.study_mode {
         return Err(ApiError::NotFound("Not found".into()));
     }
-    let configured = state
-        .study_export_token
-        .as_deref()
-        .ok_or_else(|| ApiError::NotFound("Not found".into()))?;
-    if bearer_token(&headers).as_deref() != Some(configured) {
-        return Err(ApiError::Unauthorized("Invalid export token".into()));
-    }
+    require_export_token(&state, &headers)?;
 
     let summary = export::summary(&state.db).await?;
     Ok(Json(summary))
@@ -440,4 +425,35 @@ fn bearer_token(headers: &HeaderMap) -> Option<String> {
         .ok()?
         .strip_prefix("Bearer ")
         .map(str::to_string)
+}
+
+/// Gate a researcher-only endpoint behind `STUDY_EXPORT_TOKEN`: 404 when no
+/// token is configured (the feature is off, and saying so would advertise it),
+/// 401 on mismatch.
+///
+/// One helper rather than a copy in each handler — this guards data export and
+/// code minting, so a guard that drifts in one place is the whole participant
+/// roster.
+fn require_export_token(state: &AppState, headers: &HeaderMap) -> Result<(), ApiError> {
+    let configured = state
+        .study_export_token
+        .as_deref()
+        .ok_or_else(|| ApiError::NotFound("Not found".into()))?;
+    let presented = bearer_token(headers).unwrap_or_default();
+    if !constant_time_eq(presented.as_bytes(), configured.as_bytes()) {
+        return Err(ApiError::Unauthorized("Invalid export token".into()));
+    }
+    Ok(())
+}
+
+/// Compare two secrets without leaking their common prefix through timing.
+/// `==` on `str` returns as soon as it finds a differing byte, which lets a
+/// caller who can time the response recover the token one byte at a time.
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    // Fold every byte before deciding, so the work done is the same whether the
+    // first byte differs or none do.
+    a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
 }

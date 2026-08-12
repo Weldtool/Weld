@@ -63,6 +63,8 @@ export interface ProvisionResponse {
 	resumed: boolean;
 	resume_stage: string | null;
 	resume_task_index: number;
+	/** False when a resuming participant still owes the post-baseline NASA-TLX. */
+	baseline_tlx_done: boolean;
 }
 
 export const study = {

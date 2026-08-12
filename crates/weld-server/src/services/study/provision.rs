@@ -30,6 +30,11 @@ pub struct ProvisionResult {
     pub resume_stage: Option<String>,
     /// Saved task index to resume at, when resuming.
     pub resume_task_index: i32,
+    /// Whether the post-baseline NASA-TLX has already been answered. Read on
+    /// resume so a participant who comes back on a new device at the
+    /// baseline→agent boundary is still shown it; without it their
+    /// `tlx_*_baseline` rows never exist and H3's delta can't be derived.
+    pub baseline_tlx_done: bool,
 }
 
 /// Provision a brand-new participant: allocate a code, assign an agent
@@ -46,8 +51,6 @@ pub async fn provision_participant(
     let seed =
         Seed::load().map_err(|e| ApiError::Internal(format!("Invalid study seed fixture: {e}")))?;
 
-    let condition = pick_agent_condition(pool).await?;
-
     let mut tx = pool.begin().await?;
 
     // Validate + lock the access code before doing any work, so an invalid or
@@ -55,6 +58,10 @@ pub async fn provision_participant(
     if let Some(code) = access_code {
         access_code::lock_unused(&mut tx, code).await?;
     }
+
+    // After the code check, so a bad code doesn't queue behind the assignment
+    // lock, and inside the transaction so the count it reads can't go stale.
+    let condition = pick_agent_condition(&mut tx).await?;
 
     // --- Participant code + user ---
     let code_num = sqlx::query_scalar!("SELECT nextval('study_participant_code_seq')")
@@ -352,6 +359,7 @@ pub async fn provision_participant(
         resumed: false,
         resume_stage: None,
         resume_task_index: 0,
+        baseline_tlx_done: false,
     })
 }
 
@@ -367,7 +375,12 @@ pub async fn resume_participant(
 ) -> Result<ProvisionResult, ApiError> {
     let p = sqlx::query!(
         r#"SELECT participant_code, agent_condition, team_id, project_id,
-                  resume_stage, resume_task_index
+                  resume_stage, resume_task_index,
+                  EXISTS (
+                      SELECT 1 FROM study_survey_responses r
+                      WHERE r.participant_id = study_participants.id
+                        AND right(r.item_id, 9) = '_baseline'
+                  ) AS "baseline_tlx_done!"
            FROM study_participants WHERE user_id = $1"#,
         user_id,
     )
@@ -389,6 +402,7 @@ pub async fn resume_participant(
         resumed: true,
         resume_stage: p.resume_stage,
         resume_task_index: p.resume_task_index,
+        baseline_tlx_done: p.baseline_tlx_done,
     })
 }
 
@@ -443,6 +457,10 @@ fn rewrite_card_refs(content: &str, card_map: &HashMap<String, Uuid>) -> String 
     out
 }
 
+/// Advisory-lock key serialising condition assignment. Arbitrary but fixed —
+/// the ASCII of "WELDSTUD", so a stray lock is identifiable in `pg_locks`.
+const CONDITION_LOCK_KEY: i64 = 0x5745_4C44_5354_5544;
+
 /// Balanced *randomized* between-subjects assignment: pick the condition with
 /// the fewest participants so far, breaking ties **at random**. With three
 /// equal-target cells this is permuted-block randomization (block size 3) — each
@@ -450,11 +468,20 @@ fn rewrite_card_refs(content: &str, card_map: &HashMap<String, Uuid>) -> String 
 /// block is random. This keeps cell sizes even (which matters for a small-N
 /// study) while avoiding the deterministic C1→C2→C3 cycle a fixed tie-break
 /// produced, which would otherwise confound condition with enrollment order.
-async fn pick_agent_condition(pool: &PgPool) -> Result<String, ApiError> {
+async fn pick_agent_condition(conn: &mut sqlx::PgConnection) -> Result<String, ApiError> {
+    // Minimisation reads the cell counts and then writes one more row, so two
+    // provisions racing each other would both see the pre-insert counts and both
+    // claim the same least-filled cell — the imbalance minimisation exists to
+    // prevent. Serialise it: the lock is held until the transaction ends, so the
+    // second provision reads counts that already include the first.
+    sqlx::query!("SELECT pg_advisory_xact_lock($1)", CONDITION_LOCK_KEY)
+        .execute(&mut *conn)
+        .await?;
+
     let rows = sqlx::query!(
         r#"SELECT agent_condition, COUNT(*) as "count!" FROM study_participants GROUP BY agent_condition"#
     )
-    .fetch_all(pool)
+    .fetch_all(&mut *conn)
     .await?;
 
     let mut counts: HashMap<&str, i64> = HashMap::from([("C1", 0), ("C2", 0), ("C3", 0)]);

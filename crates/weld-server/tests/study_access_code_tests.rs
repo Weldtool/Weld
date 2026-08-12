@@ -3,11 +3,14 @@
 //! rejected, and an unknown code is rejected — so the same person can't run the
 //! study twice even on a fresh device where localStorage doesn't help.
 
+use std::collections::HashMap;
+
 use weld_server::errors::ApiError;
 use weld_server::services::study::access_code::{self, CodeStatus};
 use weld_server::services::study::provision::{
     provision_participant, resume_participant, update_progress,
 };
+use weld_server::services::study::survey::submit_interim_survey;
 
 const JWT: &str = "test-jwt-secret-0123456789abcdef";
 
@@ -105,4 +108,57 @@ async fn provision_without_code_still_works_for_testing() {
     provision_participant(&pool, JWT, Some("v1.0"), None, None, None)
         .await
         .expect("provision without a code");
+}
+
+/// The post-baseline NASA-TLX is the only source of `tlx_*_baseline`, and it is
+/// shown exactly once at the baseline→agent boundary. A participant who leaves
+/// at that boundary and comes back on another device has no localStorage to
+/// restore from, so the resume payload has to say the TLX is still owed —
+/// otherwise the interstitial is skipped, those rows are never written, and H3's
+/// delta is underivable for them with nothing in the data to show why.
+#[tokio::test]
+async fn resume_reports_whether_the_post_baseline_tlx_is_still_owed() {
+    let pool = pool().await;
+    let code = access_code::generate(&pool, 1, Some("tlx-resume"))
+        .await
+        .expect("generate code")
+        .pop()
+        .expect("one code");
+
+    let p = provision_participant(&pool, JWT, Some("v1.2"), Some(&code), None, None)
+        .await
+        .expect("provision");
+
+    // Parked on the first agent task (index 6) with the TLX unanswered.
+    update_progress(&pool, p.user_id, "tasks", 6)
+        .await
+        .expect("save progress");
+
+    let before = resume_participant(&pool, JWT, p.user_id)
+        .await
+        .expect("resume before TLX");
+    assert!(
+        !before.baseline_tlx_done,
+        "TLX is unanswered, so the resume must still ask for it"
+    );
+
+    submit_interim_survey(
+        &pool,
+        p.user_id,
+        HashMap::from([
+            ("tlx_mental_baseline".to_string(), "55".to_string()),
+            ("tlx_effort_baseline".to_string(), "40".to_string()),
+        ]),
+    )
+    .await
+    .expect("submit interim TLX");
+
+    let after = resume_participant(&pool, JWT, p.user_id)
+        .await
+        .expect("resume after TLX");
+    assert!(
+        after.baseline_tlx_done,
+        "once answered, a later resume must not re-administer it — re-rating the \
+         manual phase after agent exposure would corrupt the baseline"
+    );
 }

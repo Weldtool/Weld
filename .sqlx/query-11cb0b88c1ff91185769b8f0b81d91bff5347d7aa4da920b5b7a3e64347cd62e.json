@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT participant_code, agent_condition, team_id, project_id,\n                  resume_stage, resume_task_index\n           FROM study_participants WHERE user_id = $1",
+  "query": "SELECT participant_code, agent_condition, team_id, project_id,\n                  resume_stage, resume_task_index,\n                  EXISTS (\n                      SELECT 1 FROM study_survey_responses r\n                      WHERE r.participant_id = study_participants.id\n                        AND right(r.item_id, 9) = '_baseline'\n                  ) AS \"baseline_tlx_done!\"\n           FROM study_participants WHERE user_id = $1",
   "describe": {
     "columns": [
       {
@@ -32,6 +32,11 @@
         "ordinal": 5,
         "name": "resume_task_index",
         "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "baseline_tlx_done!",
+        "type_info": "Bool"
       }
     ],
     "parameters": {
@@ -45,8 +50,9 @@
       false,
       false,
       true,
-      false
+      false,
+      null
     ]
   },
-  "hash": "2c3e5befdd62460e7c240925df4778423f59d46d65d3fcbb41f75a682777742b"
+  "hash": "11cb0b88c1ff91185769b8f0b81d91bff5347d7aa4da920b5b7a3e64347cd62e"
 }
