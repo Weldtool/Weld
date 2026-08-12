@@ -77,7 +77,6 @@ const ALLOWED_EVENT_TYPES: &[&str] = &[
     "issue_linked_to_card",
     // Navigation
     "view_changed",
-    "search_used",
     // Agent
     "agent_invoked",
     "agent_context_sent",

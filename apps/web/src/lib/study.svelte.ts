@@ -111,7 +111,7 @@ class StudyStore {
 			if (res.resumed) {
 				// Returning participant re-entered their code (new device or cleared
 				// storage): restore their saved place instead of starting over.
-				this.#resumeFrom(res.resume_stage, res.resume_task_index);
+				this.#resumeFrom(res.resume_stage, res.resume_task_index, res.baseline_tlx_done);
 			} else {
 				this.taskIndex = 0;
 				this.stage = 'tasks';
@@ -253,7 +253,7 @@ class StudyStore {
 	}
 
 	/** Restore a resumed participant into their saved stage/task. */
-	#resumeFrom(stage: string | null, taskIndex: number): void {
+	#resumeFrom(stage: string | null, taskIndex: number, baselineTlxDone: boolean): void {
 		const validStages: StudyStage[] = ['tasks', 'survey', 'done'];
 		const resumed = (validStages as string[]).includes(stage ?? '')
 			? (stage as StudyStage)
@@ -262,13 +262,34 @@ class StudyStore {
 		this.taskIndex = Math.min(Math.max(taskIndex, 0), STUDY_TASKS.length - 1);
 		this.#persist();
 		telemetry.log('session_resumed', { stage: resumed, task_index: this.taskIndex });
+
+		// A participant who left at the baseline→agent boundary is parked on the
+		// first agent task with the TLX unanswered — taskIndex can't advance past
+		// it until they submit. `#restore()` catches this from localStorage on a
+		// same-browser reload; a new device has no localStorage, so without the
+		// server telling us, the interstitial is silently skipped and their
+		// `tlx_*_baseline` rows are never written. H3's delta is then underivable
+		// for that participant, quietly and permanently.
+		const firstAgentIndex = STUDY_TASKS.findIndex((t) => t.phase === 'agent');
+		const owesBaselineTlx =
+			resumed === 'tasks' && !baselineTlxDone && this.taskIndex === firstAgentIndex;
+
 		if (resumed === 'tasks' && this.currentTask) {
-			// Cross-device / cleared-storage resume: no local clock snapshot exists,
-			// so time already spent on this task elsewhere is unrecoverable. Start
-			// fresh but flag the task as interrupted so its (truncated) time can be
-			// excluded in analysis.
-			taskClock.start(this.currentTask.id, { resumedMidTask: true });
-			telemetry.setTask(this.currentTask.id);
+			if (owesBaselineTlx) {
+				this.pendingPostBaselineTlx = true;
+				this.#persist();
+				telemetry.log('interim_tlx_shown', {});
+				// No clock and no `task_shown` yet — the agent task is entered only
+				// once the TLX is submitted, exactly as at the live boundary, so its
+				// timing isn't inflated by the questionnaire.
+			} else {
+				// Cross-device / cleared-storage resume: no local clock snapshot
+				// exists, so time already spent on this task elsewhere is
+				// unrecoverable. Start fresh but flag the task as interrupted so its
+				// (truncated) time can be excluded in analysis.
+				taskClock.start(this.currentTask.id, { resumedMidTask: true });
+				telemetry.setTask(this.currentTask.id);
+			}
 		}
 		if (resumed === 'tasks' || resumed === 'survey') {
 			telemetry.markInProgress(true);
