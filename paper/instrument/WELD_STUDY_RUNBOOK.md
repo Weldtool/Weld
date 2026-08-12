@@ -64,8 +64,9 @@ container env — **never commit them**).
 > The agent's temperature (`0.2`) and prompt version (`v3`) are pinned in code
 > (`crates/weld-server/src/main.rs`), not env — intentionally held constant.
 
-> `STUDY_REQUIRE_ACCESS_CODE` and `STUDY_EXPORT_TOKEN` are **not** in the repo's
-> `.env.example` yet — set them directly on the deploy.
+> `STUDY_REQUIRE_ACCESS_CODE` and `STUDY_EXPORT_TOKEN` are documented in the
+> repo's `.env.example` — but as placeholders only. Set the real values directly
+> on the deploy; never commit them.
 
 ---
 
@@ -184,21 +185,31 @@ defused against spreadsheet formula injection.
    data. Also run `cargo test -p weld-server --test study_access_code_tests` to
    confirm the one-run-per-person + resume invariants.
 
-2. **Model smoke test — do this FIRST, it is the one thing nothing else can
-   catch.** Everything up to this point is verified without ever calling OpenAI,
-   so a request-shape incompatibility with the pinned snapshot stays invisible
-   until a real participant hits it, and then it fails *every* agent turn. Send
-   one trivial agent message on a staging deploy with `OPENAI_API_KEY` set and
-   confirm a 200. Specifically at risk in `crates/weld-server/src/services/study/agent/openai.rs`:
-   - `max_tokens` — newer OpenAI snapshots reject it in favour of
-     `max_completion_tokens`;
-   - `temperature: 0.2` — some snapshots accept only the default.
+2. **Model smoke test — still do this FIRST.** Everything up to this point is
+   verified without ever calling OpenAI. Send one trivial agent message on a
+   staging deploy with `OPENAI_API_KEY` set and confirm a 200.
 
-   If either is rejected, fix the request shape before recruiting; do **not**
-   "fix" it by changing `OPENAI_MODEL`, which would contradict the model named in
-   the paper's methods. Note also that the retry loop retries API errors as well
-   as transport errors, so a hard 400 costs two calls and doubles the participant's
-   wait before the error surfaces.
+   **This already bit us once.** The 2026-08 pilot's first agent call returned a
+   hard 400: the pinned snapshot rejects `max_tokens` in favour of
+   `max_completion_tokens`. Every agent turn failed for that participant until it
+   was fixed. `temperature: 0.2` was *accepted*, so the fixed temperature the
+   paper's methods section names still holds.
+
+   `openai.rs` now corrects itself: a rejection that names a request parameter is
+   read, the shape fixed, and the call retried, with the correction remembered
+   for the life of the process. It defaults to `max_completion_tokens`, so on the
+   current pin the first call should simply succeed. Two things still to check by
+   eye after the smoke test:
+   - the server log has no `OpenAI rejected the …` warning — if it does, the
+     pin's request shape moved again;
+   - `agent_response` telemetry carries `"temperature": 0.2` and not `null`.
+     `null` means the snapshot refused the fixed temperature and the run is at
+     the provider default — the methods section must then say so.
+
+   Fix the request shape; do **not** "fix" it by changing `OPENAI_MODEL`, which
+   would contradict the model named in the paper's methods. Retries no longer
+   compound this: only transport faults, 429 and 5xx are retried, so a
+   deterministic 400 surfaces on the first attempt.
 
 3. **Live-model pilot.** With `OPENAI_API_KEY` set on a staging deploy, run one
    participant per condition end-to-end:
@@ -216,6 +227,35 @@ defused against spreadsheet formula injection.
    exports, not just the synthetic ones. This is what catches a measure that is
    collected but not derivable — the exports round-tripping is not the same as
    the pipeline producing a number from them.
+
+   ```bash
+   cd paper/analysis
+   python3 -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt
+   mkdir -p data                      # gitignored — real participant data never gets committed
+   # drop the four CSVs from §6 into data/, then:
+   python run_all.py --data data --out out
+   ```
+   Read `out/report.txt`. Section 1 must show C1 at 0%/0%, C2 at 100%/0%, C3 at
+   100%/100%, and **0 violations** in every row.
+
+   Done for the 2026-08 pilot (3 participants, one per condition), and it earned
+   its keep: the manipulation check was scanning the context snapshot for the
+   *words* "board" and "github", which the seeded chat legitimately contains, and
+   reported a total scoping failure against a gate that was working perfectly.
+   Fixed in `analyze.py`. The lesson generalises — when this table says something
+   catastrophic, confirm it against `sources_included` in the raw
+   `agent_context_sent` payloads before believing it.
+
+   What that run could **not** test, and still needs real N: the mixed model, the
+   ordinal correctness model, Cronbach's α, and the RQ3 correlations. All of them
+   degrade to "insufficient data" rather than printing something wrong, which is
+   the behaviour you want but not the same as being exercised.
+
+   Two paths remain untested end-to-end: `correctness.csv` against the coders'
+   actual file, and `out/correctness_model.R` — the model of record for
+   correctness — which needs R and `ordinal::clmm`. Run the R snippet once on
+   synthetic data before results day rather than debugging R with real numbers
+   waiting.
 
 5. **Seed sanity.** Newly provisioned participants get the current seed
    (`crates/weld-server/study/pettracker_seed.json`, baked at build time). If you
