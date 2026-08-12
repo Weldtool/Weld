@@ -88,10 +88,28 @@ adjustment subtracts only the excess over recorded away time — deliberately
 conservative. The primary model is fitted both ways.
 
 **Correctness model.** The plan specifies a cumulative-link *mixed* model.
-statsmodels has no CLMM and R is not a dependency here, so `analyze.py` fits an
-ordinal model without the random effect plus Kruskal–Wallis, flags itself as
-approximate, and writes `out/correctness_model.R` with the exact `ordinal::clmm`
-call. **Run that in R for the model of record.**
+statsmodels has no CLMM and R is not a dependency here, so `analyze.py` reports
+per-cell descriptives plus Kruskal–Wallis, flags itself as approximate, and
+writes `out/correctness_model.R`. **Run that in R for the model of record:**
+
+```bash
+Rscript out/correctness_model.R      # needs `ordinal`; `lme4` optional
+```
+
+It runs from any working directory — the data path is resolved when the file is
+written. The script is not just the `clmm` call: the plan *expects* the mixed
+model to struggle at 7–10 per cell with scores piling up at 3, and pre-specifies
+what to do instead, so the script decides for itself and says which result is the
+one of record. It fits the CLMM, rejects the fit if the standard errors come back
+missing or absurd (a returned object is not a usable fit), tests proportional
+odds, then computes the fallback — fully-correct vs not, per-cell Wilson
+intervals, a mixed logistic if `lme4` is installed, and a permutation test that
+shuffles condition **across participants**, since condition is between-subjects
+and shuffling tasks would break the dependence the random effect models.
+
+The fallback is computed on every run: supplementary when the primary model
+holds, the result when it doesn't. Deciding which after seeing the numbers is how
+a pre-specified fallback turns into a post-hoc choice.
 
 **Trust composite** is three items — `trust_reliable`, `trust_predictable`,
 `trust_competent`. The other `trust_*` items are reported individually and are

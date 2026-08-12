@@ -47,7 +47,12 @@ def main() -> None:
             value.table.to_csv(tables / f"{name}.csv")
 
     written = figures.render_all(results["task_table"], results["participant_table"], figs)
-    (args.out / "correctness_model.R").write_text(analyze.r_snippet(), encoding="utf-8")
+    # Absolute, so the emitted script runs from any working directory rather
+    # than only from inside --out.
+    task_table_path = (tables / "task_table.csv").resolve()
+    (args.out / "correctness_model.R").write_text(
+        analyze.r_snippet(task_table_path), encoding="utf-8"
+    )
 
     lines: list[str] = []
     add = lines.append

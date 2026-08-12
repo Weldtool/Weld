@@ -175,7 +175,16 @@ def generate(out_dir: Path, n: int, seed: int = 7) -> None:
                                                2.2 + (0.5 if cond == "C3" and
                                                       ttype == "cross_surface" else 0),
                                                0.8), 0, 3))
-                c_rows.append([code, task, score, score, score])
+                # The two coders must not agree perfectly: identical columns make
+                # quadratic-weighted kappa exactly 1.000 every run, so the
+                # agreement statistic is never actually exercised and neither is
+                # the reporting threshold it feeds. Disagree by one point about a
+                # fifth of the time, which is what adjacent-category disagreement
+                # on a 0-3 rubric realistically looks like; `score` stays the
+                # consensus, as it would be after adjudication.
+                drift = int(rng.choice([0, 0, 0, 0, 1, -1]))
+                coder_2 = int(np.clip(score + drift, 0, 3))
+                c_rows.append([code, task, score, score, coder_2])
 
             if phase == "baseline":
                 emit("interim_tlx_shown", None, {})
