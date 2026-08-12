@@ -49,20 +49,62 @@ python run_all.py --data data --out out
 
 ## The one input that is not automatic
 
-`correctness.csv` comes from the two human coders, not the server:
+`correctness.csv` comes from two human coders, not the server. `coding_packet.py`
+builds what they work from and merges what they hand back.
+
+**Do not send anyone `study_events.csv`.** Blinding is mandatory, and that file
+carries `agent_condition` on every row, plus timestamps and the agent's whole
+transcript — it unblinds a coder on line one.
+
+```bash
+# 1. Build the blinded packet (after the run, once all data is in)
+python coding_packet.py --data data --out coding
+
+# 2. Send each coder CODING_PACKET.md and ONE of coder_1.csv / coder_2.csv.
+#    They score every row 0–3, independently, without conferring.
+
+# 3. Merge what comes back
+python coding_packet.py --merge coding/coder_1.csv coding/coder_2.csv \
+    --out data/correctness.csv
+
+# 4. Adjudicate: the merge leaves `score` blank wherever the two disagree and
+#    prints those rows. The coders settle each one by discussion, still blind,
+#    and you fill the blank cells in. The file is done when none are empty.
+
+# 5. run_all.py picks it up automatically
+python run_all.py --data data --out out
+```
+
+The packet contains final state only — board (cards, columns, priorities, links)
+and chat, with `[[card:…]]` refs resolved to titles so a coder can tell which
+card a teammate meant, the participant's own messages marked, and any in-app PR
+review verdict and comment. Condition, timing and agent transcript are absent.
+Items are shuffled with a fixed seed so nobody works through one participant's
+session in order and carries an impression between tasks. Each item shows the
+rubric anchor for its task, parsed live from
+`../replication/WELD_AGENT_TASK_SCRIPTS.md` §2 rather than copied, so the packet
+can't drift from the rubric.
+
+Sanity-check before sending:
+```bash
+grep -icE 'agent_condition|latency|prompt_version|\bC[123]\b' coding/CODING_PACKET.md   # want 0
+```
+
+Resulting file:
 
 | column | meaning |
 |---|---|
 | `participant_code` | e.g. `P0007` |
 | `task_id` | `B1`…`B6`, `T1`…`T6` |
-| `score` | consensus score, 0–3 |
+| `score` | consensus score, 0–3 (blank until adjudicated) |
 | `coder_1`, `coder_2` | pre-adjudication scores, for quadratic-weighted κ |
 
-The rubric and anchors are in `paper/replication/WELD_AGENT_TASK_SCRIPTS.md` §2.
-Coders work from the `task_final_state` snapshot with condition, agent
-transcript, and timing stripped — blinding is mandatory.
+κ is computed from `coder_1`/`coder_2`, so keep both columns after adjudicating —
+the plan reports the *pre*-adjudication figure.
 
 If the file is absent the pipeline still runs; correctness outputs are empty.
+Rows with a blank `score` are dropped, so an unfinished adjudication shrinks the
+correctness model silently.
 
 ## Files
 
@@ -73,6 +115,7 @@ If the file is absent the pipeline still runs; correctness outputs are empty.
 | `analyze.py` | Manipulation check, primary timing model, focused contrasts, correctness, TLX deltas, agent funnel, RQ3 correlations. |
 | `figures.py` | Figures 2–5. |
 | `synthesize.py` | Fake exports for testing the pipeline. |
+| `coding_packet.py` | Builds the blinded correctness-coding packet; merges the coders' scores back. |
 | `run_all.py` | Orchestrates everything and writes the report. |
 | `sensitivity.py` | Minimum-detectable-effect calculation quoted in §5.3. |
 
