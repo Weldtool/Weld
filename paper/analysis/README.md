@@ -115,6 +115,22 @@ draft as well would put one outcome on both sides of the ratio. Drafts are
 carried separately as `agent_chat_drafts` / `chat_drafts` so the drafting
 channel of delegation stays visible.
 
+**The manipulation check is structural, not textual.** It decides which context
+sources a snapshot carried from the gate's own `sources_included` field unioned
+with the top-level keys actually attached — never by searching the payload for
+the words "board" or "github". The snapshot embeds real chat message text, and
+the seeded teammates discuss the board and GitHub in it; a substring scan reads
+that ordinary English as a leak and reports 100% violations in C1 and C2. It did
+exactly that on the first real export, against a gate that was working
+correctly. `synthesize.py` now puts the same kind of prose in its fake
+snapshots, so any return to a text-based check fails on synthetic data first.
+
+**Inter-coder agreement** is quadratic-weighted Cohen's κ over the fixed 0–3
+rubric scale (not over the categories that happen to appear), computed on
+`coder_1`/`coder_2` *before* adjudication — after adjudication the coders agree
+by construction. κ is undefined, not 1.0, when both coders used a single
+category throughout; the report says so rather than printing a perfect score.
+
 **Figures** use Okabe-Ito colours validated for colour-vision deficiency (worst
 adjacent pair ΔE 11.4 protan). Marker shape duplicates colour so the figures
 survive greyscale printing. Every participant point is drawn — at 7–10 per cell a

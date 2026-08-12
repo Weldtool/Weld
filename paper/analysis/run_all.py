@@ -88,6 +88,14 @@ def main() -> None:
         add(f"  note: {n}")
     add("  Model of record: run out/correctness_model.R")
     add("")
+    add("   Inter-coder agreement (pre-adjudication):")
+    ka = results["coder_agreement"]
+    add(_fmt(ka))
+    if not ka.empty and pd.notna(ka.iloc[0]["kappa_quadratic"]):
+        if ka.iloc[0]["kappa_quadratic"] < 0.60:
+            add("   *** quadratic-weighted kappa < 0.60 — agreement is too weak to")
+            add("       report the scores as a settled measure; say so in Results. ***")
+    add("")
 
     add("4. H3 — COGNITIVE LOAD (TLX delta, agent - baseline)")
     add("-" * 60)

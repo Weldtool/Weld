@@ -232,12 +232,36 @@ def generate(out_dir: Path, n: int, seed: int = 7) -> None:
 
 
 def _context_snapshot(cond: str) -> dict:
-    """Mimic the gate's scoping snapshot, including its omissions."""
-    snap: dict = {"condition": cond, "chat": {"channels": ["general", "pettracker"]}}
+    """Mimic the gate's scoping snapshot, including its omissions.
+
+    Two details here are load-bearing for the manipulation check, and both were
+    once missing — which is how a broken check passed on synthetic data and then
+    reported a total scoping failure on the first real export.
+
+    First, `sources_included`: the gate declares its sources explicitly and the
+    check reads that field. Second, the chat entries carry real prose, and that
+    prose mentions the board and GitHub — exactly as the seeded conversation
+    does. A check that decides scope by scanning the payload for those words
+    will now fail loudly here instead of waiting for real participants.
+    """
+    sources = ["chat"]
+    snap: dict = {
+        "condition": cond,
+        "chat": [
+            {"channel": "pettracker", "sender": "Alex Rivera",
+             "content": "Can someone capture this decision on the board so we "
+                        "don't relitigate it in three weeks?"},
+            {"channel": "general", "sender": "Priya Nair",
+             "content": "The GitHub PR for the feeding schedule is up for review."},
+        ],
+    }
     if cond in ("C2", "C3"):
         snap["board"] = {"columns": ["Backlog", "In Progress", "Done"], "cards": 12}
+        sources.append("board")
     if cond == "C3":
         snap["github"] = {"pull_requests": [22, 27, 34], "issues": [3]}
+        sources.append("github")
+    snap["sources_included"] = sources
     return snap
 
 

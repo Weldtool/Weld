@@ -27,17 +27,39 @@ with warnings.catch_warnings():
 # --- Manipulation check -----------------------------------------------------
 
 
-def _mentions(obj: object, needle: str) -> bool:
-    """Recursively test whether any key or string value mentions `needle`."""
-    if isinstance(obj, dict):
-        return any(
-            needle in str(k).lower() or _mentions(v, needle) for k, v in obj.items()
-        )
-    if isinstance(obj, list):
-        return any(_mentions(v, needle) for v in obj)
-    if isinstance(obj, str):
-        return needle in obj.lower()
-    return False
+#: The context sources the gate can attach, and what each condition may receive.
+CONTEXT_SOURCES = {"chat", "board", "github"}
+ALLOWED_SOURCES = {
+    "C1": {"chat"},
+    "C2": {"chat", "board"},
+    "C3": {"chat", "board", "github"},
+}
+
+
+def _sources_present(payload: object) -> set[str]:
+    """Which context sources a snapshot actually carried.
+
+    Structural, and deliberately so. The snapshot embeds real chat message
+    *text*, and the seeded teammates talk to each other about the board and
+    about GitHub — Alex ends the SQLite thread with "can someone capture this
+    decision on the board". Searching the payload for those words as substrings
+    reads ordinary English as a scoping leak and marks 100% of C1 and C2
+    snapshots as violations, which is precisely backwards: it condemns the gate
+    for chat content the gate is supposed to include.
+
+    The gate declares what it attached in `sources_included` and attaches each
+    source under its own top-level key. Both are consulted and unioned, so a gate
+    bug that attached board data while declaring chat-only cannot hide behind its
+    own declaration.
+    """
+    if not isinstance(payload, dict):
+        return set()
+    declared = payload.get("sources_included") or []
+    if isinstance(declared, str):  # tolerate a scalar
+        declared = [declared]
+    declared = {str(s).lower() for s in declared}
+    attached = {str(k).lower() for k in payload}
+    return (declared | attached) & CONTEXT_SOURCES
 
 
 def manipulation_check(data: StudyData) -> pd.DataFrame:
@@ -56,16 +78,14 @@ def manipulation_check(data: StudyData) -> pd.DataFrame:
 
     rows = []
     for cond, grp in snaps.groupby("agent_condition"):
-        has_board = grp["payload"].map(lambda p: _mentions(p, "board") or _mentions(p, "column"))
-        has_gh = grp["payload"].map(lambda p: _mentions(p, "github") or _mentions(p, "pull_request"))
+        present = grp["payload"].map(_sources_present)
+        has_board = present.map(lambda s: "board" in s)
+        has_gh = present.map(lambda s: "github" in s)
         n = len(grp)
-        # What counts as a violation depends on the condition's allowlist.
-        if cond == "C1":
-            violations = int((has_board | has_gh).sum())
-        elif cond == "C2":
-            violations = int(has_gh.sum())
-        else:
-            violations = 0
+        # A violation is any source outside this condition's allowlist — stated
+        # once, rather than per-condition, so an unknown source counts too.
+        allowed = ALLOWED_SOURCES.get(cond, CONTEXT_SOURCES)
+        violations = int(present.map(lambda s: bool(s - allowed)).sum())
         rows.append(
             {
                 "agent_condition": cond,
@@ -368,6 +388,73 @@ def reliance_calibration(participants: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+# --- Inter-coder agreement --------------------------------------------------
+
+#: The rubric's fixed scale. Agreement is computed over this, not over the
+#: values that happen to appear, so an unused category can't inflate kappa.
+SCORE_MIN, SCORE_MAX = 0, 3
+
+
+def coder_agreement(correctness: pd.DataFrame) -> pd.DataFrame:
+    """Quadratic-weighted Cohen's kappa between the two coders, pre-adjudication.
+
+    The paper commits to reporting this (Section 5; `WELD_ANALYSIS_PLAN.tex`
+    "Correctness coding"), and it must be the *pre*-adjudication figure — after
+    adjudication the coders agree by construction and the number is meaningless.
+
+    Quadratic weights because the score is ordinal: disagreeing 0 vs 3 is a
+    worse failure than 2 vs 3, and unweighted kappa treats them alike.
+    """
+    cols = {"coder_1", "coder_2"}
+    if correctness.empty or not cols.issubset(correctness.columns):
+        return pd.DataFrame(columns=["n_items", "kappa_quadratic", "pct_exact",
+                                     "pct_within_1", "note"])
+
+    d = correctness[["coder_1", "coder_2"]].apply(pd.to_numeric, errors="coerce").dropna()
+    if d.empty:
+        return pd.DataFrame([{"n_items": 0, "kappa_quadratic": np.nan,
+                              "pct_exact": np.nan, "pct_within_1": np.nan,
+                              "note": "no coder pairs present"}])
+
+    k = SCORE_MAX - SCORE_MIN + 1
+    idx = range(SCORE_MIN, SCORE_MAX + 1)
+    observed = np.zeros((k, k))
+    for a, b in zip(d["coder_1"], d["coder_2"]):
+        ai, bi = int(round(a)) - SCORE_MIN, int(round(b)) - SCORE_MIN
+        if 0 <= ai < k and 0 <= bi < k:
+            observed[ai, bi] += 1
+    n = observed.sum()
+    if n == 0:
+        return pd.DataFrame([{"n_items": 0, "kappa_quadratic": np.nan,
+                              "pct_exact": np.nan, "pct_within_1": np.nan,
+                              "note": "all coder scores fell outside the rubric scale"}])
+    observed /= n
+
+    # Expected agreement under independence, from each coder's own marginals.
+    expected = np.outer(observed.sum(axis=1), observed.sum(axis=0))
+    i, j = np.meshgrid(np.array(idx), np.array(idx), indexing="ij")
+    weights = ((i - j) ** 2) / float((k - 1) ** 2)
+
+    denom = float((weights * expected).sum())
+    note = ""
+    if denom == 0:
+        # Both coders used a single identical category throughout: chance
+        # agreement is total, so kappa is undefined rather than perfect.
+        kappa = np.nan
+        note = "kappa undefined — no expected disagreement (coders used one category)"
+    else:
+        kappa = 1.0 - float((weights * observed).sum()) / denom
+
+    diff = (d["coder_1"] - d["coder_2"]).abs()
+    return pd.DataFrame([{
+        "n_items": int(n),
+        "kappa_quadratic": kappa,
+        "pct_exact": 100.0 * float((diff == 0).mean()),
+        "pct_within_1": 100.0 * float((diff <= 1).mean()),
+        "note": note,
+    }])
+
+
 # --- Orchestration ----------------------------------------------------------
 
 
@@ -382,6 +469,7 @@ def run_all(data: StudyData) -> dict[str, object]:
         "primary_time_model_idle_adjusted": primary_time_model(tasks, idle_adjusted=True),
         "focused_contrast": focused_contrast(tasks),
         "correctness": correctness_model(tasks),
+        "coder_agreement": coder_agreement(data.correctness),
         "tlx_delta": tlx_delta_by_condition(participants),
         "agent_funnel": agent_funnel(data, tasks),
         "delegation": delegation_by_condition(participants),
