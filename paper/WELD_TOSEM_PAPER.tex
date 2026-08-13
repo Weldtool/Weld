@@ -399,7 +399,11 @@ issues and pull requests are attached to the board cards they belong to, so a
 participant reaches a pull request by opening its card, and reviews it in an
 in-app review surface (description, files-changed diffs, and approve, comment,
 or request-changes, plus merge). Merging moves the linked card exactly as a
-GitHub webhook would in production use.
+GitHub webhook would in production use. What Weld re-presents is the part of
+GitHub the task set needs and not the rest --- there are no inline review
+comments, no issue or pull-request conversation threads, no continuous-integration
+output, and no code browsing --- a partial view whose consequences for the claim
+we take up in \S\ref{sec:threats}.
 
 Every participant receives a private clone of the same fictional seed project,
 ``PetTracker'': 12 cards across 3 columns, 2 chat channels with 18 seeded
@@ -434,21 +438,29 @@ the same contrast could be built by handing a C3 agent a GitHub API token or a
 tool server, and we would expect the same result. The finding is therefore about
 reach across the surfaces developer work spans, not about this particular
 integration --- and it transfers to any assistant that can be granted or denied
-that reach, however it is plumbed.
+that reach, however it is plumbed. The corollary is that tool consolidation is
+not the independent variable. The same three-arm contrast could be run with
+participants working in a real \code{github.com} tab beside Weld, so long as the
+\emph{agent's} scope still differed by arm; whether an integrated workspace is
+better than separate tools is a different question, and one this design is
+deliberately not built to answer (\S\ref{sec:threats}).
 
 \paragraph{Participants do not leave the workspace.} A natural question is
-whether a developer would still keep GitHub open beside Weld. Inside the study
-the answer is no by construction: GitHub is served from fixtures, every outbound
-write is refused, and links out to \code{github.com} are suppressed so nobody is
-sent to a page that does not exist. All twelve tasks are completable without
-leaving the application. We do not monitor other browser tabs (\S\ref{sec:design}),
-so this is a property of the design rather than something we observe --- but no
-task \emph{can} be completed only on \code{github.com}, and nothing done there
-could reach a participant's seeded instance. Outside the study the answer is
-sometimes yes, and \S\ref{sec:threats} says what Weld does not cover. Neither
-answer bears on the manipulation: the interface is identical in all three
-conditions, so whatever reason a participant might have to look elsewhere is
-constant across arms and cannot produce a condition effect.
+whether a developer would still keep GitHub open beside Weld. For the
+manipulation the answer does not matter, and that is the first thing to say: the
+interface is identical in all three conditions, so whatever reason a participant
+might have to look elsewhere is a constant across arms and cannot produce a
+condition effect. It would remain a constant even if participants did look.
+
+Inside the study, in any case, they cannot: GitHub is served from fixtures, every
+outbound write is refused, and links out to \code{github.com} are suppressed so
+nobody is sent to a page that does not exist. All twelve tasks are completable
+without leaving the application. We do not monitor other browser tabs
+(\S\ref{sec:design}), so this is a property of the design rather than something we
+observe --- but no task \emph{can} be completed only on \code{github.com}, and
+nothing done there could reach a participant's seeded instance. Outside the study
+the answer is sometimes yes, and \S\ref{sec:threats} says what Weld does not
+cover.
 
 \begin{figure}[t]
 \figplaceholder{Figure 1. The Weld workspace with the agent panel open.
