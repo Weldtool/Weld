@@ -110,9 +110,10 @@ Weld, a workspace that unifies a task board, team chat, and GitHub issues and
 pull-request review, on a seeded software project. Each participant first
 completed six tasks manually, establishing a per-person baseline, then completed
 six matched tasks with an in-app AI agent whose scope over the workspace was
-randomly assigned to one of three levels: chat only (advise), chat and board
-(act), or chat, board, and GitHub (act). Task content was identical across
-conditions; only the agent's scope differed. We logged task time, correctness,
+assigned by adaptive minimisation to one of three levels: chat only (advise),
+chat and board (act), or chat, board, and GitHub (act). Task content was
+identical across conditions; only the agent's scope differed. We logged task
+time, correctness,
 delegation and override behaviour, and a per-invocation snapshot of exactly
 what context the agent received, and collected NASA-TLX before and after the
 agent phase together with a trust-in-automation block.
@@ -170,6 +171,17 @@ a per-person manual baseline. (4)~What we found. (5)~Contributions.}
 
 \todo{Write after the results are in, so the framing matches the findings
 rather than the hypotheses.}
+
+% Pre-drafted because it does not depend on the results. Keep it in the third
+% paragraph of the final introduction (the "this study" paragraph): it sets the
+% frame before a reader can form the tool-paper reading, which is cheaper than
+% defending against that reading later (\S\ref{sec:design}).
+Weld is apparatus, not contribution. Manipulating how much of a shared workspace
+an agent may reach requires holding a task board, team chat, and code review in
+one instrument; it does not require --- and we do not claim --- that such a
+workspace is better than the separate tools it stands in for. Every participant
+works in the identical interface, and what differs between arms is only how much
+of it the agent can see and act on.
 
 \paragraph{Contributions.}
 \begin{itemize}
@@ -346,9 +358,10 @@ between-subjects agent condition.
 Every participant first completes six manual baseline tasks (B1--B6, condition
 C0) with no agent available, establishing their own manual speed and cognitive
 load on each task type. NASA-TLX is collected at this point, before any agent
-exposure. Each participant is then randomly assigned to one agent condition and
-completes six agent tasks (T1--T6) in that fixed condition. Table~\ref{tab:conditions}
-gives the three conditions.
+exposure. Each participant is then assigned to one agent condition --- by
+adaptive minimisation rather than simple randomisation, for the reason given
+below --- and completes six agent tasks (T1--T6) in that fixed condition.
+Table~\ref{tab:conditions} gives the three conditions.
 
 \begin{table}[t]
 \caption{The three agent scope conditions (between-subjects).}
@@ -415,7 +428,8 @@ or leak into a real repository. Review verdicts and comments therefore exist
 only in our event log, which is what makes them scorable
 (\S\ref{sec:measures}).
 
-The agent is presented as a panel inside the workspace. It runs on a single
+The agent is presented as a panel inside the workspace
+(Figure~\ref{fig:apparatus}). It runs on a single
 pinned, dated model snapshot (\code{gpt-5.4-2026-03-05} --- matches the
 \code{OPENAI\_MODEL} default in \code{config.rs}; confirm the deploy does not
 override it via env var before the run starts) at a fixed
@@ -428,39 +442,25 @@ issues and pull requests. Every
 invocation records a snapshot of exactly what the agent received
 (\S\ref{sec:manipcheck}).
 
-\paragraph{The workspace re-presents GitHub; it does not replace it.} Issues,
-pull requests, and diffs in Weld are a view onto data that lives in GitHub, and
-we make no claim that this view is novel. That is deliberate on both sides. As
-apparatus, a familiar GitHub-shaped review surface keeps the manipulation from
-being confounded with learning an unfamiliar review tool. As a claim, what the
-study varies is \emph{what the agent can reach}, not \emph{how it reaches it}:
-the same contrast could be built by handing a C3 agent a GitHub API token or a
-tool server, and we would expect the same result. The finding is therefore about
-reach across the surfaces developer work spans, not about this particular
-integration --- and it transfers to any assistant that can be granted or denied
-that reach, however it is plumbed. The corollary is that tool consolidation is
-not the independent variable. The same three-arm contrast could be run with
-participants working in a real \code{github.com} tab beside Weld, so long as the
-\emph{agent's} scope still differed by arm; whether an integrated workspace is
-better than separate tools is a different question, and one this design is
-deliberately not built to answer (\S\ref{sec:threats}).
-
-\paragraph{Participants do not leave the workspace.} A natural question is
-whether a developer would still keep GitHub open beside Weld. For the
-manipulation the answer does not matter, and that is the first thing to say: the
-interface is identical in all three conditions, so whatever reason a participant
-might have to look elsewhere is a constant across arms and cannot produce a
-condition effect. It would remain a constant even if participants did look.
-
-Inside the study, in any case, they cannot: GitHub is served from fixtures, every
-outbound write is refused, and links out to \code{github.com} are suppressed so
-nobody is sent to a page that does not exist. All twelve tasks are completable
-without leaving the application. We do not monitor other browser tabs
-(\S\ref{sec:design}), so this is a property of the design rather than something we
-observe --- but no task \emph{can} be completed only on \code{github.com}, and
-nothing done there could reach a participant's seeded instance. Outside the study
-the answer is sometimes yes, and \S\ref{sec:threats} says what Weld does not
-cover.
+\paragraph{Weld does not replace GitHub, and does not need to.} A natural
+question is whether a developer would still keep GitHub open beside Weld. For the
+manipulation the answer does not matter: the interface is identical in all three
+conditions, so whatever reason a participant might have to look elsewhere is a
+constant across arms and cannot produce a condition effect. Inside the study the
+question does not arise in any case --- no task \emph{can} be completed only on
+\code{github.com}, GitHub is served from fixtures, outbound writes are refused,
+and links out are suppressed, so all twelve tasks are completable without leaving
+the application. We do not monitor other browser tabs, so this is a property of
+the design rather than something we observe. The same logic fixes what
+generalises: the study varies \emph{what the agent can reach}, not \emph{how it
+reaches it}. The identical contrast could be built by handing a C3 agent a GitHub
+API token or a tool server, and the finding transfers to any assistant that can
+be granted or denied that reach, however it is plumbed --- a familiar
+GitHub-shaped review surface is an apparatus choice that keeps the manipulation
+from being confounded with learning an unfamiliar review tool, and tool
+consolidation is not the independent variable. Outside the study the view is
+partial in the ways described above, and a developer working a real change would
+still open GitHub for what it omits (\S\ref{sec:threats}).
 
 \begin{figure}[t]
 \figplaceholder{Figure 1. The Weld workspace with the agent panel open.
@@ -604,6 +604,7 @@ the event log and survey export. Table~\ref{tab:measures} summarises.
 \begin{table}[t]
 \caption{Measures and their sources.}
 \label{tab:measures}
+\footnotesize
 \begin{tabularx}{\linewidth}{@{}lLL@{}}
 \toprule
 \textbf{Construct} & \textbf{Source} & \textbf{Notes} \\
