@@ -254,9 +254,39 @@ def build_packet(data_dir: Path, out_dir: Path, seed: int) -> int:
 
     print(f"Wrote {out_dir/'CODING_PACKET.md'} — {len(items)} items")
     print(f"Wrote {out_dir/'coder_1.csv'} and {out_dir/'coder_2.csv'} (blank `score` column)")
-    print("\nCheck the packet for leaks before sending it out:")
-    print(f"  grep -icE 'C1|C2|C3|condition|latency|_ms' {out_dir/'CODING_PACKET.md'}")
     return len(items)
+
+
+#: Anything here in the packet would tell a coder which condition they are
+#: looking at, or how long it took. Deliberately broad -- a false positive costs
+#: one look, an unblinded coder costs the correctness measure.
+LEAK_PATTERN = re.compile(
+    r"\bC[123]\b|agent_condition|condition|latency|prompt_version|_ms\b",
+    re.IGNORECASE,
+)
+
+
+def verify_blinding(packet: Path) -> list[tuple[int, str]]:
+    """Lines in the packet that could unblind a coder. Empty list means clean.
+
+    Only the item bodies are scanned. The preamble above the first item is our
+    own fixed instructions, which legitimately mention conditions -- it tells
+    the coder they are deliberately not being shown one. Scanning it flags that
+    sentence forever, and a check that always fails gets ignored, which is worse
+    than no check. A leak can only come from the generated items anyway, since
+    those are the only part built from participant data.
+    """
+    lines = packet.read_text(encoding="utf-8").splitlines()
+    first_item = next(
+        (i for i, line in enumerate(lines) if line.startswith("## Item ")), None
+    )
+    if first_item is None:  # no items: nothing generated, nothing to leak
+        return []
+    return [
+        (n, line.strip())
+        for n, line in enumerate(lines[first_item:], first_item + 1)
+        if LEAK_PATTERN.search(line)
+    ]
 
 
 def merge_coders(coder_1: Path, coder_2: Path, out: Path) -> None:
@@ -321,6 +351,22 @@ def main() -> None:
         merge_coders(args.merge[0], args.merge[1], args.out)
     elif args.data:
         build_packet(args.data, args.out, args.seed)
+        # Verify before anyone can send it, and fail loudly if it leaks: the
+        # packet is useless the moment a coder learns the condition, and that
+        # is not recoverable after the fact.
+        packet = args.out / "CODING_PACKET.md"
+        leaks = verify_blinding(packet)
+        if leaks:
+            print(f"\n*** BLINDING CHECK FAILED — {len(leaks)} line(s) in {packet} "
+                  "could unblind a coder. DO NOT SEND. ***")
+            for n, line in leaks[:10]:
+                print(f"    line {n}: {line[:100]}")
+            if len(leaks) > 10:
+                print(f"    ... and {len(leaks) - 10} more")
+            sys.exit(1)
+        print(f"\nBlinding check passed: no condition, timing or transcript "
+              f"markers in {packet}.")
+        print("Send each coder CODING_PACKET.md and ONE of coder_1.csv / coder_2.csv.")
     else:
         ap.error("give --data (to build a packet) or --merge (to combine coder scores)")
 

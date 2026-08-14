@@ -92,8 +92,9 @@ independently, without conferring.
 
 **Do not send anyone `study_events.csv`.** Blinding is mandatory and that file
 carries `agent_condition` on every row, plus timestamps and the agent's whole
-transcript — it unblinds a coder on line one. `make packet` runs the blinding
-check for you and prints the count; it must be `0`.
+transcript — it unblinds a coder on line one. `make packet` verifies the packet
+itself and **fails** if it finds a leak, printing the offending lines; a clean
+build says so explicitly.
 
 When both come back:
 
@@ -161,11 +162,15 @@ item shows the rubric anchor for its task, parsed live from
 `../replication/WELD_AGENT_TASK_SCRIPTS.md` §2 rather than copied, so the packet
 cannot drift from the rubric.
 
-`make packet` runs the blinding check itself; to repeat it by hand:
+The blinding check runs automatically as part of building the packet, and
+**exits non-zero if it finds anything**, so a leaking packet cannot be built
+quietly and then sent. It scans the generated items only — the preamble is our
+own fixed instructions, which legitimately mention conditions in the course of
+telling the coder they are not being shown one.
 
-```bash
-grep -icE 'agent_condition|latency|prompt_version|\bC[123]\b' coding/CODING_PACKET.md   # want 0
-```
+The pattern lives in `coding_packet.LEAK_PATTERN`, as the single source of
+truth. It is deliberately broad: a false positive costs one look, an unblinded
+coder costs the correctness measure.
 
 The file the coders produce:
 

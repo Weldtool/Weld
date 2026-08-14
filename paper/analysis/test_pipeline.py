@@ -276,6 +276,42 @@ def test_sensitivity_headline_matches_the_quoted_design():
     assert 30 < h["pct_reduction"] < 60
 
 
+def test_blinding_check_catches_a_leak_but_not_our_own_instructions(tmp_path):
+    """The packet's preamble tells the coder they are *not* being shown the
+    condition. Scanning it flags that sentence forever, and a check that always
+    fails is a check everyone learns to ignore."""
+    import coding_packet
+
+    p = tmp_path / "CODING_PACKET.md"
+    p.write_text(
+        "# Correctness coding packet\n\n"
+        "You are deliberately not told which condition anyone was in.\n\n"
+        "---\n\n"
+        "## Item 001 — participant P0001, task B1\n\n"
+        "Board state: card moved to Done.\n\n"
+        "## Item 002 — participant P0002, task T3\n\n"
+        "agent_condition: C3 — latency_ms 1840\n",
+        encoding="utf-8",
+    )
+    leaks = coding_packet.verify_blinding(p)
+    assert len(leaks) == 1, f"expected only the item leak, got {leaks}"
+    assert "agent_condition" in leaks[0][1]
+
+
+def test_blinding_check_passes_on_a_clean_packet(tmp_path):
+    import coding_packet
+
+    p = tmp_path / "CODING_PACKET.md"
+    p.write_text(
+        "# Correctness coding packet\n\n"
+        "Score each item 0-3 on the final state.\n\n"
+        "## Item 001 — participant P0001, task B1\n\n"
+        "Board state: card moved to Done. Chat: 'looks good to me'.\n",
+        encoding="utf-8",
+    )
+    assert coding_packet.verify_blinding(p) == []
+
+
 def test_importing_sensitivity_does_not_run_the_simulation():
     """It had no __main__ guard, so importing it ran 20k reps."""
     src = Path(__file__).with_name("sensitivity.py").read_text(encoding="utf-8")

@@ -68,10 +68,6 @@ check: setup  ## Verify the environment before a real run
 
 packet: setup  ## Build the blinded coding packet from $(DATA)
 	$(PY) coding_packet.py --data $(DATA) --out coding
-	@echo
-	@echo "Send each coder CODING_PACKET.md and ONE of coder_1.csv / coder_2.csv."
-	@echo "Blinding check (want 0):"
-	@grep -icE 'agent_condition|latency|prompt_version|\bC[123]\b' coding/CODING_PACKET.md
 
 merge: setup  ## Merge coder scores into $(DATA)/correctness.csv
 	$(PY) coding_packet.py --merge coding/coder_1.csv coding/coder_2.csv \
