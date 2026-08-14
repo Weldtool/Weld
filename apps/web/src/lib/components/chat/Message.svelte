@@ -19,10 +19,9 @@
 		selfId: string | null;
 		showAvatar?: boolean;
 		onReply?: (parentId: string) => void;
-		onEdit?: (id: string, content: string) => void;
 	}
 
-	const { message, members, selfId, showAvatar = true, onReply, onEdit }: Props = $props();
+	const { message, members, selfId, showAvatar = true, onReply }: Props = $props();
 	const canDelete = $derived(!isPending(message) && message.sender_id === selfId);
 
 	const sender = $derived(members.find((m) => m.user_id === message.sender_id) ?? null);
@@ -35,22 +34,43 @@
 
 	let editing = $state(false);
 	let draft = $state('');
+	let saving = $state(false);
+	let editError = $state<string | null>(null);
 
 	function startEdit() {
 		draft = message.content;
+		editError = null;
 		editing = true;
 	}
 	function cancelEdit() {
 		editing = false;
+		editError = null;
 	}
-	function saveEdit() {
+	// The textarea is only mounted while `editing`, so this runs exactly when the
+	// editor opens. Caret goes to the end rather than selecting all, so typing
+	// appends instead of wiping the message (Slack/Discord behaviour).
+	function focusEditor(node: HTMLTextAreaElement) {
+		node.focus();
+		node.setSelectionRange(node.value.length, node.value.length);
+	}
+	async function saveEdit() {
 		const next = draft.trim();
 		if (!next || next === message.content) {
 			editing = false;
+			editError = null;
 			return;
 		}
-		onEdit?.(message.id, next);
-		editing = false;
+		saving = true;
+		editError = null;
+		try {
+			await chat.editMessage(message.id, next);
+			editing = false;
+		} catch (err) {
+			// Keep the editor open so the draft isn't lost on a failed save.
+			editError = err instanceof Error ? err.message : 'Failed to save edit.';
+		} finally {
+			saving = false;
+		}
 	}
 
 	// Open a task-detail deep link (from a card/task/PR chat reference) as a modal
@@ -224,24 +244,31 @@
 				<div class="mt-1 space-y-1.5">
 					<textarea
 						bind:value={draft}
+						use:focusEditor
 						rows={3}
-						class="w-full resize-y rounded-lg border border-[var(--input)] bg-[var(--background)] p-2.5 text-sm transition-colors outline-none focus-visible:border-[var(--ring)]/60 focus-visible:ring-2 focus-visible:ring-[var(--ring)]/20"
+						disabled={saving}
+						class="w-full resize-y rounded-lg border border-[var(--input)] bg-[var(--background)] p-2.5 text-sm transition-colors outline-none focus-visible:border-[var(--ring)]/60 focus-visible:ring-2 focus-visible:ring-[var(--ring)]/20 disabled:opacity-60"
 					></textarea>
-					<div class="flex gap-2 text-xs">
+					<div class="flex items-center gap-2 text-xs">
 						<button
 							type="button"
-							class="rounded-md bg-[var(--primary)] px-2.5 py-1 font-medium text-[var(--primary-foreground)] hover:opacity-90"
+							disabled={saving}
+							class="rounded-md bg-[var(--primary)] px-2.5 py-1 font-medium text-[var(--primary-foreground)] hover:opacity-90 disabled:opacity-60"
 							onclick={saveEdit}
 						>
-							Save
+							{saving ? 'Saving…' : 'Save'}
 						</button>
 						<button
 							type="button"
-							class="rounded-md border border-[var(--border)] px-2.5 py-1 hover:bg-[var(--accent)]"
+							disabled={saving}
+							class="rounded-md border border-[var(--border)] px-2.5 py-1 hover:bg-[var(--accent)] disabled:opacity-60"
 							onclick={cancelEdit}
 						>
 							Cancel
 						</button>
+						{#if editError}
+							<span class="text-red-500">{editError}</span>
+						{/if}
 					</div>
 				</div>
 			{:else}

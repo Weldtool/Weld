@@ -198,6 +198,47 @@ describe('optimistic send', () => {
 	});
 });
 
+describe('editMessage', () => {
+	it('PATCHes the message and applies the updated content to the channel list', async () => {
+		const confirmed = messageFixture({ id: 'srv-1', content: 'original' });
+		mockSequence({ status: 201, body: confirmed });
+		await chat.sendMessage('c-1', 'original');
+
+		const edited = { ...confirmed, content: 'edited', edited_at: '2024-01-01T00:00:00Z' };
+		const fetchMock = mockSequence({ status: 200, body: edited });
+		await chat.editMessage('srv-1', 'edited');
+
+		const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+		expect(String(url)).toContain('/messages/srv-1');
+		expect(init.method).toBe('PATCH');
+		expect(JSON.parse(String(init.body))).toEqual({ content: 'edited' });
+
+		const list = chat.messagesByChannel['c-1'].messages;
+		expect(list).toHaveLength(1);
+		expect(list[0].content).toBe('edited');
+		expect((list[0] as ChatMessage).edited_at).toBe('2024-01-01T00:00:00Z');
+	});
+
+	it('also updates the open thread when the edited message is a reply', async () => {
+		const parent = messageFixture({ id: 'p-1', content: 'parent' });
+		const reply = messageFixture({ id: 'r-1', thread_parent_id: 'p-1', content: 'original' });
+		mockSequence({ status: 200, body: { parent, replies: [reply] } });
+		await chat.openThread('p-1');
+
+		mockSequence({ status: 200, body: { ...reply, content: 'edited' } });
+		await chat.editMessage('r-1', 'edited');
+
+		const replies = chat.threadByParent['p-1'].replies;
+		expect(replies).toHaveLength(1);
+		expect(replies[0].content).toBe('edited');
+	});
+
+	it('propagates the error so the editor can stay open on failure', async () => {
+		mockSequence({ status: 500, body: { error: 'boom' } });
+		await expect(chat.editMessage('srv-1', 'edited')).rejects.toThrow();
+	});
+});
+
 describe('unread count reconciliation', () => {
 	it('increments unread for inactive channels, leaves the active one at 0, and resets on openChannel', async () => {
 		mockSequence(

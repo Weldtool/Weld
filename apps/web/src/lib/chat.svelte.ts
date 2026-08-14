@@ -238,6 +238,9 @@ class ChatStore {
 	async editMessage(messageId: string, content: string): Promise<void> {
 		const updated = await messagesApi.edit(messageId, { content });
 		this.#applyMessageUpsert(updated);
+		// Mirror the realtime edited-handler so an edit made from the thread panel
+		// updates the open thread too, not just the channel list.
+		if (updated.thread_parent_id) this.#applyThreadUpsert(updated.thread_parent_id, updated);
 		telemetry.log('message_edited', { message_id: messageId, length: content.trim().length });
 	}
 
