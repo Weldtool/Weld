@@ -176,6 +176,34 @@ def primary_time_model(tasks: pd.DataFrame, idle_adjusted: bool = False) -> Mode
     return ModelResult("primary_time", str(fit.summary()), tbl, notes)
 
 
+def _welch_contrast(x: pd.Series, y: pd.Series, label: str) -> dict[str, object] | None:
+    """Welch t-test of `y` against `x`, with a CI on the difference and Cohen's d.
+
+    Returns None when either arm is too small to estimate a variance.
+    """
+    if len(x) < 2 or len(y) < 2:
+        return None
+    t, p = stats.ttest_ind(y, x, equal_var=False)
+    pooled = np.sqrt((x.var(ddof=1) + y.var(ddof=1)) / 2)
+    d = (y.mean() - x.mean()) / pooled if pooled > 0 else np.nan
+    # Welch CI on the difference in means.
+    se = np.sqrt(x.var(ddof=1) / len(x) + y.var(ddof=1) / len(y))
+    dfree = (x.var(ddof=1) / len(x) + y.var(ddof=1) / len(y)) ** 2 / (
+        (x.var(ddof=1) / len(x)) ** 2 / (len(x) - 1)
+        + (y.var(ddof=1) / len(y)) ** 2 / (len(y) - 1)
+    )
+    crit = stats.t.ppf(0.975, dfree)
+    diff = y.mean() - x.mean()
+    return {
+        "contrast": label,
+        "n_a": len(x), "n_b": len(y),
+        "mean_a": x.mean(), "mean_b": y.mean(),
+        "diff": diff,
+        "ci_low": diff - crit * se, "ci_high": diff + crit * se,
+        "cohens_d": d, "t": t, "p": p,
+    }
+
+
 def focused_contrast(tasks: pd.DataFrame) -> pd.DataFrame:
     """The confirmatory test: C3 vs C1 on cross-surface agent tasks.
 
@@ -192,32 +220,38 @@ def focused_contrast(tasks: pd.DataFrame) -> pd.DataFrame:
     )
     rows = []
     for a, b in (("C1", "C3"), ("C1", "C2"), ("C2", "C3")):
-        x = per_p.loc[per_p["agent_condition"] == a, "normalised_time"]
-        y = per_p.loc[per_p["agent_condition"] == b, "normalised_time"]
-        if len(x) < 2 or len(y) < 2:
-            continue
-        t, p = stats.ttest_ind(y, x, equal_var=False)
-        pooled = np.sqrt((x.var(ddof=1) + y.var(ddof=1)) / 2)
-        d = (y.mean() - x.mean()) / pooled if pooled > 0 else np.nan
-        # Welch CI on the difference in means.
-        se = np.sqrt(x.var(ddof=1) / len(x) + y.var(ddof=1) / len(y))
-        dfree = (x.var(ddof=1) / len(x) + y.var(ddof=1) / len(y)) ** 2 / (
-            (x.var(ddof=1) / len(x)) ** 2 / (len(x) - 1)
-            + (y.var(ddof=1) / len(y)) ** 2 / (len(y) - 1)
+        row = _welch_contrast(
+            per_p.loc[per_p["agent_condition"] == a, "normalised_time"],
+            per_p.loc[per_p["agent_condition"] == b, "normalised_time"],
+            f"{b} - {a}",
         )
-        crit = stats.t.ppf(0.975, dfree)
-        diff = y.mean() - x.mean()
-        rows.append(
-            {
-                "contrast": f"{b} - {a}",
-                "n_a": len(x), "n_b": len(y),
-                "mean_a": x.mean(), "mean_b": y.mean(),
-                "diff": diff,
-                "ci_low": diff - crit * se, "ci_high": diff + crit * se,
-                "cohens_d": d, "t": t, "p": p,
-                "confirmatory": (a, b) == ("C1", "C3"),
-            }
+        if row is not None:
+            rows.append(row | {"confirmatory": (a, b) == ("C1", "C3")})
+    return pd.DataFrame(rows)
+
+
+def single_task_contrast(tasks: pd.DataFrame, task_id: str = "T6") -> pd.DataFrame:
+    """One task on its own, C3 vs C2 first -- the top-of-the-ladder test.
+
+    `focused_contrast` pools every cross-surface agent task, so the comparison
+    the paper names specifically ("T6 specifically: C3 vs C2, the cleanest
+    top-of-the-ladder test") is not any row it returns. T6 is the only task
+    where C2 and C3 differ solely in whether GitHub is in scope, which is what
+    makes it the cleanest read on the top rung -- and, being one task rather
+    than a mean of two, it is materially less powered than the pooled contrast.
+    Reported alongside it rather than instead of it.
+    """
+    one = tasks[(tasks["phase"] == "agent") & (tasks["task_id"] == task_id)]
+    one = one.dropna(subset=["normalised_time"])
+    rows = []
+    for a, b in (("C2", "C3"), ("C1", "C3"), ("C1", "C2")):
+        row = _welch_contrast(
+            one.loc[one["agent_condition"] == a, "normalised_time"],
+            one.loc[one["agent_condition"] == b, "normalised_time"],
+            f"{b} - {a}",
         )
+        if row is not None:
+            rows.append(row | {"task_id": task_id, "headline": (a, b) == ("C2", "C3")})
     return pd.DataFrame(rows)
 
 
@@ -451,6 +485,78 @@ def tlx_delta_by_condition(participants: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def tlx_subscales_by_condition(participants: pd.DataFrame) -> pd.DataFrame:
+    """Per-subscale TLX deltas. The paper asks for "composite and subscales".
+
+    `derive.py` already computes a `tlx_<subscale>_delta` per participant; this
+    only aggregates them. Note `performance` is reverse-scored upstream into the
+    workload direction, so a *positive* delta there means worse perceived
+    performance, the same sign convention as every other subscale.
+    """
+    cols = [f"tlx_{s}_delta" for s in derive.TLX_SUBSCALES]
+    cols = [c for c in cols if c in participants.columns]
+    if not cols:
+        return pd.DataFrame()
+    rows = []
+    for col in cols:
+        d = participants.dropna(subset=[col])
+        if d.empty:
+            continue
+        arrays = [g[col].values for _, g in d.groupby("agent_condition")]
+        h, p = (np.nan, np.nan)
+        if len(arrays) >= 2 and all(len(a) >= 2 for a in arrays):
+            h, p = stats.kruskal(*arrays)
+        for cond, g in d.groupby("agent_condition"):
+            rows.append({
+                "subscale": col.removeprefix("tlx_").removesuffix("_delta"),
+                "agent_condition": cond,
+                "n": len(g),
+                "mean_delta": g[col].mean(),
+                "sd": g[col].std(ddof=1),
+                "kruskal_H": h,
+                "kruskal_p": p,
+                "reverse_scored": col == "tlx_performance_delta",
+            })
+    return pd.DataFrame(rows)
+
+
+#: Sauro & Lewis's benchmark mean for SUS. The paper asks for the score "against
+#: published norms", and this is the number that phrase points at.
+SUS_NORM = 68.0
+
+
+def sus_by_condition(participants: pd.DataFrame) -> pd.DataFrame:
+    """SUS per condition and pooled, each tested against the published norm.
+
+    Usability is not the manipulation -- every condition uses the same app --
+    so the informative reading is the pooled row against the norm, plus a
+    across-condition test that should come back null. A condition difference
+    here would mean the agent's scope had leaked into how usable the workspace
+    itself felt, which is worth knowing.
+    """
+    if "sus" not in participants.columns:
+        return pd.DataFrame()
+    d = participants.dropna(subset=["sus"])
+    if d.empty:
+        return pd.DataFrame()
+    rows = []
+    for cond, g in list(d.groupby("agent_condition")) + [("ALL", d)]:
+        v = g["sus"]
+        t, p = stats.ttest_1samp(v, SUS_NORM) if len(v) >= 2 else (np.nan, np.nan)
+        rows.append({
+            "agent_condition": cond, "n": len(v),
+            "mean": v.mean(), "sd": v.std(ddof=1) if len(v) >= 2 else np.nan,
+            "vs_norm": v.mean() - SUS_NORM, "norm": SUS_NORM, "t": t, "p": p,
+        })
+    out = pd.DataFrame(rows)
+    arrays = [g["sus"].values for _, g in d.groupby("agent_condition")]
+    if len(arrays) >= 2 and all(len(a) >= 2 for a in arrays):
+        h, p = stats.kruskal(*arrays)
+        out.attrs["kruskal_H"] = h
+        out.attrs["kruskal_p"] = p
+    return out
+
+
 # --- RQ2: reliance ----------------------------------------------------------
 
 
@@ -495,6 +601,22 @@ def delegation_by_condition(participants: pd.DataFrame) -> pd.DataFrame:
 # --- RQ3: perception vs measurement ----------------------------------------
 
 
+def _spearman_ci(rho: float, n: int, conf: float = 0.95) -> tuple[float, float]:
+    """Fisher-z interval for a Spearman correlation.
+
+    The SE carries the 1.06 Bonett-Wright correction for rank correlations --
+    Fisher's 1/sqrt(n-3) is derived for Pearson and runs slightly narrow on
+    Spearman. Undefined below n=5; the paper asks for CIs on the per-condition
+    correlations too, and those are n=8, so the guard earns its keep.
+    """
+    if not np.isfinite(rho) or n < 5:
+        return (np.nan, np.nan)
+    z = np.arctanh(np.clip(rho, -0.999999, 0.999999))
+    se = 1.06 / np.sqrt(n - 3)
+    crit = stats.norm.ppf(1 - (1 - conf) / 2)
+    return (float(np.tanh(z - crit * se)), float(np.tanh(z + crit * se)))
+
+
 def perception_correlations(participants: pd.DataFrame) -> pd.DataFrame:
     """Spearman correlations of perception against measured performance.
 
@@ -516,8 +638,10 @@ def perception_correlations(participants: pd.DataFrame) -> pd.DataFrame:
                 if len(sub) < 4:
                     continue
                 rho, p = stats.spearmanr(sub[pcol], sub[mcol])
+                lo, hi = _spearman_ci(rho, len(sub))
                 rows.append({"scope": scope, "perception": pcol, "measured": mcol,
-                             "n": len(sub), "spearman_rho": rho, "p": p})
+                             "n": len(sub), "spearman_rho": rho,
+                             "ci_low": lo, "ci_high": hi, "p": p})
 
     _corr(participants, "pooled")
     for cond, grp in participants.groupby("agent_condition"):
@@ -532,11 +656,19 @@ def reliance_calibration(participants: pd.DataFrame) -> pd.DataFrame:
     d = participants.dropna(subset=["trust_rely", "trust_verify"])
     if d.empty:
         return pd.DataFrame()
-    return (
+    out = (
         d.groupby("agent_condition")[["trust_rely", "trust_verify"]]
         .agg(["count", "mean", "std"])
         .reset_index()
     )
+    # The paper asks for the cross-tab itself, not only the per-condition means:
+    # who says they lean on the agent more than they check it.
+    out.attrs["crosstab"] = pd.crosstab(d["trust_rely"], d["trust_verify"])
+    out.attrs["over_reliant"] = int((d["trust_rely"] > d["trust_verify"]).sum())
+    out.attrs["under_reliant"] = int((d["trust_rely"] < d["trust_verify"]).sum())
+    out.attrs["balanced"] = int((d["trust_rely"] == d["trust_verify"]).sum())
+    out.attrs["n_total"] = len(d)
+    return out
 
 
 # --- Inter-coder agreement --------------------------------------------------
@@ -619,9 +751,12 @@ def run_all(data: StudyData) -> dict[str, object]:
         "primary_time_model": primary_time_model(tasks),
         "primary_time_model_idle_adjusted": primary_time_model(tasks, idle_adjusted=True),
         "focused_contrast": focused_contrast(tasks),
+        "t6_contrast": single_task_contrast(tasks, "T6"),
         "correctness": correctness_model(tasks),
         "coder_agreement": coder_agreement(data.correctness),
         "tlx_delta": tlx_delta_by_condition(participants),
+        "tlx_subscales": tlx_subscales_by_condition(participants),
+        "sus": sus_by_condition(participants),
         "agent_funnel": agent_funnel(data, tasks),
         "delegation": delegation_by_condition(participants),
         "perception_correlations": perception_correlations(participants),

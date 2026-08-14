@@ -133,7 +133,14 @@ conservative. The primary model is fitted both ways.
 **Correctness model.** The plan specifies a cumulative-link *mixed* model.
 statsmodels has no CLMM and R is not a dependency here, so `analyze.py` reports
 per-cell descriptives plus Kruskal–Wallis, flags itself as approximate, and
-writes `out/correctness_model.R`. **Run that in R for the model of record:**
+writes `out/correctness_model.R`.
+
+**`run_all.py` runs it for you** when `Rscript` is on PATH, writes the output to
+`out/correctness_model_R_output.txt`, and echoes the script's own STATUS line
+into the report — so the reported model is the CLMM, not the approximation,
+without anyone having to remember a second command. If R is missing the report
+says so loudly and the rest of the pipeline still completes; `--no-r` skips it
+deliberately. To run it by hand:
 
 ```bash
 Rscript out/correctness_model.R      # needs `ordinal`; `lme4` optional

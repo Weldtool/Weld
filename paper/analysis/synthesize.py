@@ -74,8 +74,16 @@ def generate(out_dir: Path, n: int, seed: int = 7) -> None:
         skill = rng.normal(0, 0.35)          # person-level speed, log scale
         clock = t0 + timedelta(days=i // 6, minutes=17 * (i % 6))
 
+        # One participant withdraws mid-session. Everyone completing all twelve
+        # tasks means the exclusion path, the "N excluded and why" sentence, and
+        # the participant-flow figure have no dry run -- and a participant-level
+        # table that silently drops someone is exactly the bug you want to find
+        # before run day, not after.
+        withdraws = n > 6 and i == 6
+        stop_after = 8 if withdraws else None
+
         p_rows.append([
-            code, cond, "completed", "v1.2",
+            code, cond, "withdrawn" if withdraws else "completed", "v1.2",
             clock.isoformat(), clock.isoformat(),
             (clock + timedelta(minutes=62)).isoformat(),
             f"00000000-0000-0000-0000-{i:012d}",
@@ -83,10 +91,11 @@ def generate(out_dir: Path, n: int, seed: int = 7) -> None:
             f"20000000-0000-0000-0000-{i:012d}",
         ])
 
-        def emit(etype: str, task: str | None, payload: dict) -> None:
+        def emit(etype: str, task: str | None, payload: dict,
+                 idle_s: float = 0.0) -> None:
             nonlocal event_id, clock
             event_id += 1
-            clock += timedelta(seconds=float(rng.uniform(2, 20)))
+            clock += timedelta(seconds=float(rng.uniform(2, 20)) + idle_s)
             e_rows.append([code, cond, event_id, etype, task or "",
                            clock.isoformat(), clock.isoformat(),
                            json.dumps(payload)])
@@ -94,9 +103,16 @@ def generate(out_dir: Path, n: int, seed: int = 7) -> None:
         emit("session_start", None, {})
         emit("consent_given", None, {"version": "v1.2"})
 
+        tasks_done = 0
         for phase, tasks in (("baseline", BASELINE_TASKS), ("agent", AGENT_TASKS)):
+            if stop_after is not None and tasks_done >= stop_after:
+                break
             emit("phase_started", None, {"phase": phase})
             for task in tasks:
+                if stop_after is not None and tasks_done >= stop_after:
+                    emit("session_abandoned", None, {"after_tasks": tasks_done})
+                    break
+                tasks_done += 1
                 ttype = TASK_TYPE[task]
                 emit("task_shown", task, {"task_id": task, "task_type": ttype})
 
@@ -116,7 +132,26 @@ def generate(out_dir: Path, n: int, seed: int = 7) -> None:
                 for _ in range(n_user):
                     emit(random.choice(["card_moved", "message_sent", "card_edited"]),
                          task, {})
-                emit("view_changed", task, {"to": random.choice(["board", "chat"])})
+
+                # Some tasks contain a long think/walk-away gap. Without these
+                # the idle rule (>= IDLE_GAP_SECONDS between consecutive events
+                # in a task) never fires, and the analysis plan's "fit the
+                # primary model both ways" robustness check silently becomes two
+                # fits of identical data. The gap is drawn well above the
+                # threshold so the branch is genuinely exercised, and `away_ms`
+                # above stays small so the conservative excess-over-away
+                # subtraction leaves something behind.
+                # Kept modest on purpose: large enough to clear the 180 s
+                # threshold and exercise the adjustment, small enough that the
+                # planted condition effect stays visible. Crank it up and the
+                # primary model stops converging on 8/cell, which tests nothing
+                # useful about the pipeline.
+                idle_s = 0.0
+                if rng.random() < 0.07:
+                    idle_s = float(rng.uniform(185, 240))
+                    secs += idle_s
+                emit("view_changed", task, {"to": random.choice(["board", "chat"])},
+                     idle_s=idle_s)
 
                 if phase == "agent":
                     emit("agent_panel_opened", task, {})
@@ -141,10 +176,50 @@ def generate(out_dir: Path, n: int, seed: int = 7) -> None:
                             "allowed": True, "executed": True,
                             "drafted": tool == "post_message",
                         })
-                    if rng.random() < 0.3:
-                        emit("agent_suggestion_accepted", task, {})
-                    if rng.random() < 0.15:
-                        emit("agent_action_undone", task, {})
+                    # The gate refusing an out-of-scope tool. C2 has no GitHub
+                    # tools, so a `github_link` attempt is the realistic block;
+                    # this is the enforcement signal itself, and leaving it
+                    # always-zero means a regression in the gate would not show
+                    # up anywhere in a synthetic run.
+                    if cond == "C2" and rng.random() < 0.12:
+                        emit("agent_tool_call", task, {
+                            "tool": "github_link", "allowed": False,
+                            "executed": False, "drafted": False,
+                            "reason": "out_of_scope",
+                        })
+                    # The right-hand side of the funnel: not every suggestion is
+                    # taken, some are taken but rewritten, and some agent work
+                    # gets reverted. These carry the reliance story, so they
+                    # cannot be structurally zero.
+                    #
+                    # All four are gated on C1 having no tools, which is not an
+                    # arbitrary choice -- it mirrors the real system exactly.
+                    # `agent_suggestion_{accepted,rejected}` and
+                    # `agent_output_edited` are emitted only by
+                    # MessageDraft.svelte, which renders drafts produced by the
+                    # `chat_post` tool; `agent_action_undone` fires only when a
+                    # user overrides a card the agent touched, via `board_write`.
+                    # `allowed_tool_categories(C1)` is empty, so a real C1 run
+                    # cannot produce any of them. Emitting them here would make
+                    # C1's funnel look populated and hide that fact.
+                    if cond != "C1":
+                        if rng.random() < 0.3:
+                            emit("agent_suggestion_accepted", task, {})
+                        if rng.random() < 0.22:
+                            emit("agent_suggestion_rejected", task, {})
+                        if rng.random() < 0.18:
+                            emit("agent_output_edited", task,
+                                 {"edit_distance": int(rng.integers(5, 90))})
+                        if rng.random() < 0.15:
+                            emit("agent_action_undone", task, {})
+                        # The participant declining a proposed tool call before
+                        # it runs -- also tool-dependent, so also C2/C3 only.
+                        if rng.random() < 0.10:
+                            emit("agent_tool_rejected", task, {"tool": "move_card"})
+                    # An agent failure is condition-independent: run.rs emits it
+                    # for any condition, C1 included.
+                    if rng.random() < 0.06:
+                        emit("agent_error", task, {"kind": "timeout"})
 
                 if task in ("B4", "T6"):
                     emit("pr_review_opened", task, {"number": 22 if task == "B4" else 34})

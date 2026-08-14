@@ -62,34 +62,86 @@ def simulate(sigma_total, icc, r, n=N_PER_CELL, k=K_TASKS, reps=20000, seed=0):
     return hits / reps
 
 
-print(f"Design: {N_PER_CELL}/cell, k={K_TASKS} cross-surface tasks, "
-      f"alpha={ALPHA}, power={POWER}\n")
-hdr = f"{'sigma':>6} {'ICC':>5} {'r':>5} | {'MDE(log)':>9} {'% faster':>9} {'d':>6}"
-print(hdr)
-print("-" * len(hdr))
-rows = []
-for sigma in (0.4, 0.5, 0.6):
-    for icc in (0.4, 0.6):
-        for r in (0.0, 0.5, 0.7):
-            m, se, sd_pm = mde_log(sigma, icc, r)
-            pct = (1 - np.exp(-m)) * 100
-            d = m / sigma
-            rows.append((sigma, icc, r, m, pct, d))
-            print(f"{sigma:>6.1f} {icc:>5.1f} {r:>5.1f} | {m:>9.3f} {pct:>8.1f}% {d:>6.2f}")
+#: The assumption the paper quotes in Section 5.3.
+CENTRAL = dict(sigma=0.5, icc=0.5, r=0.5)
 
-print("\nSimulation check (empirical power at the analytic MDE, 20k reps):")
-for sigma, icc, r in ((0.5, 0.4, 0.0), (0.5, 0.4, 0.5), (0.5, 0.6, 0.5), (0.6, 0.6, 0.7)):
-    print(f"  sigma={sigma} ICC={icc} r={r}: power={simulate(sigma, icc, r):.3f}")
 
-print("\nHeadline (central assumption sigma=0.5, ICC=0.5, r=0.5):")
-m, se, _ = mde_log(0.5, 0.5, 0.5)
-print(f"  MDE = {m:.3f} log units = {(1-np.exp(-m))*100:.0f}% time reduction, d = {m/0.5:.2f}")
-print(f"  power at that MDE (sim) = {simulate(0.5, 0.5, 0.5):.3f}")
+def headline(sim: bool = True) -> dict[str, float]:
+    """The numbers Section 5.3 quotes, as data rather than as printed text.
 
-print("\nWhat N would be needed for a 20% reduction (sigma=0.5, ICC=0.5, r=0.5)?")
-target = -np.log(0.80)
-for n in range(6, 41):
-    m, _, _ = mde_log(0.5, 0.5, 0.5, n=n)
-    if m <= target:
+    `run_all.py` folds these into the report so the reported MDE cannot drift
+    from the one this script computes. `sim=False` skips the 20k-rep simulation,
+    which is the only slow part.
+    """
+    m, _, _ = mde_log(CENTRAL["sigma"], CENTRAL["icc"], CENTRAL["r"])
+    out = {
+        "mde_log": float(m),
+        "pct_reduction": float((1 - np.exp(-m)) * 100),
+        "cohens_d": float(m / CENTRAL["sigma"]),
+        "n_per_cell": N_PER_CELL,
+        "k_tasks": K_TASKS,
+        **{f"assumed_{k}": v for k, v in CENTRAL.items()},
+    }
+    if sim:
+        out["power_sim"] = float(
+            simulate(CENTRAL["sigma"], CENTRAL["icc"], CENTRAL["r"])
+        )
+    return out
+
+
+def n_for_reduction(pct: float = 20.0, max_n: int = 400) -> tuple[int | None, float]:
+    """Smallest n per cell that could detect a `pct` reduction, or None.
+
+    Returns None rather than printing nothing when even `max_n` is too small --
+    the honest answer to "what would it take" is sometimes "more than you are
+    ever going to recruit", and that is worth saying out loud in a paper whose
+    whole sensitivity story is about being underpowered for small effects.
+    """
+    target = -np.log(1 - pct / 100)
+    for n in range(6, max_n + 1):
+        m, _, _ = mde_log(CENTRAL["sigma"], CENTRAL["icc"], CENTRAL["r"], n=n)
+        if m <= target:
+            return n, target
+    return None, target
+
+
+def main() -> None:
+    print(f"Design: {N_PER_CELL}/cell, k={K_TASKS} cross-surface tasks, "
+          f"alpha={ALPHA}, power={POWER}\n")
+    hdr = f"{'sigma':>6} {'ICC':>5} {'r':>5} | {'MDE(log)':>9} {'% faster':>9} {'d':>6}"
+    print(hdr)
+    print("-" * len(hdr))
+    for sigma in (0.4, 0.5, 0.6):
+        for icc in (0.4, 0.6):
+            for r in (0.0, 0.5, 0.7):
+                m, _, _ = mde_log(sigma, icc, r)
+                pct = (1 - np.exp(-m)) * 100
+                print(f"{sigma:>6.1f} {icc:>5.1f} {r:>5.1f} | "
+                      f"{m:>9.3f} {pct:>8.1f}% {m / sigma:>6.2f}")
+
+    print("\nSimulation check (empirical power at the analytic MDE, 20k reps):")
+    for sigma, icc, r in ((0.5, 0.4, 0.0), (0.5, 0.4, 0.5), (0.5, 0.6, 0.5), (0.6, 0.6, 0.7)):
+        print(f"  sigma={sigma} ICC={icc} r={r}: power={simulate(sigma, icc, r):.3f}")
+
+    h = headline()
+    print(f"\nHeadline (central assumption sigma={CENTRAL['sigma']}, "
+          f"ICC={CENTRAL['icc']}, r={CENTRAL['r']}):")
+    print(f"  MDE = {h['mde_log']:.3f} log units = {h['pct_reduction']:.0f}% "
+          f"time reduction, d = {h['cohens_d']:.2f}")
+    print(f"  power at that MDE (sim) = {h['power_sim']:.3f}")
+
+    pct = 20.0
+    n, target = n_for_reduction(pct)
+    print(f"\nWhat N would be needed for a {pct:.0f}% reduction "
+          f"(sigma={CENTRAL['sigma']}, ICC={CENTRAL['icc']}, r={CENTRAL['r']})?")
+    if n is None:
+        print(f"  Not reachable below 400/cell (needs MDE <= {target:.3f} log units).")
+        print("  A 20% effect is simply out of range for this design; say so "
+              "rather than implying a feasible N exists.")
+    else:
+        m, _, _ = mde_log(CENTRAL["sigma"], CENTRAL["icc"], CENTRAL["r"], n=n)
         print(f"  n = {n} per cell (MDE {m:.3f} <= {target:.3f})")
-        break
+
+
+if __name__ == "__main__":
+    main()
