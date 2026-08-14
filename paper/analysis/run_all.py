@@ -141,6 +141,24 @@ def main() -> None:
 
     add("3. RQ1 — CORRECTNESS")
     add("-" * 60)
+    # Coverage first. A missing or half-adjudicated correctness.csv shrinks the
+    # model silently -- rows with a blank score are simply dropped -- so the
+    # report says up front how much of the coding is actually in.
+    agent_tasks = results["task_table"]
+    agent_tasks = agent_tasks[agent_tasks["phase"] == "agent"]
+    coded = int(agent_tasks["correctness"].notna().sum())
+    total = len(agent_tasks)
+    if total:
+        add(f"   Coded: {coded}/{total} agent-phase tasks "
+            f"({100.0 * coded / total:.0f}%)")
+        if coded == 0:
+            add("   *** No correctness coding present. Everything in this section")
+            add("       is empty until data/correctness.csv exists — see README. ***")
+        elif coded < total:
+            add("   *** INCOMPLETE. Rows with a blank score are dropped, so the")
+            add("       model below is fitted on a subset. Finish adjudication")
+            add("       before reporting these numbers. ***")
+    add("")
     c = results["correctness"]
     add(_fmt(c.table))
     for n in c.notes:

@@ -4,93 +4,170 @@ Exports in, tables and figures out. Everything here implements what
 `../WELD_ANALYSIS_PLAN.tex` fixed in advance; if you change a rule, you are
 deviating from the plan and it must be reported in the paper's Results section.
 
-## Setup
+Everything runs through `make`. `make help` lists every target; `make setup`
+builds the venv, and the targets that need it depend on it, so you can go
+straight to `make run-synthetic` from a clean checkout.
 
-```bash
-cd paper/analysis
-python3 -m venv .venv && . .venv/bin/activate
-pip install -r requirements.txt
-```
+| Target | Does |
+|---|---|
+| `make setup` | Create `.venv`, install `requirements.txt`. |
+| `make check` | Verify the environment before a real run: deps, R + `ordinal`, which exports are present. |
+| `make synthetic` | Regenerate fake exports into `data_synthetic/`. |
+| `make run-synthetic` | Regenerate fake data, then analyse it. |
+| `make export BASE=… TOKEN=…` | Pull the three real exports into `data/`. |
+| `make run` | The full analysis on `data/`. |
+| `make packet` | Build the blinded coding packet. |
+| `make merge` | Merge the coders' scores into `data/correctness.csv`. |
+| `make test` | Regression tests (a few seconds). |
+| `make clean` / `distclean` | Remove outputs / also venv and synthetic data. |
 
-## Run it right now, before any data exists
+`DATA`, `OUT`, `N` and `SEED` are overridable: `make run DATA=data_pilot
+OUT=out_pilot`.
+
+## Try it right now, before any data exists
 
 The pipeline is testable today on synthetic data with the exact shape of the real
 exports. This is the point: nothing about the analysis should still be unknown on
 the day real data lands.
 
 ```bash
-python synthesize.py --out data_synthetic --n 24
-python run_all.py --data data_synthetic --out out
+cd paper/analysis
+make run-synthetic
 ```
 
-You get `out/report.txt`, `out/tables/*.csv`, and `out/figures/*.png`.
+You get `out/report.txt`, `out/tables/*.csv`, `out/figures/*.png`, and
+`out/correctness_model_R_output.txt`.
 
 > The synthetic numbers are **fake** — arbitrary effects chosen so every code path
 > executes. Never let one near the paper.
 
-## Run it on real data
+## Run day, start to finish
 
-Pull the three exports (needs `STUDY_EXPORT_TOKEN` set on the deploy; the
-endpoint is 404 otherwise):
+Roughly: pull the data, analyse it, get correctness coded, analyse it again.
+Only step 4 involves other people, and it is the long pole — start it the day
+the last participant finishes.
 
-```bash
-BASE=https://your-deploy; TOKEN=…
-for ds in participants events survey; do
-  curl -sH "Authorization: Bearer $TOKEN" \
-    "$BASE/api/v1/study/export?dataset=$ds" -o data/study_$ds.csv
-done
-```
-
-Then add `data/correctness.csv` from the coders (below) and:
+### 1. Check the environment
 
 ```bash
-python run_all.py --data data --out out
+make check
 ```
 
-## The one input that is not automatic
+Confirms the Python deps import, that `Rscript` and `ordinal` are present (the
+correctness model of record needs them), and which export files you already
+have. Do this *before* the run, not after.
 
-`correctness.csv` comes from two human coders, not the server. `coding_packet.py`
-builds what they work from and merges what they hand back.
+### 2. Pull the exports
 
-**Do not send anyone `study_events.csv`.** Blinding is mandatory, and that file
+```bash
+make export BASE=https://your-deploy TOKEN=$STUDY_EXPORT_TOKEN
+```
+
+Writes `data/study_{participants,events,survey}.csv`. The endpoint 404s unless
+`STUDY_EXPORT_TOKEN` is set on the deploy — the target fails loudly and tells
+you so rather than leaving you with three empty files.
+
+### 3. First analysis pass
+
+```bash
+make run
+```
+
+Everything except correctness works from here. The report says
+`Coded: 0/N agent-phase tasks` and flags the correctness section as empty —
+that is expected at this stage, not a failure.
+
+Use this pass to check the manipulation check reads 0 violations and the
+participant counts match your records, before anyone spends time coding.
+
+### 4. Correctness coding (the human step)
+
+```bash
+make packet          # builds coding/ and prints the blinding check
+```
+
+Send each coder `coding/CODING_PACKET.md` and **one** of
+`coding/coder_1.csv` / `coding/coder_2.csv`. They score every row 0–3
+independently, without conferring.
+
+**Do not send anyone `study_events.csv`.** Blinding is mandatory and that file
 carries `agent_condition` on every row, plus timestamps and the agent's whole
-transcript — it unblinds a coder on line one.
+transcript — it unblinds a coder on line one. `make packet` runs the blinding
+check for you and prints the count; it must be `0`.
+
+When both come back:
 
 ```bash
-# 1. Build the blinded packet (after the run, once all data is in)
-python coding_packet.py --data data --out coding
-
-# 2. Send each coder CODING_PACKET.md and ONE of coder_1.csv / coder_2.csv.
-#    They score every row 0–3, independently, without conferring.
-
-# 3. Merge what comes back
-python coding_packet.py --merge coding/coder_1.csv coding/coder_2.csv \
-    --out data/correctness.csv
-
-# 4. Adjudicate: the merge leaves `score` blank wherever the two disagree and
-#    prints those rows. The coders settle each one by discussion, still blind,
-#    and you fill the blank cells in. The file is done when none are empty.
-
-# 5. run_all.py picks it up automatically
-python run_all.py --data data --out out
+make merge           # -> data/correctness.csv
 ```
 
-The packet contains final state only — board (cards, columns, priorities, links)
+The merge leaves `score` blank wherever the two disagree and prints those rows.
+The coders settle each one by discussion, still blind, and you fill in the blank
+cells. **The file is done only when no `score` cell is empty** — blank rows are
+dropped, which shrinks the model. Keep the `coder_1`/`coder_2` columns after
+adjudicating: κ is computed from them, and the plan reports the
+*pre*-adjudication figure.
+
+### 5. Final analysis pass
+
+```bash
+make run
+```
+
+Now the report shows `Coded: N/N` and the correctness section is populated. If
+it says anything less than 100%, adjudication is unfinished and the numbers are
+fitted on a subset — the report shouts about this rather than letting it pass
+quietly.
+
+### 6. Read the output
+
+- `out/report.txt` — everything, in the order the Results section presents it.
+- `out/tables/*.csv` — one file per table, for pasting into the paper.
+- `out/figures/*.png` — Figures 2–5.
+- `out/correctness_model_R_output.txt` — the CLMM model of record, including
+  the script's own `STATUS:` line saying whether the primary model held or the
+  pre-specified fallback became the result.
+
+Then work through "Sanity checks that should hold" at the bottom of this file.
+
+## Tests
+
+```bash
+make test
+```
+
+`test_pipeline.py` encodes the invariants that used to be checked by eye:
+scoping never leaks, C1 delegates nothing and cannot produce tool-derived
+funnel events, the idle rule actually fires, every participant has 12 tasks
+unless they withdrew, the reverse-scored TLX item stays reversed, κ is
+undefined rather than 1.0 when coders never vary.
+
+They assert **structure, not effect sizes**. Synthetic effects are arbitrary and
+reseeding changes them; a test pinning a p-value would fail for no reason.
+
+## What is in the coding packet
+
+`correctness.csv` is the one input the server cannot produce — it comes from two
+human coders. The workflow is step 4 above; this is what the packet actually
+contains and why.
+
+The packet is **final state only**: board (cards, columns, priorities, links)
 and chat, with `[[card:…]]` refs resolved to titles so a coder can tell which
 card a teammate meant, the participant's own messages marked, and any in-app PR
-review verdict and comment. Condition, timing and agent transcript are absent.
-Items are shuffled with a fixed seed so nobody works through one participant's
-session in order and carries an impression between tasks. Each item shows the
-rubric anchor for its task, parsed live from
+review verdict and comment. Condition, timing and the agent transcript are
+absent. Items are shuffled with a fixed seed so nobody works through one
+participant's session in order and carries an impression between tasks. Each
+item shows the rubric anchor for its task, parsed live from
 `../replication/WELD_AGENT_TASK_SCRIPTS.md` §2 rather than copied, so the packet
-can't drift from the rubric.
+cannot drift from the rubric.
 
-Sanity-check before sending:
+`make packet` runs the blinding check itself; to repeat it by hand:
+
 ```bash
 grep -icE 'agent_condition|latency|prompt_version|\bC[123]\b' coding/CODING_PACKET.md   # want 0
 ```
 
-Resulting file:
+The file the coders produce:
 
 | column | meaning |
 |---|---|
@@ -102,9 +179,10 @@ Resulting file:
 κ is computed from `coder_1`/`coder_2`, so keep both columns after adjudicating —
 the plan reports the *pre*-adjudication figure.
 
-If the file is absent the pipeline still runs; correctness outputs are empty.
-Rows with a blank `score` are dropped, so an unfinished adjudication shrinks the
-correctness model silently.
+If the file is absent the pipeline still runs and correctness outputs are empty.
+Rows with a blank `score` are dropped; `run_all.py` reports the coded fraction
+and flags anything under 100%, so a half-finished adjudication cannot quietly
+shrink the model.
 
 ## Files
 
@@ -116,8 +194,10 @@ correctness model silently.
 | `figures.py` | Figures 2–5. |
 | `synthesize.py` | Fake exports for testing the pipeline. |
 | `coding_packet.py` | Builds the blinded correctness-coding packet; merges the coders' scores back. |
-| `run_all.py` | Orchestrates everything and writes the report. |
-| `sensitivity.py` | Minimum-detectable-effect calculation quoted in §5.3. |
+| `run_all.py` | Orchestrates everything, fits the R model of record, writes the report. |
+| `sensitivity.py` | Minimum-detectable-effect calculation quoted in §5.3. Importable; `run_all.py` folds its headline into the report. |
+| `test_pipeline.py` | Regression tests for the invariants above (`make test`). |
+| `Makefile` | Every workflow step as a target (`make help`). |
 
 ## Decisions worth knowing about
 
