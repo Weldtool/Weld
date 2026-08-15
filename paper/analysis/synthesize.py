@@ -44,6 +44,35 @@ TRUST_ITEMS = ["trust_reliable", "trust_predictable", "trust_competent", "trust_
 INT_ITEMS = ["int_findacross", "int_noticed", "int_vs_separate", "int_reuse",
              "int_switch_perceived"]
 
+#: Candidate open-ended answers, each paired with the theme a coder would give
+#: it. Several per item so the theme table has structure to aggregate; the theme
+#: labels match `coding_packet.STARTER_CODEBOOK`.
+OPEN_RESPONSES = {
+    "open_useful": [
+        ("The assistant found the right card quickly.", "agent_helpful"),
+        ("Having the chat and the board in one place saved me hunting.",
+         "integration_noticed"),
+        ("Honestly the search was the useful part, not the assistant.", "ui_usability"),
+    ],
+    "open_frustrating": [
+        ("I had to re-check everything it changed.", "agent_trust"),
+        ("It confidently pointed me at the wrong pull request.", "agent_wrong"),
+        ("It kept saying it could not see the repository.", "agent_limited"),
+    ],
+    "open_change": [
+        ("Show me what it is about to do before it does it.", "agent_trust"),
+        ("Fewer clicks to get between a card and its discussion.",
+         "context_switching"),
+        ("The board columns were not obvious at first.", "ui_usability"),
+    ],
+    "open_integration": [
+        ("Yes, the chat-to-card links helped.", "integration_noticed"),
+        ("I noticed it but it did not change how I worked.", "integration_noticed"),
+        ("Not really — the tasks felt made up so it was hard to tell.",
+         "task_artificial"),
+    ],
+}
+
 
 def _csv_cell(v: object) -> str:
     s = "" if v is None else str(v)
@@ -59,12 +88,51 @@ def _write_csv(path: Path, header: list[str], rows: list[list[object]]) -> None:
             fh.write(",".join(_csv_cell(c) for c in r) + "\n")
 
 
-def generate(out_dir: Path, n: int, seed: int = 7) -> None:
+#: Participants per condition that get hand-coded, mirroring
+#: `coding_packet.DEFAULT_CAP`. The synthetic exports have to have the *shape* of
+#: the real ones, and the defining shape of this study's data is that telemetry
+#: covers everybody and hand coding covers a capped subset. Emitting coding for
+#: all n would mean the coverage table, the coded-vs-uncoded comparison and the
+#: coded-subset refit were never exercised until run day.
+CODING_CAP = 10
+
+#: Share of open-ended responses the second theme coder also sees. Themes are the
+#: one single-coded coding, so a synthetic themes.csv with both coder columns
+#: filled everywhere would hide the case `nominal_agreement` has to get right.
+RELIABILITY_FRAC = 0.25
+
+
+def _capped_codes(p_rows: list[list[object]], cap: int) -> set[str]:
+    """The first `cap` participants per condition in enrolment order.
+
+    Same rule as `coding_packet.coded_set`, restated rather than imported: this
+    module fabricates the exports that module reads, and a shared import would
+    make the synthetic data agree with the selection code by construction
+    instead of by both following the written rule.
+    """
+    if cap <= 0:
+        return {str(r[0]) for r in p_rows}
+    seen: dict[str, int] = {}
+    coded = set()
+    for row in p_rows:  # already in provisioning order
+        code, cond = str(row[0]), str(row[1])
+        seen[cond] = seen.get(cond, 0) + 1
+        if seen[cond] <= cap:
+            coded.add(code)
+    return coded
+
+
+def generate(out_dir: Path, n: int, seed: int = 7, cap: int = CODING_CAP) -> None:
     rng = np.random.default_rng(seed)
     random.seed(seed)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    # t_rows: agent transcript. a_rows: agent-error coding. th_rows: themes.
+    # The last two are human codings rather than exports, but they are
+    # synthesised for the same reason correctness is -- the analyses that consume
+    # them have to be exercised before real data lands, not on run day.
     p_rows, e_rows, s_rows, c_rows = [], [], [], []
+    t_rows, a_rows, th_rows = [], [], []
     t0 = datetime(2026, 8, 20, 14, 0, tzinfo=timezone.utc)
     event_id = 0
 
@@ -153,10 +221,37 @@ def generate(out_dir: Path, n: int, seed: int = 7) -> None:
                 emit("view_changed", task, {"to": random.choice(["board", "chat"])},
                      idle_s=idle_s)
 
-                if phase == "agent":
+                # Cross-surface traversals: following a card ref out of chat, or
+                # a PR ref off a card. These are the behavioural "integration
+                # usage" measure, and leaving them structurally zero meant that
+                # whole RQ2 row read 0.00 in every synthetic run -- a column that
+                # is always zero tests nothing.
+                if ttype == "cross_surface" and rng.random() < 0.45:
+                    emit("card_referenced_from_chat", task, {})
+                if cond == "C3" and task == "T6" and rng.random() < 0.5:
+                    emit("pr_referenced_from_card", task, {})
+
+                # Some agent-phase tasks get done without touching the agent.
+                # Task wording offers it, never instructs it (plan, "Availability,
+                # not instruction"), so this is the realistic case -- and it is
+                # what makes the as-used model differ from the ITT one. With
+                # uptake pinned at 100% the two are identical and the pre-specified
+                # comparison is untested until run day.
+                used_agent = rng.random() > 0.12
+                if phase == "agent" and used_agent:
                     emit("agent_panel_opened", task, {})
+                    turn_index = 0
                     for _ in range(int(rng.integers(1, 4))):
                         emit("agent_invoked", task, {})
+                        turn_index += 1
+                        t_rows.append([code, cond, task, turn_index, "user",
+                                       f"Can you help me with {task}?",
+                                       clock.isoformat()])
+                        turn_index += 1
+                        t_rows.append([code, cond, task, turn_index, "assistant",
+                                       "Here is what I found in the workspace "
+                                       "and what I would do next.",
+                                       clock.isoformat()])
                         emit("agent_context_sent", task, _context_snapshot(cond))
                         emit("agent_response", task, {
                             "latency_ms": int(rng.integers(900, 4200)),
@@ -261,6 +356,26 @@ def generate(out_dir: Path, n: int, seed: int = 7) -> None:
                 coder_2 = int(np.clip(score + drift, 0, 3))
                 c_rows.append([code, task, score, score, coder_2])
 
+                # Agent-error coding (H4). Only exists where the agent was used,
+                # which is the same restriction `calibration()` applies -- an
+                # untouched task has no agent output to be right or wrong about.
+                # Wider scope is made slightly *more* error-prone here on purpose:
+                # if the synthetic agent were flawless the calibration strata
+                # would collapse to one and the whole test would go unexercised.
+                if phase == "agent" and used_agent:
+                    # Two independent binaries, as the coders now deliver them.
+                    # `factual_error` is checkable against the answer key, so its
+                    # coders agree more often than on the judgement call -- the
+                    # synthetic disagreement rates reflect that, or the reported
+                    # kappas would not show the split the design predicts.
+                    fact_p = {"C1": 0.20, "C2": 0.24, "C3": 0.28}[cond]
+                    fact = int(rng.random() < fact_p)
+                    judge = int(rng.random() < 0.18)
+                    fact_2 = fact if rng.random() > 0.07 else 1 - fact
+                    judge_2 = judge if rng.random() > 0.20 else 1 - judge
+                    a_rows.append([code, task, max(fact, judge),
+                                   fact, fact, fact_2, judge, judge, judge_2])
+
             if phase == "baseline":
                 emit("interim_tlx_shown", None, {})
                 emit("interim_tlx_submitted", None, {})
@@ -290,13 +405,40 @@ def generate(out_dir: Path, n: int, seed: int = 7) -> None:
         for item in INT_ITEMS:
             s_rows.append([code, cond, item,
                            int(np.clip(rng.normal(4.6, 1.2), 1, 7)), clock.isoformat()])
-        for item, text in (
-            ("open_useful", "The assistant found the right card quickly."),
-            ("open_frustrating", "I had to re-check what it changed."),
-            ("open_change", "Show me what it is about to do first."),
-            ("open_integration", "Yes, the chat-to-card links helped."),
-        ):
+        # Open-ended answers, varied per participant so the theme table has more
+        # than one row per item. A single fixed string collapses every theme
+        # count to n and makes kappa undefined, which exercises nothing.
+        for item, choices in OPEN_RESPONSES.items():
+            text, theme = choices[int(rng.integers(0, len(choices)))]
             s_rows.append([code, cond, item, text, clock.isoformat()])
+            # Theme coding, as the two coders would deliver it: mostly agreeing,
+            # disagreeing on a minority, with `theme` the adjudicated consensus.
+            theme_2 = theme if rng.random() > 0.18 else "other"
+            th_rows.append([code, item, theme, theme, theme_2])
+
+    # Recruitment is uncapped and hand coding is not, so the three coding files
+    # cover a subset of the people the telemetry covers. Filtering here rather
+    # than while generating keeps the fabricated *sessions* identical whatever
+    # the cap is, which is the real relationship: the cap decides who gets coded,
+    # not who gets run.
+    coded = _capped_codes(p_rows, cap)
+    c_rows = [r for r in c_rows if r[0] in coded]
+    a_rows = [r for r in a_rows if r[0] in coded]
+    th_rows = [r for r in th_rows if r[0] in coded]
+
+    # Themes: coder 2 sees only the reliability sample, so their column is blank
+    # on the rest. `theme` (the consensus) stays filled throughout, because a
+    # single-coded row has no disagreement to resolve.
+    by_item: dict[str, list[int]] = {}
+    for i, r in enumerate(th_rows):
+        by_item.setdefault(str(r[1]), []).append(i)
+    double_coded: set[int] = set()
+    for idxs in by_item.values():
+        k = max(1, round(RELIABILITY_FRAC * len(idxs)))
+        double_coded.update(random.sample(idxs, min(k, len(idxs))))
+    for i, r in enumerate(th_rows):
+        if i not in double_coded:
+            r[4] = ""
 
     _write_csv(out_dir / "study_participants.csv",
                ["participant_code", "agent_condition", "status", "consent_version",
@@ -310,8 +452,21 @@ def generate(out_dir: Path, n: int, seed: int = 7) -> None:
                 "answered_at"], s_rows)
     _write_csv(out_dir / "correctness.csv",
                ["participant_code", "task_id", "score", "coder_1", "coder_2"], c_rows)
+    _write_csv(out_dir / "study_agent_turns.csv",
+               ["participant_code", "agent_condition", "task_id", "turn_index",
+                "role", "content", "created_at"], t_rows)
+    _write_csv(out_dir / "agent_errors.csv",
+               ["participant_code", "task_id", "agent_error",
+                "factual_error", "factual_error_1", "factual_error_2",
+                "judgement_error", "judgement_error_1", "judgement_error_2"],
+               a_rows)
+    _write_csv(out_dir / "themes.csv",
+               ["participant_code", "item_id", "theme", "coder_1", "coder_2"], th_rows)
 
     print(f"Wrote synthetic exports for {n} participants to {out_dir}/")
+    print(f"  Hand coding covers {len(coded)} of them "
+          f"(cap {cap}/condition); themes are double-coded on "
+          f"{len(double_coded)} of {len(th_rows)} responses.")
     print("  THESE ARE FAKE. Plumbing test only -- never cite a number from them.")
 
 
@@ -354,5 +509,7 @@ if __name__ == "__main__":
     ap.add_argument("--out", default="data_synthetic", type=Path)
     ap.add_argument("--n", default=24, type=int, help="participants (multiple of 3)")
     ap.add_argument("--seed", default=7, type=int)
+    ap.add_argument("--cap", default=CODING_CAP, type=int,
+                    help="hand-coded participants per condition; 0 codes all")
     a = ap.parse_args()
-    generate(a.out, a.n, a.seed)
+    generate(a.out, a.n, a.seed, a.cap)

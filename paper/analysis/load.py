@@ -18,7 +18,7 @@ breaks in exactly one place.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import pandas as pd
@@ -45,12 +45,21 @@ class StudyData:
     survey: pd.DataFrame
     #: Manual correctness coding; empty until the coders deliver it.
     correctness: pd.DataFrame
+    #: The agent conversation, one row per turn. Optional: the pipeline runs
+    #: without it, but H4's calibration test cannot be coded without it.
+    agent_turns: pd.DataFrame = field(default_factory=pd.DataFrame)
+    #: Per-task agent-error coding (H4). Optional; see README.
+    agent_errors: pd.DataFrame = field(default_factory=pd.DataFrame)
+    #: Thematic coding of the four open-ended items (RQ2). Optional.
+    themes: pd.DataFrame = field(default_factory=pd.DataFrame)
 
     def __repr__(self) -> str:  # pragma: no cover - convenience only
         return (
             f"StudyData(participants={len(self.participants)}, "
             f"events={len(self.events)}, survey={len(self.survey)}, "
-            f"correctness={len(self.correctness)})"
+            f"correctness={len(self.correctness)}, "
+            f"agent_turns={len(self.agent_turns)}, "
+            f"agent_errors={len(self.agent_errors)}, themes={len(self.themes)})"
         )
 
 
@@ -118,7 +127,45 @@ def load(data_dir: str | Path) -> StudyData:
             columns=["participant_code", "task_id", "score", "coder_1", "coder_2"]
         )
 
-    return StudyData(participants, events, survey, correctness)
+    agent_turns = _optional(
+        d / "study_agent_turns.csv",
+        {"participant_code", "task_id", "turn_index", "role", "content"},
+        ["participant_code", "agent_condition", "task_id", "turn_index",
+         "role", "content", "created_at"],
+    )
+    if not agent_turns.empty and "created_at" in agent_turns.columns:
+        agent_turns["created_at"] = pd.to_datetime(
+            agent_turns["created_at"], format="ISO8601", utc=True, errors="coerce"
+        )
+
+    agent_errors = _optional(
+        d / "agent_errors.csv",
+        {"participant_code", "task_id", "agent_error"},
+        ["participant_code", "task_id", "agent_error", "coder_1", "coder_2"],
+    )
+    themes = _optional(
+        d / "themes.csv",
+        {"participant_code", "item_id", "theme"},
+        ["participant_code", "item_id", "theme", "coder_1", "coder_2"],
+    )
+
+    return StudyData(participants, events, survey, correctness,
+                     agent_turns, agent_errors, themes)
+
+
+def _optional(path: Path, required: set[str], columns: list[str]) -> pd.DataFrame:
+    """Read a human-produced coding file if it exists, else an empty frame.
+
+    These arrive from coders rather than the server, so every one of them is
+    absent for most of the study's life. Returning a correctly-shaped empty
+    frame keeps the downstream analyses writing empty tables instead of raising,
+    which is what lets `make run` be useful on day one.
+    """
+    if not path.exists():
+        return pd.DataFrame(columns=columns)
+    df = pd.read_csv(path)
+    _require(df, required, path.name)
+    return df
 
 
 def payload_field(events: pd.DataFrame, key: str) -> pd.Series:

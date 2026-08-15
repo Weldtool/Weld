@@ -110,24 +110,87 @@ class ModelResult:
     summary: str
     table: pd.DataFrame
     notes: list[str] = field(default_factory=list)
+    #: The fitted statsmodels result, kept so contrasts can be taken from the
+    #: model's own covariance matrix rather than re-derived from ratios.
+    fit: object | None = None
+    #: Observations and participants the fit actually used, for the missingness
+    #: accounting in `timing_validity`.
+    n_obs: int = 0
+    n_participants: int = 0
 
 
-def primary_time_model(tasks: pd.DataFrame, idle_adjusted: bool = False) -> ModelResult:
+def coded_participants(tasks: pd.DataFrame) -> set[str]:
+    """Participants whose agent-phase tasks carry a human correctness score.
+
+    Read off the merged data rather than off the coding manifest, so it reflects
+    what was actually coded and not what was intended to be.
+    """
+    if tasks.empty or "correctness" not in tasks.columns:
+        return set()
+    scored = tasks[(tasks["phase"] == "agent") & tasks["correctness"].notna()]
+    return set(scored["participant_code"])
+
+
+def primary_time_model(
+    tasks: pd.DataFrame,
+    idle_adjusted: bool = False,
+    agent_used_only: bool = False,
+    exclude_interrupted: bool = False,
+    coded_subset: bool = False,
+    name: str = "primary_time",
+) -> ModelResult:
     """log(time) ~ condition * task_type + log(baseline) + (1 | participant).
 
     Fitted on agent-phase tasks only; the baseline enters as a covariate rather
     than as a pre-computed ratio (paper Section 5.2).
+
+    The four flags are the pre-specified sensitivity variants, not analyst
+    choices: `idle_adjusted` applies the visible-idle correction (plan, "Timing
+    validity"), `exclude_interrupted` drops tasks the participant flagged as
+    interrupted (same section), `agent_used_only` restricts to tasks with at
+    least one `agent_invoked` -- the as-used companion to the intention-to-treat
+    default (plan, "Availability, not instruction") -- and `coded_subset`
+    restricts to participants whose correctness was hand-coded. Every variant is
+    fitted on every run and reported side by side, so which one is quoted is not
+    decided after seeing the numbers.
+
+    `coded_subset` exists because recruitment is uncapped and coding is not
+    (plan, "The coded set is capped by enrolment order"), so time is estimated on
+    more people than correctness is. The plan's standing commitment is that
+    correctness is *always* reported beside time -- and a speed result from N
+    people paired with an accuracy result from fewer is not that pairing unless
+    the two are also shown on a common set. This variant is that showing: same
+    model, restricted to the participants correctness exists for, so the reader
+    can see whether the headline is a property of the manipulation or of the
+    extra participants.
     """
     agent = tasks[(tasks["phase"] == "agent")].copy()
+    if coded_subset:
+        coded = coded_participants(tasks)
+        if not coded:
+            return ModelResult(name, "no correctness coding present",
+                               pd.DataFrame(),
+                               ["Correctness has not been coded yet; the "
+                                "coded-subset refit has nothing to fit on."])
+        agent = agent[agent["participant_code"].isin(coded)]
     if idle_adjusted:
         agent["log_time"] = np.log(
             agent["task_time_ms_idle_adj"].where(agent["task_time_ms_idle_adj"] > 0)
         )
+    if exclude_interrupted and "was_interrupted" in agent.columns:
+        agent = agent[agent["was_interrupted"] != True]  # noqa: E712 - nullable boolean
+    if agent_used_only and "agent_invocations" in agent.columns:
+        agent = agent[agent["agent_invocations"] > 0]
     agent = agent.dropna(subset=["log_time", "log_baseline", "agent_condition", "task_type"])
 
     notes = []
-    if agent["participant_code"].nunique() < 3 or len(agent) < 10:
-        return ModelResult("primary_time", "insufficient data to fit", pd.DataFrame(),
+    if (
+        agent["participant_code"].nunique() < 3
+        or len(agent) < 10
+        or agent["agent_condition"].nunique() < 2
+        or agent["task_type"].nunique() < 2
+    ):
+        return ModelResult(name, "insufficient data to fit", pd.DataFrame(),
                            ["Too few observations to fit the mixed model."])
 
     model = smf.mixedlm(
@@ -152,7 +215,7 @@ def primary_time_model(tasks: pd.DataFrame, idle_adjusted: bool = False) -> Mode
         except Exception as exc:  # noqa: BLE001 - report, do not mask
             last = f"{type(exc).__name__}: {exc}"
     if fit is None:
-        return ModelResult("primary_time", f"model did not converge ({last})",
+        return ModelResult(name, f"model did not converge ({last})",
                            pd.DataFrame(), notes + ["Mixed model failed to converge."])
     if not getattr(fit, "converged", True):
         notes.append("WARNING: optimizer reported non-convergence; treat with caution.")
@@ -173,7 +236,77 @@ def primary_time_model(tasks: pd.DataFrame, idle_adjusted: bool = False) -> Mode
     tbl["ratio_ci_high"] = np.exp(tbl["ci_high"])
     if idle_adjusted:
         notes.append("Fitted on idle-adjusted task time (pre-specified sensitivity).")
-    return ModelResult("primary_time", str(fit.summary()), tbl, notes)
+    if exclude_interrupted:
+        notes.append("Interrupted tasks excluded (pre-specified sensitivity).")
+    if agent_used_only:
+        notes.append("As-used: restricted to tasks with >=1 agent invocation.")
+    if coded_subset:
+        notes.append("Restricted to correctness-coded participants, so the "
+                     "time and correctness results rest on one set of people.")
+    return ModelResult(
+        name, str(fit.summary()), tbl, notes, fit=fit,
+        n_obs=len(agent), n_participants=int(agent["participant_code"].nunique()),
+    )
+
+
+#: The confirmatory test, fixed in advance (plan, "Confirmatory vs supporting"):
+#: C3 vs C1 on cross-surface tasks. `cross_surface` is the reference level of
+#: `task_type` and `C1` the reference level of `agent_condition`, so this contrast
+#: is a single model coefficient -- but it is named here rather than left for a
+#: reader to locate in a coefficient table, and the secondary rungs below need the
+#: covariance matrix to difference two coefficients correctly.
+_COND_TERM = "C(agent_condition, Treatment('C1'))[T.{}]"
+
+
+def model_contrasts(result: ModelResult) -> pd.DataFrame:
+    """Baseline-adjusted condition contrasts on cross-surface tasks, from the fit.
+
+    This is the inferential form of the confirmatory test. `focused_contrast`
+    below computes the same comparison on pre-divided normalised ratios, which
+    the plan is explicit is the *descriptive* quantity: dividing by the anchor
+    treats it as measured without error, and the plan's whole reason for an
+    ANCOVA is to avoid exactly that. So the number the paper leads with comes
+    from here, and the ratio contrast is reported beside it as the intuitive
+    companion. If the two ever disagree materially that is itself reportable.
+
+    Standard errors for C3-vs-C2 come from the model's covariance matrix
+    (Var(a-b) = Var(a) + Var(b) - 2Cov(a,b)); computing it as a difference of two
+    independently-quoted CIs would overstate the width.
+    """
+    fit = result.fit
+    if fit is None:
+        return pd.DataFrame()
+    params, cov = fit.params, fit.cov_params()
+    rows = []
+    for a, b in (("C1", "C3"), ("C1", "C2"), ("C2", "C3")):
+        # Contrast vector in the coefficient basis: +1 on b's term, -1 on a's
+        # (C1 is the reference, so its term is the implicit zero vector).
+        weights: dict[str, float] = {}
+        if b != "C1":
+            weights[_COND_TERM.format(b)] = weights.get(_COND_TERM.format(b), 0.0) + 1.0
+        if a != "C1":
+            weights[_COND_TERM.format(a)] = weights.get(_COND_TERM.format(a), 0.0) - 1.0
+        if not all(term in params.index for term in weights):
+            continue
+        est = float(sum(w * params[t] for t, w in weights.items()))
+        var = 0.0
+        for t1, w1 in weights.items():
+            for t2, w2 in weights.items():
+                var += w1 * w2 * float(cov.loc[t1, t2])
+        se = float(np.sqrt(var)) if var > 0 else np.nan
+        lo, hi = (est - 1.96 * se, est + 1.96 * se) if np.isfinite(se) else (np.nan, np.nan)
+        z = est / se if np.isfinite(se) and se > 0 else np.nan
+        rows.append({
+            "contrast": f"{b} - {a}",
+            "log_diff": est, "se": se, "ci_low": lo, "ci_high": hi,
+            "time_ratio": np.exp(est),
+            "ratio_ci_low": np.exp(lo), "ratio_ci_high": np.exp(hi),
+            "pct_change": 100.0 * (np.exp(est) - 1.0),
+            "z": z,
+            "p": 2 * (1 - stats.norm.cdf(abs(z))) if np.isfinite(z) else np.nan,
+            "confirmatory": (a, b) == ("C1", "C3"),
+        })
+    return pd.DataFrame(rows)
 
 
 def _welch_contrast(x: pd.Series, y: pd.Series, label: str) -> dict[str, object] | None:
@@ -205,11 +338,18 @@ def _welch_contrast(x: pd.Series, y: pd.Series, label: str) -> dict[str, object]
 
 
 def focused_contrast(tasks: pd.DataFrame) -> pd.DataFrame:
-    """The confirmatory test: C3 vs C1 on cross-surface agent tasks.
+    """The descriptive companion to `model_contrasts`: C3 vs C1, cross-surface.
 
-    Fitted per participant first (mean of their cross-surface normalised times),
-    so each person contributes one value and the between-subjects comparison is
-    not inflated by treating two tasks as independent.
+    Computed per participant first (mean of their cross-surface normalised
+    times), so each person contributes one value and the between-subjects
+    comparison is not inflated by treating two tasks as independent.
+
+    This is *not* the confirmatory number. It divides by the baseline anchor,
+    which the plan ("Why ANCOVA rather than a pre-divided ratio") rejects for
+    inference because it treats the anchor as measured without error. It is
+    reported because it is the quantity Figure 2 plots and the one a reader can
+    hold in their head -- "C3 took 0.52x their own manual time" -- and because
+    agreement between it and the model contrast is worth being able to see.
     """
     cross = tasks[(tasks["phase"] == "agent") & (tasks["task_type"] == "cross_surface")]
     per_p = (
@@ -252,6 +392,314 @@ def single_task_contrast(tasks: pd.DataFrame, task_id: str = "T6") -> pd.DataFra
         )
         if row is not None:
             rows.append(row | {"task_id": task_id, "headline": (a, b) == ("C2", "C3")})
+    return pd.DataFrame(rows)
+
+
+# --- RQ1: timing validity and pre-specified sensitivities -------------------
+
+
+def timing_validity(tasks: pd.DataFrame) -> pd.DataFrame:
+    """How often the timing caveats actually bit, per condition.
+
+    The plan commits to three numbers that are easy to promise and easy to
+    forget: how many tasks triggered the visible-idle rule, the interruption
+    rate, and how much time the idle correction removed. Reported per condition,
+    because a correction that lands unevenly across arms is a confound rather
+    than a cleanup -- that is the thing a reader needs to be able to check.
+    """
+    agent = tasks[tasks["phase"] == "agent"]
+    if agent.empty:
+        return pd.DataFrame()
+    rows = []
+    for cond, g in list(agent.groupby("agent_condition")) + [("ALL", agent)]:
+        interrupted = g["was_interrupted"].fillna(False).astype(bool) if "was_interrupted" in g else pd.Series(dtype=bool)
+        fired = g["idle_rule_fired"].fillna(False).astype(bool) if "idle_rule_fired" in g else pd.Series(dtype=bool)
+        idle_min = (g["idle_ms"].sum() / 60000.0) if "idle_ms" in g else np.nan
+        rows.append({
+            "agent_condition": cond,
+            "tasks": len(g),
+            "idle_rule_fired": int(fired.sum()),
+            "pct_idle_fired": 100.0 * float(fired.mean()) if len(g) else np.nan,
+            "idle_minutes_removed": idle_min,
+            "interrupted": int(interrupted.sum()),
+            "pct_interrupted": 100.0 * float(interrupted.mean()) if len(g) else np.nan,
+            "median_pause_count": float(g["pause_count"].median()) if "pause_count" in g else np.nan,
+        })
+    return pd.DataFrame(rows)
+
+
+def agent_uptake(tasks: pd.DataFrame) -> pd.DataFrame:
+    """Agent uptake per condition -- the exposure the ITT estimate is diluted by.
+
+    Task wording says the assistant *is available*, never to use it, so that RQ2
+    measures chosen delegation rather than compliance (plan, "Availability, not
+    instruction"). The cost is that some agent-phase tasks are completed with no
+    agent use at all, which the intention-to-treat models still include. This is
+    the number that tells a reader how much of the ITT estimate is diluted, and
+    it is what makes the as-used model interpretable rather than cherry-picked.
+    """
+    agent = tasks[tasks["phase"] == "agent"]
+    if agent.empty or "agent_invocations" not in agent.columns:
+        return pd.DataFrame()
+    rows = []
+    for cond, g in list(agent.groupby("agent_condition")) + [("ALL", agent)]:
+        used = g["agent_invocations"] > 0
+        by_p = g.groupby("participant_code")["agent_invocations"].sum()
+        rows.append({
+            "agent_condition": cond,
+            "tasks": len(g),
+            "tasks_with_agent_use": int(used.sum()),
+            "pct_tasks_with_agent_use": 100.0 * float(used.mean()),
+            "participants": int(g["participant_code"].nunique()),
+            "participants_never_invoking": int((by_p == 0).sum()),
+            "median_invocations_per_task": float(g["agent_invocations"].median()),
+        })
+    return pd.DataFrame(rows)
+
+
+#: The pre-specified sensitivity variants of the primary model. The first is the
+#: model of record; the rest exist so that a result which depends on which one is
+#: used gets reported as such rather than resolved in the direction we prefer.
+SENSITIVITY_VARIANTS = {
+    "primary (ITT, active time)": {},
+    "idle-adjusted": {"idle_adjusted": True},
+    "interrupted tasks excluded": {"exclude_interrupted": True},
+    "as-used (>=1 invocation)": {"agent_used_only": True},
+    # The coded set is capped and recruitment is not, so this is the row that
+    # shows the headline on the same people the correctness result is computed
+    # on. It is a variant rather than the model of record because throwing away
+    # collected, instrumented observations to match the coding budget would be
+    # the wrong direction: the primary outcome is free, and precision on it is
+    # what the extra participants are for.
+    "coded subset (same people as correctness)": {"coded_subset": True},
+}
+
+
+def sensitivity_panel(tasks: pd.DataFrame) -> pd.DataFrame:
+    """The confirmatory contrast under every pre-specified variant, side by side.
+
+    One row per variant, all fitted on every run. A reader should be able to see
+    in one place whether the headline survives the idle correction, the dropped
+    interruptions and the as-used restriction -- and the plan pre-commits to
+    reporting divergence rather than adjudicating it.
+    """
+    rows = []
+    for label, kwargs in SENSITIVITY_VARIANTS.items():
+        res = primary_time_model(tasks, name=label, **kwargs)
+        con = model_contrasts(res)
+        if con.empty:
+            rows.append({"variant": label, "n_obs": res.n_obs,
+                         "n_participants": res.n_participants,
+                         "note": res.summary or "not fitted"})
+            continue
+        conf = con[con["confirmatory"]]
+        if conf.empty:
+            continue
+        r = conf.iloc[0]
+        rows.append({
+            "variant": label,
+            "n_obs": res.n_obs, "n_participants": res.n_participants,
+            "contrast": r["contrast"],
+            "time_ratio": r["time_ratio"],
+            "ratio_ci_low": r["ratio_ci_low"], "ratio_ci_high": r["ratio_ci_high"],
+            "pct_change": r["pct_change"], "p": r["p"],
+            "note": "",
+        })
+    return pd.DataFrame(rows)
+
+
+def participant_flow(data: StudyData, tasks: pd.DataFrame) -> pd.DataFrame:
+    """CONSORT-style flow: provisioned -> completed, with the losses named.
+
+    The plan asks for this twice (RQ2's supporting descriptives and "Participant
+    flow and timing validity") and it is the first thing in the reporting order.
+    Dropouts are not a footnote at n~8 per cell: one withdrawal is an eighth of
+    an arm, so where it landed has to be visible.
+    """
+    p = data.participants
+    if p.empty:
+        return pd.DataFrame()
+    abandoned = set(
+        of_type(data.events, "session_abandoned")["participant_code"].unique()
+    )
+    skipped = of_type(data.events, "task_skipped")
+    rows = []
+    for cond, g in list(p.groupby("agent_condition")) + [("ALL", p)]:
+        codes = set(g["participant_code"])
+        their_tasks = tasks[tasks["participant_code"].isin(codes)] if not tasks.empty else tasks
+        completed_12 = 0
+        if not their_tasks.empty:
+            per_p = their_tasks.groupby("participant_code")["task_id"].nunique()
+            completed_12 = int((per_p >= 12).sum())
+        rows.append({
+            "agent_condition": cond,
+            "provisioned": len(g),
+            "consented": int(g["consent_given_at"].notna().sum()),
+            "completed": int((g["status"] == "completed").sum()),
+            "abandoned": len(codes & abandoned),
+            "tasks_skipped": int(skipped["participant_code"].isin(codes).sum()),
+            "with_all_12_tasks": completed_12,
+            "analysed_agent_phase": int(
+                tasks[(tasks["phase"] == "agent") & tasks["participant_code"].isin(codes)][
+                    "participant_code"
+                ].nunique()
+            ) if not tasks.empty else 0,
+        })
+    return pd.DataFrame(rows)
+
+
+def coding_coverage(data: StudyData, tasks: pd.DataFrame) -> pd.DataFrame:
+    """How much of the collected sample each human coding actually covers.
+
+    Recruitment is self-serve, so the collected sample is whatever the link
+    brings in; the coded sample is capped by a pre-registered rule
+    (`coding_packet.coded_set`). That gap has to be a number in the paper rather
+    than a sentence in Limitations -- a reader comparing a time result on N
+    people with a correctness result on fewer needs to see the two counts side
+    by side to judge the comparison, and burying it invites the suspicion that
+    the coded set was chosen rather than capped.
+
+    One row per condition plus ALL, so an accidentally lopsided coded set --
+    which the per-condition cap exists to prevent -- would be visible here rather
+    than inferred from a model that quietly lost an arm.
+    """
+    if tasks.empty:
+        return pd.DataFrame()
+    p = data.participants
+    agent = tasks[tasks["phase"] == "agent"]
+    coded = coded_participants(tasks)
+    themed = set(data.themes["participant_code"]) if not data.themes.empty else set()
+    errored = (set(data.agent_errors["participant_code"])
+               if not data.agent_errors.empty else set())
+
+    rows = []
+    for cond, g in list(p.groupby("agent_condition")) + [("ALL", p)]:
+        codes = set(g["participant_code"])
+        theirs = agent[agent["participant_code"].isin(codes)]
+        n_items = len(theirs)
+        n_scored = int(theirs["correctness"].notna().sum()) if n_items else 0
+        rows.append({
+            "agent_condition": cond,
+            "collected": len(codes),
+            "with_agent_tasks": int(theirs["participant_code"].nunique()),
+            "correctness_coded": len(codes & coded),
+            "agent_error_coded": len(codes & errored),
+            "themes_coded": len(codes & themed),
+            "agent_items": n_items,
+            "agent_items_scored": n_scored,
+            "pct_items_scored": (100.0 * n_scored / n_items) if n_items else np.nan,
+        })
+    return pd.DataFrame(rows)
+
+
+#: Instrumented, coder-free measures on which the coded and uncoded halves of the
+#: sample are compared. All of them exist for every participant regardless of
+#: whether anyone hand-coded them, which is the whole point: they are the only
+#: evidence available about whether the cap selected a different kind of person.
+CODED_SET_MEASURES = [
+    ("baseline time (ms)", "task_time_ms", "baseline"),
+    ("baseline effort", "effort", "baseline"),
+    ("agent-task time (ms)", "task_time_ms", "agent"),
+    ("agent invocations / task", "agent_invocations", "agent"),
+]
+
+
+def coded_set_comparison(tasks: pd.DataFrame) -> pd.DataFrame:
+    """Did the enrolment-order cap select a different kind of participant?
+
+    The cap's defence is that enrolment order is fixed at provisioning and so
+    cannot be steered by anything that happens in a session. That argument is
+    sound about *manipulation* but silent about *drift*: people who sign up in
+    the first week may differ from people who sign up in the third -- keener,
+    or reached through a different recruitment channel -- and a coded set that
+    is a prefix of enrolment order would inherit the difference.
+
+    So we test it rather than argue it. Every measure here is instrumented and
+    therefore exists for coded and uncoded participants alike, which is exactly
+    what makes the comparison possible at all: the cap removes hand coding, not
+    telemetry. Mann-Whitney because these are small, skewed samples.
+
+    Two readings, both pre-specified. No difference is evidence the coded set
+    stands in for the collected one. A difference does *not* invalidate the
+    between-condition contrasts -- the cap is applied within condition, so any
+    drift lands on all three arms alike -- but it does bound how far the
+    correctness result generalises to the full collected sample, and that bound
+    is reported rather than assumed away.
+    """
+    if tasks.empty:
+        return pd.DataFrame()
+    coded = coded_participants(tasks)
+    if not coded:
+        return pd.DataFrame()
+    rows = []
+    for label, col, phase in CODED_SET_MEASURES:
+        if col not in tasks.columns:
+            continue
+        sub = tasks[tasks["phase"] == phase]
+        per_p = sub.groupby("participant_code")[col].mean().dropna()
+        if per_p.empty:
+            continue
+        inside = per_p[per_p.index.isin(coded)]
+        outside = per_p[~per_p.index.isin(coded)]
+        u, p = (np.nan, np.nan)
+        if len(inside) >= 2 and len(outside) >= 2:
+            u, p = stats.mannwhitneyu(inside, outside, alternative="two-sided")
+        rows.append({
+            "measure": label,
+            "n_coded": len(inside),
+            "n_uncoded": len(outside),
+            "mean_coded": float(inside.mean()) if len(inside) else np.nan,
+            "mean_uncoded": float(outside.mean()) if len(outside) else np.nan,
+            "mannwhitney_U": u,
+            "p": p,
+            "note": "" if len(outside) >= 2 else
+                    "no uncoded participants — the cap did not bind",
+        })
+    return pd.DataFrame(rows)
+
+
+def baseline_balance(tasks: pd.DataFrame) -> pd.DataFrame:
+    """Were the three arms comparable *before* the agent appeared?
+
+    Condition is assigned at provisioning, but the six baseline tasks are
+    identical across arms and run with no agent, so baseline performance is a
+    randomisation check: if C3 participants were simply faster or more accurate
+    to begin with, the between-condition contrasts inherit that head start. At
+    n~8 per cell, minimisation keeps the cells equal in *size* but cannot make
+    them equal in *ability*, so this is exactly where a small sample can bite.
+
+    It also gives the baseline correctness coding a job. Coders score all twelve
+    tasks, but every correctness model in this pipeline fits on agent-phase tasks
+    only -- without this check the six baseline scores per participant would be
+    collected and never used, which is a lot of human effort for nothing.
+
+    Expected result: no differences. A difference here is not a finding about the
+    manipulation, it is a caveat on every finding that follows, and it belongs in
+    Results with the flow numbers.
+    """
+    base = tasks[tasks["phase"] == "baseline"]
+    if base.empty:
+        return pd.DataFrame()
+    rows = []
+    for measure, col in (("baseline time (ms)", "task_time_ms"),
+                         ("baseline correctness", "correctness"),
+                         ("baseline effort", "effort")):
+        if col not in base.columns:
+            continue
+        # One value per participant, so the test is between people rather than
+        # between tasks -- condition is a property of the person.
+        per_p = base.groupby(["participant_code", "agent_condition"])[col].mean().reset_index()
+        per_p = per_p.dropna(subset=[col])
+        if per_p.empty:
+            continue
+        arrays = [g[col].values for _, g in per_p.groupby("agent_condition")]
+        h, p = (np.nan, np.nan)
+        if len(arrays) >= 2 and all(len(a) >= 2 for a in arrays):
+            h, p = stats.kruskal(*arrays)
+        row = {"measure": measure, "n": len(per_p), "kruskal_H": h, "kruskal_p": p}
+        for cond, g in per_p.groupby("agent_condition"):
+            row[cond] = float(g[col].mean())
+        rows.append(row)
     return pd.DataFrame(rows)
 
 
@@ -520,6 +968,62 @@ def tlx_subscales_by_condition(participants: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def effort_model(tasks: pd.DataFrame) -> ModelResult:
+    """H3(b): per-task effort, anchored on each participant's baseline effort.
+
+    The plan specifies two load analyses and calls this one out by name --
+    `effort ~ condition * task_type + baseline_effort + (1 | participant)`, the
+    same ANCOVA logic as the timing model. The global TLX delta is the headline;
+    this is what localises it by task type, and without it H3 rests on a single
+    six-item scale collected twice.
+    """
+    agent = tasks[tasks["phase"] == "agent"].copy()
+    notes: list[str] = []
+    if agent.empty or "effort" not in agent.columns:
+        return ModelResult("effort", "no per-task effort ratings", pd.DataFrame(),
+                           ["`task_rating.effort` absent from the export."])
+    agent = agent.dropna(subset=["effort", "baseline_effort", "agent_condition", "task_type"])
+    if (
+        len(agent) < 10
+        or agent["participant_code"].nunique() < 3
+        or agent["effort"].nunique() < 2
+    ):
+        return ModelResult("effort", "insufficient data to fit", pd.DataFrame(),
+                           ["Too few rated agent tasks to fit the effort model."])
+
+    model = smf.mixedlm(
+        "effort ~ C(agent_condition, Treatment('C1')) * C(task_type, Treatment('cross_surface'))"
+        " + baseline_effort",
+        data=agent,
+        groups=agent["participant_code"],
+    )
+    fit = None
+    for method in (None, "powell", "cg", "nm"):
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                fit = model.fit(reml=True) if method is None else model.fit(
+                    reml=True, method=method
+                )
+            if method is not None:
+                notes.append(f"Primary optimizer failed; converged with '{method}'.")
+            break
+        except Exception as exc:  # noqa: BLE001 - report, do not mask
+            last = f"{type(exc).__name__}: {exc}"
+    if fit is None:
+        return ModelResult("effort", f"model did not converge ({last})", pd.DataFrame(),
+                           notes + ["Effort model failed to converge."])
+
+    tbl = pd.DataFrame({
+        "coef": fit.params, "se": fit.bse, "z": fit.tvalues, "p": fit.pvalues,
+        "ci_low": fit.conf_int()[0], "ci_high": fit.conf_int()[1],
+    })
+    notes.append("Effort is 1-7; coefficients are scale points, not log units.")
+    return ModelResult("effort", str(fit.summary()), tbl, notes, fit=fit,
+                       n_obs=len(agent),
+                       n_participants=int(agent["participant_code"].nunique()))
+
+
 #: Sauro & Lewis's benchmark mean for SUS. The paper asks for the score "against
 #: published norms", and this is the number that phrase points at.
 SUS_NORM = 68.0
@@ -591,11 +1095,299 @@ def delegation_by_condition(participants: pd.DataFrame) -> pd.DataFrame:
     if "delegation_ratio" not in participants.columns:
         return pd.DataFrame()
     d = participants.dropna(subset=["delegation_ratio"])
-    return (
+    out = (
         d.groupby("agent_condition")["delegation_ratio"]
         .agg(["count", "mean", "std", "median"])
         .reset_index()
     )
+    # Drafts are excluded from the ratio's numerator by construction (see
+    # derive.py); carrying the count here keeps that channel of delegation
+    # visible next to the ratio it was deliberately left out of.
+    if "chat_drafts" in participants.columns:
+        drafts = d.groupby("agent_condition")["chat_drafts"].mean()
+        out = out.merge(
+            drafts.rename("mean_chat_drafts").reset_index(), on="agent_condition", how="left"
+        )
+    arrays = [g["delegation_ratio"].values for _, g in d.groupby("agent_condition")]
+    if len(arrays) >= 2 and all(len(a) >= 2 for a in arrays):
+        h, p = stats.kruskal(*arrays)
+        out.attrs["kruskal_H"], out.attrs["kruskal_p"] = h, p
+    return out
+
+
+def reliance_detail(tasks: pd.DataFrame, participants: pd.DataFrame) -> pd.DataFrame:
+    """The RQ2 descriptives the plan lists but the funnel's raw counts don't give.
+
+    The funnel counts events; these are rates, which is what a reader can
+    actually compare across conditions that invoked the agent different numbers
+    of times. Tool error and rejection rates are per attempted call, not per
+    participant. Cross-reference traversals and view switches are the behavioural
+    side of "integration usage" -- the second is also what RQ3 pairs against
+    perceived context-switching.
+    """
+    agent = tasks[tasks["phase"] == "agent"]
+    if agent.empty:
+        return pd.DataFrame()
+    rows = []
+    for cond, g in list(agent.groupby("agent_condition")) + [("ALL", agent)]:
+        attempted = float(g["agent_tool_calls_attempted"].sum())
+        # Two different "executed" counts exist in this pipeline and they must
+        # not be confused. The delegation ratio's numerator excludes drafted
+        # messages (the participant is the one who posted). "Did the call land"
+        # is a different question, and a draft landed: it ran, and produced a
+        # draft. So this rate is computed on both together, and the draft count
+        # is carried beside it. Using the delegation numerator here would report
+        # a ~34% failure rate for a gate blocking ~7%.
+        actions = float(g["agent_tool_calls_executed"].sum())
+        drafts = float(g["agent_chat_drafts"].sum())
+        executed = actions + drafts
+        codes = set(g["participant_code"])
+        vsr = np.nan
+        if "view_switch_rate" in participants.columns:
+            sub = participants[participants["participant_code"].isin(codes)]
+            vsr = float(sub["view_switch_rate"].mean()) if not sub.empty else np.nan
+        rows.append({
+            "agent_condition": cond,
+            "tool_calls_attempted": int(attempted),
+            "executed_total": int(executed),
+            "executed_actions": int(actions),
+            "executed_drafts": int(drafts),
+            # Not-executed covers both a gate block and a runtime failure; the
+            # funnel separates them, this is the headline "how often did an
+            # attempted call not land".
+            "pct_not_executed": 100.0 * (1 - executed / attempted) if attempted else np.nan,
+            "cross_references": int(g["cross_references"].sum()),
+            "cross_refs_per_task": float(g["cross_references"].mean()),
+            "view_switches_per_task": float(g["view_changes"].mean()),
+            "view_switch_rate_per_min": vsr,
+            "github_views_per_task": float(g["github_views"].mean()),
+        })
+    return pd.DataFrame(rows)
+
+
+#: Events that mean the participant overrode the agent rather than accepting it.
+#: `agent_output_edited` counts: editing a drafted message before sending is a
+#: correction, not an acceptance.
+OVERRIDE_EVENTS = [
+    "agent_suggestion_rejected", "agent_output_edited", "agent_action_undone",
+]
+
+#: The gap in override rate (percentage points, wrong minus right) that would
+#: count as users tracking the agent's actual correctness. Fixed in advance and
+#: deliberately unambitious: H4 predicts users do *worse* than this, and a
+#: threshold chosen after seeing the data could be moved to make any result
+#: support the hypothesis. Used only to decide whether an interval is wide
+#: enough to be uninformative, never as a test.
+CALIBRATED_GAP_PCT = 25.0
+
+
+def _wilson(k: int, n: int, conf: float = 0.95) -> tuple[float, float]:
+    """Wilson score interval -- correct near 0 and 1, where the normal
+    approximation is not, which is where override rates will sit."""
+    if n == 0:
+        return (np.nan, np.nan)
+    z = stats.norm.ppf(1 - (1 - conf) / 2)
+    p = k / n
+    centre = (p + z * z / (2 * n)) / (1 + z * z / n)
+    half = z * np.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / (1 + z * z / n)
+    return (max(0.0, centre - half), min(1.0, centre + half))
+
+
+def _newcombe_diff_ci(k1: int, n1: int, k2: int, n2: int,
+                      conf: float = 0.95) -> tuple[float, float]:
+    """Newcombe's interval for a difference of two independent proportions.
+
+    Built from the two Wilson intervals rather than from a pooled normal
+    approximation, because at ~30 tasks in the smaller stratum the normal
+    interval can run past 0 or 1 and understate the uncertainty. This interval is
+    what the plan pre-commits to reporting for the H4 gap: the hypothesis
+    predicts a *small* difference, so it is satisfied by a null, and only an
+    interval narrow enough to exclude good calibration is evidence for it.
+    """
+    if n1 == 0 or n2 == 0:
+        return (np.nan, np.nan)
+    p1, p2 = k1 / n1, k2 / n2
+    l1, u1 = _wilson(k1, n1, conf)
+    l2, u2 = _wilson(k2, n2, conf)
+    lo = (p1 - p2) - np.sqrt((p1 - l1) ** 2 + (u2 - p2) ** 2)
+    hi = (p1 - p2) + np.sqrt((u1 - p1) ** 2 + (p2 - l2) ** 2)
+    return (float(lo), float(hi))
+
+
+def _stratify(values: pd.Series, label: object) -> pd.Series:
+    """Map a numeric coding onto string strata, leaving uncoded rows as None.
+
+    A plain `np.where` cannot do this: mixing NaN with string branches has no
+    common dtype, and coercing to object silently turns missing codings into the
+    string "nan", which would then be counted as its own stratum.
+    """
+    return pd.Series(
+        [None if pd.isna(v) else label(v) for v in values],
+        index=values.index, dtype="object",
+    )
+
+
+def calibration(data: StudyData, tasks: pd.DataFrame) -> pd.DataFrame:
+    """H4's calibration claim: do users override where the agent is wrong?
+
+    H4 has two halves. "Delegation rises with scope" is the delegation ratio.
+    "Reliance is imperfectly calibrated to where the agent is actually correct"
+    is this, and it needs a ground truth for *the agent's* output, which is a
+    different judgement from whether the participant's task ended up right.
+
+    Two sources, in order of preference:
+
+    1. `agent_errors.csv` — per-task coding of whether the agent's contribution
+       was correct, from the exported transcript (see `coding_packet.py
+       --agent-errors`). This is the measure the paper names.
+    2. Coded task correctness, as a fallback when the agent-error coding is not
+       available. Weaker: a task can end correct because the participant fixed a
+       wrong agent suggestion, which is precisely the case H4 cares about, so
+       the fallback under-detects good calibration. Labelled as such in the
+       output rather than silently substituted.
+
+    The quantity is the override rate within each stratum. Good calibration is
+    overriding much more often when the agent was wrong; H4 predicts the gap is
+    smaller than it should be, and a gap near zero is the strong form of the
+    claim.
+    """
+    agent = tasks[tasks["phase"] == "agent"].copy()
+    if agent.empty:
+        return pd.DataFrame()
+
+    ev = data.events
+    overrides = ev[ev["event_type"].isin(OVERRIDE_EVENTS)]
+    key = ["participant_code", "current_task_id"]
+    counts = (
+        overrides.groupby(key).size().rename("overrides").reset_index()
+        .rename(columns={"current_task_id": "task_id"})
+    )
+    agent = agent.merge(counts, on=["participant_code", "task_id"], how="left")
+    agent["overrides"] = agent["overrides"].fillna(0)
+    agent["overrode"] = agent["overrides"] > 0
+
+    errors = data.agent_errors
+    # `factual_error` is the pre-specified stratifier: it is settled by looking a
+    # claim up in the seeded workspace, so two coders can agree on it, and it is
+    # the closest available reading of H4's "where the agent is actually
+    # correct." `agent_error` (factual OR judgement) is the secondary stratum,
+    # softer because the judgement half is an opinion about helpfulness.
+    stratifier = next(
+        (c for c in ("factual_error", "agent_error") if c in errors.columns),
+        None,
+    ) if not errors.empty else None
+    if stratifier is not None:
+        e = errors[["participant_code", "task_id", stratifier]].copy()
+        e[stratifier] = pd.to_numeric(e[stratifier], errors="coerce")
+        agent = agent.merge(e, on=["participant_code", "task_id"], how="left")
+        agent["stratum"] = _stratify(
+            agent[stratifier], lambda v: "agent wrong" if v > 0 else "agent correct"
+        )
+        source = f"agent-error coding ({stratifier})"
+    elif "correctness" in agent.columns:
+        agent["stratum"] = _stratify(
+            agent["correctness"],
+            lambda v: "outcome not fully correct" if v < 3 else "outcome fully correct",
+        )
+        source = "FALLBACK: outcome correctness (agent_errors.csv absent)"
+    else:
+        return pd.DataFrame()
+
+    # Only tasks where the agent was actually used can show override behaviour;
+    # including untouched tasks would dilute both strata with structural zeros.
+    used = agent[(agent["agent_invocations"] > 0) & agent["stratum"].notna()]
+    if used.empty:
+        return pd.DataFrame()
+
+    rows = []
+    for (cond, stratum), g in used.groupby(["agent_condition", "stratum"]):
+        rows.append({
+            "agent_condition": cond, "stratum": stratum, "tasks": len(g),
+            "overrode": int(g["overrode"].sum()),
+            "override_rate": 100.0 * float(g["overrode"].mean()),
+            "mean_overrides": float(g["overrides"].mean()),
+            "source": source,
+        })
+    for stratum, g in used.groupby("stratum"):
+        rows.append({
+            "agent_condition": "ALL", "stratum": stratum, "tasks": len(g),
+            "overrode": int(g["overrode"].sum()),
+            "override_rate": 100.0 * float(g["overrode"].mean()),
+            "mean_overrides": float(g["overrides"].mean()),
+            "source": source,
+        })
+    out = pd.DataFrame(rows)
+
+    # The headline is the gap between strata pooled: how much more often people
+    # override when the agent was wrong. Fisher's exact, because at n~8 per cell
+    # the 2x2 is sparse and chi-square is not trustworthy there.
+    pooled = used.groupby("stratum")["overrode"].agg(["sum", "count"])
+    if len(pooled) == 2:
+        table = [
+            [int(r["sum"]), int(r["count"] - r["sum"])]
+            for _, r in pooled.iterrows()
+        ]
+        try:
+            odds, p = stats.fisher_exact(table)
+        except ValueError:
+            odds, p = np.nan, np.nan
+        out.attrs["fisher_odds_ratio"] = odds
+        out.attrs["fisher_p"] = p
+        rates = used.groupby("stratum")["overrode"].mean() * 100.0
+        out.attrs["gap_pct_points"] = float(rates.max() - rates.min())
+        out.attrs["strata"] = list(pooled.index)
+
+        # The gap with its interval. H4 predicts a *small* gap, so it is a
+        # hypothesis a null would satisfy; the plan pre-commits to reading a wide
+        # interval as uninformative rather than as support, and that judgement
+        # needs the interval, not just the point estimate and a p-value.
+        wrong = [s for s in pooled.index if "wrong" in s or "not fully" in s]
+        right = [s for s in pooled.index if s not in wrong]
+        if len(wrong) == 1 and len(right) == 1:
+            kw, nw = int(pooled.loc[wrong[0], "sum"]), int(pooled.loc[wrong[0], "count"])
+            kr, nr = int(pooled.loc[right[0], "sum"]), int(pooled.loc[right[0], "count"])
+            lo, hi = _newcombe_diff_ci(kw, nw, kr, nr)
+            out.attrs["gap_signed_pct"] = 100.0 * (kw / nw - kr / nr)
+            out.attrs["gap_ci_low"] = 100.0 * lo
+            out.attrs["gap_ci_high"] = 100.0 * hi
+            # "Uninformative" is defined here rather than after seeing it: an
+            # interval that contains both no difference and a difference large
+            # enough to count as good calibration cannot distinguish the two.
+            out.attrs["gap_uninformative"] = bool(
+                lo < 0.0 < hi or (lo <= 0.0 and hi >= CALIBRATED_GAP_PCT / 100.0)
+            )
+    out.attrs["source"] = source
+    return out
+
+
+def theme_summary(data: StudyData) -> pd.DataFrame:
+    """Themes from the four open-ended items, with per-condition counts.
+
+    The plan and the paper both promise a thematic analysis here; this is the
+    aggregation half. The coding itself is human and arrives as `themes.csv`
+    from `coding_packet.py --qualitative` (one row per participant x item x
+    assigned theme, so an answer carrying two themes is two rows).
+    """
+    themes = data.themes
+    if themes.empty or "theme" not in themes.columns:
+        return pd.DataFrame()
+    t = themes.dropna(subset=["theme"]).copy()
+    if t.empty:
+        return pd.DataFrame()
+    cond = data.participants.set_index("participant_code")["agent_condition"]
+    t["agent_condition"] = t["participant_code"].map(cond)
+    out = (
+        t.groupby(["item_id", "theme"])
+        .agg(mentions=("participant_code", "size"),
+             participants=("participant_code", "nunique"))
+        .reset_index()
+    )
+    by_cond = (
+        t.groupby(["item_id", "theme", "agent_condition"])["participant_code"]
+        .nunique().unstack(fill_value=0)
+    )
+    out = out.merge(by_cond.reset_index(), on=["item_id", "theme"], how="left")
+    return out.sort_values(["item_id", "mentions"], ascending=[True, False])
 
 
 # --- RQ3: perception vs measurement ----------------------------------------
@@ -617,11 +1409,40 @@ def _spearman_ci(rho: float, n: int, conf: float = 0.95) -> tuple[float, float]:
     return (float(np.tanh(z - crit * se)), float(np.tanh(z + crit * se)))
 
 
+def _bh_fdr(p: pd.Series) -> pd.Series:
+    """Benjamini-Hochberg adjusted p-values, NaNs passed through."""
+    out = pd.Series(np.nan, index=p.index, dtype=float)
+    valid = p.dropna().sort_values()
+    if valid.empty:
+        return out
+    m = len(valid)
+    adj = valid.values * m / np.arange(1, m + 1)
+    adj = np.minimum.accumulate(adj[::-1])[::-1]  # enforce monotonicity
+    out.loc[valid.index] = np.minimum(adj, 1.0)
+    return out
+
+
+#: The one RQ3 correlation fixed in advance (plan, "Perception-behavior gap"):
+#: perceived speedup against measured normalised time on the cross-surface agent
+#: tasks, pooled across conditions. Everything else in the table is exploratory
+#: and FDR-adjusted as one family.
+PRIMARY_PERCEPTION = ("pooled", "trust_speed_perceived", "mean_normalised_time_cross")
+
+
 def perception_correlations(participants: pd.DataFrame) -> pd.DataFrame:
     """Spearman correlations of perception against measured performance.
 
     Pooled across conditions (headline) and repeated within each condition (the
     version immune to the seeing-vs-doing confound, but thinly powered).
+
+    Multiplicity is handled rather than ignored. This table is ~100 correlations;
+    at alpha=0.05 five of them are expected to clear significance with no effect
+    present at all, and per-condition rows are n=7-8, where a single participant
+    moves rho by 0.3. So: one correlation is pre-specified as primary
+    (`PRIMARY_PERCEPTION`) and reported unadjusted, and every other row is marked
+    exploratory and carries a Benjamini-Hochberg adjusted p over that family.
+    The plan already labels all of H5 exploratory; this makes the table honest
+    about how many ways it was looked at.
     """
     perception = ["trust_composite", "trust_speed_perceived", "trust_rely",
                   "trust_verify", "trust_context"]
@@ -646,6 +1467,77 @@ def perception_correlations(participants: pd.DataFrame) -> pd.DataFrame:
     _corr(participants, "pooled")
     for cond, grp in participants.groupby("agent_condition"):
         _corr(grp, cond)
+    out = pd.DataFrame(rows)
+    if out.empty:
+        return out
+
+    out["primary"] = [
+        (s, pc, mc) == PRIMARY_PERCEPTION
+        for s, pc, mc in zip(out["scope"], out["perception"], out["measured"])
+    ]
+    exploratory = out[~out["primary"]]
+    out["p_fdr"] = _bh_fdr(exploratory["p"].reindex(out.index))
+    out.attrs["n_exploratory_tests"] = int(len(exploratory))
+    return out.sort_values("primary", ascending=False).reset_index(drop=True)
+
+
+def switching_perception(participants: pd.DataFrame) -> pd.DataFrame:
+    """Perceived context-switching against the behavioural view-switch rate.
+
+    Promised by name in both the plan and the paper's RQ3 subsection, and it is
+    the one place where a *self-report* is checked against a *behavioural*
+    counterpart of the same construct rather than against an outcome. If people
+    who switched views more also report switching more, the integration
+    perception items are measuring something real; if not, that is worth as much
+    as the trust result and belongs beside it.
+    """
+    need = {"int_switch_perceived", "view_switch_rate"}
+    if not need.issubset(participants.columns):
+        return pd.DataFrame()
+    rows = []
+    for scope, frame in [("pooled", participants)] + list(
+        participants.groupby("agent_condition")
+    ):
+        sub = frame[["int_switch_perceived", "view_switch_rate"]].dropna()
+        if len(sub) < 4:
+            continue
+        rho, p = stats.spearmanr(sub["int_switch_perceived"], sub["view_switch_rate"])
+        lo, hi = _spearman_ci(rho, len(sub))
+        rows.append({
+            "scope": scope, "n": len(sub), "spearman_rho": rho,
+            "ci_low": lo, "ci_high": hi, "p": p,
+            "mean_perceived": float(sub["int_switch_perceived"].mean()),
+            "mean_view_switch_rate": float(sub["view_switch_rate"].mean()),
+        })
+    return pd.DataFrame(rows)
+
+
+def integration_perception(participants: pd.DataFrame) -> pd.DataFrame:
+    """Per-condition means for the integration-perception items.
+
+    Measured on every participant and, until now, analysed nowhere. These do not
+    test a hypothesis: scope is manipulated, perceived integration is not. They
+    are reported because a reader is entitled to ask whether participants
+    noticed the thing the paper is about, and because a flat profile across
+    conditions is itself informative about how visible agent scope was.
+    """
+    cols = [c for c in derive.INTEGRATION_ITEMS if c in participants.columns]
+    if not cols:
+        return pd.DataFrame()
+    rows = []
+    for item in cols:
+        d = participants.dropna(subset=[item])
+        if d.empty:
+            continue
+        arrays = [g[item].values for _, g in d.groupby("agent_condition")]
+        h, p = (np.nan, np.nan)
+        if len(arrays) >= 2 and all(len(a) >= 2 for a in arrays):
+            h, p = stats.kruskal(*arrays)
+        row = {"item": item, "n": len(d), "mean": float(d[item].mean()),
+               "kruskal_H": h, "kruskal_p": p}
+        for cond, g in d.groupby("agent_condition"):
+            row[cond] = float(g[item].mean())
+        rows.append(row)
     return pd.DataFrame(rows)
 
 
@@ -676,6 +1568,57 @@ def reliance_calibration(participants: pd.DataFrame) -> pd.DataFrame:
 #: The rubric's fixed scale. Agreement is computed over this, not over the
 #: values that happen to appear, so an unused category can't inflate kappa.
 SCORE_MIN, SCORE_MAX = 0, 3
+
+
+def nominal_agreement(frame: pd.DataFrame, label: str,
+                      cols: tuple[str, str] = ("coder_1", "coder_2")) -> pd.DataFrame:
+    """Unweighted Cohen's kappa for a categorical coding (themes, agent errors).
+
+    Separate from `coder_agreement` on purpose. That one is quadratic-weighted
+    because correctness is ordinal and a 2-vs-3 disagreement is milder than a
+    0-vs-3. Themes are nominal -- there is no "close" between two theme labels --
+    and the agent-error codes are binary, where weighting is meaningless. Either
+    way, weighting here would invent an ordering the rubric does not have.
+    """
+    empty = pd.DataFrame(columns=["coding", "n_items", "n_coded", "kappa",
+                                  "pct_exact", "note"])
+    if frame is None or frame.empty or not set(cols).issubset(frame.columns):
+        return empty
+    # `dropna` is what makes a partially double-coded corpus safe here: themes
+    # are single-coded outside a reliability subset, and rows only one person saw
+    # must not enter the agreement calculation. Reporting `n_coded` beside
+    # `n_items` keeps the coverage visible instead of leaving the reader to
+    # assume kappa spans the whole corpus.
+    n_coded = len(frame)
+    d = frame[list(cols)].dropna()
+    d.columns = ["coder_1", "coder_2"]
+    d = d.astype(str)
+    if d.empty:
+        return pd.DataFrame([{"coding": label, "n_items": 0, "n_coded": n_coded,
+                              "kappa": np.nan, "pct_exact": np.nan,
+                              "note": "no coder pairs present"}])
+    cats = sorted(set(d["coder_1"]) | set(d["coder_2"]))
+    idx = {c: i for i, c in enumerate(cats)}
+    k = len(cats)
+    observed = np.zeros((k, k))
+    for a, b in zip(d["coder_1"], d["coder_2"]):
+        observed[idx[a], idx[b]] += 1
+    n = observed.sum()
+    observed /= n
+    po = float(np.trace(observed))
+    pe = float((observed.sum(axis=1) * observed.sum(axis=0)).sum())
+    note = ""
+    if pe >= 1.0:
+        kappa, note = np.nan, "kappa undefined — coders used a single category"
+    else:
+        kappa = (po - pe) / (1 - pe)
+    if int(n) < n_coded:
+        note = (f"{note}; " if note else "") + (
+            f"double-coded reliability sample: {int(n)} of {n_coded} responses "
+            f"({100.0 * n / n_coded:.0f}%)"
+        )
+    return pd.DataFrame([{"coding": label, "n_items": int(n), "n_coded": n_coded,
+                          "kappa": kappa, "pct_exact": 100.0 * po, "note": note}])
 
 
 def coder_agreement(correctness: pd.DataFrame) -> pd.DataFrame:
@@ -744,22 +1687,45 @@ def coder_agreement(correctness: pd.DataFrame) -> pd.DataFrame:
 def run_all(data: StudyData) -> dict[str, object]:
     tasks = derive.task_table(data)
     participants = derive.participant_table(data, tasks)
+    primary = primary_time_model(tasks)
     return {
         "task_table": tasks,
         "participant_table": participants,
+        "participant_flow": participant_flow(data, tasks),
+        "coding_coverage": coding_coverage(data, tasks),
+        "coded_set_comparison": coded_set_comparison(tasks),
+        "baseline_balance": baseline_balance(tasks),
         "manipulation_check": manipulation_check(data),
-        "primary_time_model": primary_time_model(tasks),
+        "primary_time_model": primary,
+        "model_contrasts": model_contrasts(primary),
         "primary_time_model_idle_adjusted": primary_time_model(tasks, idle_adjusted=True),
+        "sensitivity_panel": sensitivity_panel(tasks),
+        "timing_validity": timing_validity(tasks),
+        "agent_uptake": agent_uptake(tasks),
         "focused_contrast": focused_contrast(tasks),
         "t6_contrast": single_task_contrast(tasks, "T6"),
         "correctness": correctness_model(tasks),
         "coder_agreement": coder_agreement(data.correctness),
+        "effort_model": effort_model(tasks),
         "tlx_delta": tlx_delta_by_condition(participants),
         "tlx_subscales": tlx_subscales_by_condition(participants),
         "sus": sus_by_condition(participants),
         "agent_funnel": agent_funnel(data, tasks),
         "delegation": delegation_by_condition(participants),
+        "reliance_detail": reliance_detail(tasks, participants),
+        "calibration": calibration(data, tasks),
+        "agent_error_agreement": pd.concat(
+            [
+                nominal_agreement(data.agent_errors, name, (f"{name}_1", f"{name}_2"))
+                for name in ("factual_error", "judgement_error")
+            ] + [nominal_agreement(data.agent_errors, "agent_error")],
+            ignore_index=True,
+        ),
+        "themes": theme_summary(data),
+        "theme_agreement": nominal_agreement(data.themes, "themes"),
         "perception_correlations": perception_correlations(participants),
+        "switching_perception": switching_perception(participants),
+        "integration_perception": integration_perception(participants),
         "reliance_calibration": reliance_calibration(participants),
         "trust_alpha": derive.trust_alpha(data),
     }

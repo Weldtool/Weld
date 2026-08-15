@@ -83,6 +83,12 @@ TRUST_COMPOSITE_ITEMS = ["trust_reliable", "trust_predictable", "trust_competent
 
 SUS_ITEMS = [f"sus_{i:02d}" for i in range(1, 11)]
 
+#: The five integration-perception items (paper Section 4, Measures). Carried
+#: onto the participant table individually -- they are not a validated scale and
+#: are not combined into one, so a composite would invent a construct.
+INTEGRATION_ITEMS = ["int_findacross", "int_noticed", "int_vs_separate",
+                     "int_reuse", "int_switch_perceived"]
+
 
 # --- Task-level table -------------------------------------------------------
 
@@ -212,20 +218,38 @@ def _attach_effort(tt: pd.DataFrame, data: StudyData) -> pd.DataFrame:
     return tt.merge(keep, on=["participant_code", "task_id"], how="left")
 
 
-def _attach_baseline(tt: pd.DataFrame) -> pd.DataFrame:
-    """Attach each agent task's type-matched baseline anchor time."""
-    base = tt[tt["phase"] == "baseline"]
+def _anchor_map(base: pd.DataFrame, column: str) -> dict[tuple[str, str], float]:
+    """Per-participant, per-task-type mean of `column` over the anchor tasks."""
     anchors: dict[tuple[str, str], float] = {}
     for pcode, grp in base.groupby("participant_code"):
-        by_task = grp.set_index("task_id")["task_time_ms"]
+        by_task = grp.set_index("task_id")[column]
         for task_type, ids in BASELINE_ANCHOR.items():
             vals = [by_task[i] for i in ids if i in by_task.index and pd.notna(by_task[i])]
             anchors[(pcode, task_type)] = float(np.mean(vals)) if vals else np.nan
+    return anchors
 
+
+def _attach_baseline(tt: pd.DataFrame) -> pd.DataFrame:
+    """Attach each agent task's type-matched baseline anchors.
+
+    Two anchors, built the same way from the same six baseline tasks: elapsed
+    time for the primary model, and the participant's own effort rating for the
+    H3(b) effort ANCOVA. Effort is rated on every task including the baselines
+    precisely so this anchor exists.
+    """
+    base = tt[tt["phase"] == "baseline"]
+    time_anchors = _anchor_map(base, "task_time_ms")
     tt["baseline_ms"] = [
-        anchors.get((p, t), np.nan) if ph == "agent" else np.nan
+        time_anchors.get((p, t), np.nan) if ph == "agent" else np.nan
         for p, t, ph in zip(tt["participant_code"], tt["task_type"], tt["phase"])
     ]
+
+    if "effort" in tt.columns:
+        effort_anchors = _anchor_map(base, "effort")
+        tt["baseline_effort"] = [
+            effort_anchors.get((p, t), np.nan) if ph == "agent" else np.nan
+            for p, t, ph in zip(tt["participant_code"], tt["task_type"], tt["phase"])
+        ]
     return tt
 
 
@@ -332,7 +356,7 @@ def participant_table(data: StudyData, tasks: pd.DataFrame) -> pd.DataFrame:
         out["trust_composite"] = trust.mean(axis=1) if not trust.empty else np.nan
         for item in [
             "trust_rely", "trust_again", "trust_context", "trust_verify",
-            "trust_speed_perceived", "int_switch_perceived",
+            "trust_speed_perceived", *INTEGRATION_ITEMS,
         ]:
             col = _numeric(wide, [item])
             if not col.empty:
