@@ -1,0 +1,156 @@
+%% ACM Transactions on Software Engineering and Methodology (TOSEM) — manuscript submission
+%% Compile: latexmk -pdf main
+%% Or:      pdflatex main && bibtex main && pdflatex main && pdflatex main
+
+\documentclass[manuscript,screen,review]{acmart}
+
+%% Journal target
+\acmJournal{TOSEM}
+
+%% ── ACM Metadata ────────────────────────────────────────────────────────────
+\title{Context-Scoped AI Agents in Integrated Developer Workspaces: A Between-Subjects Study of Information Breadth and Task Performance}
+
+\author{Andrew Sadler}
+\email{awsadler@mtu.edu}
+\affiliation{%
+  \institution{Michigan Technological University}
+  \city{Houghton}
+  \state{Michigan}
+  \country{USA}
+}
+
+\author{Jie JW Wu}
+\email{jie.jw.wu@gmail.com}
+\affiliation{%
+  \institution{Michigan Technological University}
+  \city{Houghton}
+  \state{Michigan}
+  \country{USA}
+}
+
+%% ── Abstract ────────────────────────────────────────────────────────────────
+\begin{abstract}
+Software development is fragmented across issue trackers, team chat, and code
+hosts, and AI assistants embedded in that workflow face an analogous
+fragmentation: they can only act on what they are allowed to see. We
+operationalise this as a \emph{context ladder}---a three-rung experimental
+manipulation of how much of a shared workspace an AI agent can observe and act
+on: chat only (\CI), chat and task board (\CII), or chat, board, and GitHub
+(\CIII)---and measure the downstream effect on user task performance, cognitive
+load, reliance, and trust across a population spanning both novice and
+experienced programmers.
+
+We present \Weld, an open-source integrated developer workspace
+(SvelteKit\,+\,Rust/Axum) combining a Kanban board, team chat, and mocked
+GitHub repository data in one product, and report a hybrid user study (target
+$N$~=~20--30) recruiting from two complementary populations: university CS
+students (undergraduate and graduate, representing less-experienced developers)
+and professional software developers ($\geq$1\,year of industry experience).
+Every participant first completes six manual no-agent baseline tasks---
+establishing a per-person speed and workload anchor that absorbs individual
+skill differences---then is randomly assigned to one agent condition for six
+agent-assisted tasks spanning comprehension, single-surface, and cross-surface
+coordination types. Including both populations allows us to examine whether the
+benefit of context breadth varies with developer experience, and whether novice
+and experienced programmers differ in their reliance on and trust of an AI agent
+with varying information access. Primary analysis uses baseline-normalised task
+time via a mixed-effects model testing the condition~$\times$ task-type
+interaction; secondary measures include \NASATLX, System Usability Scale, a
+five-item integration-perception scale, and an eight-item AI trust scale.
+
+Context scoping is enforced at the server in code---not in prompts---by the
+\ContextGate module, which records a per-turn \texttt{agent\_context\_sent}
+audit snapshot proving, from the log alone, exactly what information each agent
+invocation received. This architectural choice makes the experimental
+manipulation verifiable rather than merely assumed. We contribute the
+context-ladder study design, the mixed-experience participant protocol, and the
+\ContextGate mechanism as replicable instruments for empirical research on AI
+agents in multi-surface collaborative tools.
+\end{abstract}
+
+%% ── CCS Concepts ────────────────────────────────────────────────────────────
+%% Generate from https://dl.acm.org/ccs
+\begin{CCSXML}
+<ccs2012>
+  <concept>
+    <concept_id>10011007.10011006.10011073</concept_id>
+    <concept_desc>Software and its engineering~Software development techniques</concept_desc>
+    <concept_significance>500</concept_significance>
+  </concept>
+  <concept>
+    <concept_id>10003120.10003121.10003122</concept_id>
+    <concept_desc>Human-centered computing~HCI theory, concepts and models</concept_desc>
+    <concept_significance>500</concept_significance>
+  </concept>
+  <concept>
+    <concept_id>10003120.10003121.10003124</concept_id>
+    <concept_desc>Human-centered computing~Empirical studies in HCI</concept_desc>
+    <concept_significance>500</concept_significance>
+  </concept>
+  <concept>
+    <concept_id>10010147.10010178</concept_id>
+    <concept_desc>Computing methodologies~Artificial intelligence</concept_desc>
+    <concept_significance>300</concept_significance>
+  </concept>
+</ccs2012>
+\end{CCSXML}
+
+\ccsdesc[500]{Software and its engineering~Software development techniques}
+\ccsdesc[500]{Human-centered computing~HCI theory, concepts and models}
+\ccsdesc[500]{Human-centered computing~Empirical studies in HCI}
+\ccsdesc[300]{Computing methodologies~Artificial intelligence}
+
+%% ── Keywords ────────────────────────────────────────────────────────────────
+\keywords{AI agents, developer tools, integrated workspaces, context scoping,
+  user study, NASA TLX, cognitive load, task coordination, human-AI interaction,
+  software engineering}
+
+%% ── Copyright / DOI stubs (filled in by ACM at acceptance) ─────────────────
+%% \acmDOI{10.1145/XXXXXXX.XXXXXXX}
+%% \acmISBN{978-x-xxxx-xxxx-x/YY/MM}
+%% \acmYear{2026}
+%% \copyrightyear{2026}
+%% \acmSubmissionID{TOSEM-XXXX-XXXX}
+
+%% ── Additional packages ─────────────────────────────────────────────────────
+\usepackage{booktabs}      % professional table rules
+\usepackage{multirow}      % multi-row table cells
+\usepackage{graphicx}      % figures
+\usepackage{microtype}     % improved justification
+\usepackage{xspace}        % smart spacing after macros
+\usepackage{listings}      % code listings
+\usepackage{subcaption}    % subfigures
+
+%% ── Custom macros ───────────────────────────────────────────────────────────
+\newcommand{\Weld}{\textsc{Weld}\xspace}
+\newcommand{\ContextGate}{\textsc{Context Gate}\xspace}
+\newcommand{\CI}{$C_1$\xspace}
+\newcommand{\CII}{$C_2$\xspace}
+\newcommand{\CIII}{$C_3$\xspace}
+\newcommand{\NASATLX}{NASA-TLX\xspace}
+\newcommand{\SUS}{SUS\xspace}
+
+%% ── Document body ───────────────────────────────────────────────────────────
+\begin{document}
+
+\maketitle
+
+\input{sections/01-intro}
+\input{sections/02-related}
+\input{sections/03-system}
+\input{sections/04-study}
+\input{sections/05-results}
+\input{sections/06-discussion}
+\input{sections/07-conclusion}
+
+%% ── Acknowledgements ────────────────────────────────────────────────────────
+\begin{acks}
+The authors thank the study participants for their time. [Additional
+acknowledgements to be added before submission.]
+\end{acks}
+
+%% ── Bibliography ────────────────────────────────────────────────────────────
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{refs}
+
+\end{document}

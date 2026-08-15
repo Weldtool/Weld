@@ -1,0 +1,74 @@
+\section{Introduction}
+\label{sec:intro}
+
+Modern software development demands constant movement across tools: a task
+management board to plan work, a chat platform to coordinate with teammates,
+and a code-hosting service to review pull requests and track issues. Each
+transition carries a context-switching cost---the cognitive overhead of
+re-establishing mental state in a new tool---that fragments attention and
+increases workload~\cite{mark2008cost,czerwinski2004diary}. This fragmentation
+is compounded when information lives in separate silos: acting on a chat
+message that references a board card requires the developer to open two
+applications and mentally merge their contents. Ko et
+al.~\cite{ko2007information} documented this cross-tool information-seeking
+overhead in collocated software teams; LaToza et al.~\cite{latoza2006maintaining}
+found it a primary driver of knowledge loss and coordination breakdowns.
+
+Integrated developer workspaces---products that co-locate boards, chat, and
+code review---reduce this overhead by design, and they also create a new
+possibility: an embedded AI agent that can \emph{observe and act} across all
+surfaces at once. How much of that workspace such an agent should be allowed to
+see, and what that breadth buys the user, remains thin in the empirical record.
+Prior AI-productivity research has focused on single-surface tasks
+(code generation, text drafting), leaving the cross-surface coordination layer
+largely unstudied~\cite{chen2021codex,noy2023}. Agentic frameworks such as
+ReAct~\cite{yao2023react} and Reflexion~\cite{shinn2023reflexion} show strong
+performance on synthetic benchmarks but have not been evaluated with human
+participants on realistic multi-surface workflows.
+
+A second open question concerns \emph{context breadth}: how much workspace state
+should an agent be allowed to observe? Wider context may improve agent relevance
+but raises concerns about auditability and trust. Existing systems gate context
+via prompt instructions, which are opaque and unverifiable---there is no way to
+audit, after the fact, exactly what information an agent received during a
+specific turn.
+
+\textbf{This paper makes three contributions:}
+\begin{enumerate}
+  \item \textbf{\Weld system.} We describe \Weld, an open-source all-in-one
+    developer workspace (Kanban board, team chat, GitHub integration) with an
+    embedded study mode that provisions isolated per-participant workspaces,
+    implements balanced condition assignment, and logs fine-grained behavioral
+    telemetry~(\S\ref{sec:system}).
+
+  \item \textbf{Code-enforced context scoping (\ContextGate).} We introduce the
+    \ContextGate, a server-side module that assembles agent context from a
+    condition-specific database allowlist, with a per-turn audit snapshot
+    (\texttt{agent\_context\_sent}) that proves---from the server log alone---
+    exactly which information sources a given agent turn could
+    access~(\S\ref{sec:system}).
+
+  \item \textbf{Empirical study.} We report a hybrid within/between-subjects
+    user study ($N$~=~\emph{TBD}) that, against each participant's own no-agent
+    baseline, crosses three agent-context conditions (\CI\ chat-only advisory;
+    \CII\ chat+board action; \CIII\ chat+board+GitHub full) with three task
+    types (comprehension, single-surface, cross-surface) to ask whether broader
+    context makes users more effective (RQ1), how it shifts their reliance on
+    versus verification of the agent (RQ2), and whether their trust tracks the
+    agent's measured effectiveness (RQ3)~(\S\ref{sec:study},
+    \S\ref{sec:results}).
+\end{enumerate}
+
+The manipulated variable is the agent's context breadth alone. We make no claim
+that an all-in-one workspace outperforms separate tools---this design has no
+fragmented-tooling arm to test that---and treat consolidation as the apparatus
+and motivation, not as a hypothesis.
+
+The remainder of the paper is structured as follows.
+Section~\ref{sec:related} surveys related work on tool fragmentation, AI
+productivity agents, and context management.
+Section~\ref{sec:system} describes \Weld and its study infrastructure.
+Section~\ref{sec:study} presents the study design.
+Section~\ref{sec:results} reports results.
+Section~\ref{sec:discussion} discusses implications, and
+Section~\ref{sec:conclusion} concludes.

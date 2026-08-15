@@ -1,0 +1,59 @@
+\section{Discussion}
+\label{sec:discussion}
+
+% TODO: Interpret results in light of the three RQs once data are available.
+
+\subsection{Context Breadth as a Design Variable (RQ1)}
+\label{sec:discussion:breadth}
+
+% TODO: Discuss the C1 → C3 gradient and what results imply about the marginal
+%   value of each additional surface in the agent's context. Connect to the
+%   information-foraging literature. Note the scope boundary: this speaks to how
+%   much context an embedded agent needs, NOT to all-in-one vs. separate tools.
+
+\subsection{Task Type as a Moderator (H2)}
+\label{sec:discussion:tasktype}
+
+% TODO: Discuss whether cross-surface tasks benefit disproportionately from
+%   broader context (as hypothesized). When is a narrower context sufficient?
+%   T6 (GitHub-only-identifiable PR) is the cleanest top-of-ladder test.
+
+\subsection{Reliance and Division of Labor (RQ2)}
+\label{sec:discussion:reliance}
+
+% TODO: Discuss how delegation shifts with context breadth and whether reliance
+%   is calibrated — do users verify/override where the agent is actually wrong,
+%   or under/over-rely? Connect to validation-and-repair behavior in LLM-assisted
+%   work.
+
+\subsection{Trust versus Reality (RQ3 / H5)}
+\label{sec:discussion:trust}
+
+% TODO: Discuss the perception–behavior gap — whether trust and perceived
+%   speedup track measured effectiveness or diverge (e.g., agents that *do more*
+%   trusted even when no faster). This is the most novel angle; flag design
+%   implications of mis-calibrated trust in action-capable agents.
+
+\subsection{Code-Enforced Context Scoping as a Design Principle}
+\label{sec:discussion:gate}
+
+The \ContextGate pattern---enforcing context boundaries in server code rather
+than model prompts---has implications beyond this study. First, it makes the
+manipulation mechanically verifiable: any reviewer can inspect the
+\texttt{agent\_context\_sent} audit logs and confirm that a \CI\ agent never
+received board data. Second, it suggests a governance model for production AI
+agents in collaborative tools, where organizations need auditable controls over
+what information agents can observe. Third, it decouples the \emph{scope} of an
+agent from its \emph{capability}, allowing researchers and practitioners to vary
+context breadth independently of model capability.
+
+\subsection{Limitations}
+\label{sec:discussion:limitations}
+
+% TODO: Address:
+%   - Controlled lab setting vs. naturalistic use
+%   - Seeded PetTracker content may not generalize to all domains
+%   - Single session; no longitudinal effects measured
+%   - Between-subjects design: no within-person learning-curve data across conditions
+%   - Statistical power (dependent on final N)
+%   - Generalization to other LLM models (study used a single pinned model)

@@ -1,0 +1,253 @@
+\section{System: \Weld}
+\label{sec:system}
+
+\subsection{Architecture Overview}
+\label{sec:system:overview}
+
+\Weld is an open-source, full-stack developer workspace targeting teams of
+two to ten engineers. The web frontend is built with SvelteKit 2 (TypeScript,
+Tailwind CSS 4); the backend is an Axum 0.8 server (Rust) backed by PostgreSQL
+16 and Redis. A WebSocket hub broadcasts real-time board and chat updates to all
+connected clients of a team. All study-mode paths share the same production
+application binary, activated by an \texttt{appConfig.studyMode} flag.
+
+\Weld exposes three collaboration surfaces that correspond exactly to the three
+context sources manipulated across the agent conditions:
+
+\begin{description}
+  \item[Kanban Board.]
+    Columns and cards with fractional-indexed positions, real-time drag-and-drop
+    reordering, label and priority assignment, and GitHub issue/PR links. Cards
+    carry a \texttt{github\_issue} and \texttt{github\_pr} field that are
+    populated either by the user or by the agent's \texttt{link\_card\_to\_github}
+    tool. Cross-references to chat messages render inline as
+    \texttt{[[card:uuid]]} tokens that resolve to card titles on hover.
+
+  \item[Team Chat.]
+    Channel-based messaging with threading, Markdown rendering, @mention
+    resolution, and the same \texttt{[[card:uuid]]} cross-reference syntax used
+    on the board. Messages are delivered over WebSocket and persisted
+    server-side; the agent's \texttt{post\_message} tool drafts a message that
+    the participant must review and confirm before it is sent.
+
+  \item[GitHub Integration.]
+    A GitHub App installation synchronizes open issues and pull requests into
+    \Weld's read-only GitHub view. Two-way linking (card $\leftrightarrow$
+    issue, card $\leftrightarrow$ PR) is supported both manually and via the
+    agent's \texttt{link\_card\_to\_github} tool.
+\end{description}
+
+\subsection{Study Mode and Workspace Isolation}
+\label{sec:system:study}
+
+Each study participant is provisioned in a single atomic database transaction
+via the \texttt{provision\_participant} function. The transaction creates:
+a dedicated user account, a team with four pre-seeded synthetic teammates
+(Sarah Chen, Alex Rivera, Priya Nair, and Marcus Webb), a PetTracker
+project, three board columns (Backlog, In Progress, Done), 15--20 cards with
+realistic descriptions and priorities, two channels (\#general and
+\#pettracker) with pre-seeded message history, and GitHub fixture data.
+All timestamps in the seeded content are stored as negative offsets from the
+provisioning moment, so the workspace always appears to have been active for
+the same relative period regardless of when the participant joins.
+
+\paragraph{Access codes and resumption.}
+Participants authenticate via single-use access codes rather than email/password
+registration. If a participant closes the browser mid-session, they can return
+to the same code on any device and resume from their saved stage and task index
+(\texttt{resume\_stage}, \texttt{resume\_task\_index}). Progress is persisted by
+\texttt{update\_progress(pool, user\_id, stage, task\_index)}.
+
+\paragraph{Condition assignment.}
+The \texttt{pick\_agent\_condition} function implements balanced permuted-block
+randomization with block size 3 and a random tie-break on equal counts, ensuring
+that no condition falls behind the others as enrollment proceeds while avoiding
+deterministic C1$\to$C2$\to$C3 cycling that could confound condition with
+enrollment order.
+
+\paragraph{Database isolation.}
+Every query in study mode is scoped by \texttt{team\_id} and
+\texttt{project\_id} in the SQL \texttt{WHERE} clause. No cross-participant
+query paths exist; the study database schema enforces this at the row level.
+
+\subsection{The Context Gate}
+\label{sec:system:gate}
+
+The \ContextGate is a Rust module (\texttt{services/study/agent/gate.rs}) that
+acts as the sole chokepoint for assembling the agent's context before each LLM
+call. Its design centers on two structures: \texttt{ContextRules}, which encodes
+the per-condition allowlist, and \texttt{ScopedContext}, the assembled result.
+
+\paragraph{Rules and allowlists.}
+\texttt{rules\_for(condition)} returns a \texttt{ContextRules} value specifying
+which of the three sources (chat, board, GitHub) may be queried. The rules for
+each condition are:
+
+\begin{center}
+\begin{tabular}{lccc}
+  \toprule
+  Condition & Chat & Board & GitHub \\
+  \midrule
+  \CI\ (advisory)     & \checkmark & -- & -- \\
+  \CII\ (action)      & \checkmark & \checkmark & -- \\
+  \CIII\ (full)       & \checkmark & \checkmark & \checkmark \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+The gate's \texttt{assemble(pool, ctx)} function queries \emph{only} the allowed
+sources; the database calls for disallowed sources are never made. The resulting
+\texttt{ScopedContext} carries a \texttt{sources\_included} field listing exactly
+which sources were consulted, a \texttt{chat: Vec<ChatLine>} field, an
+\texttt{board: Option<Vec<CardLine>>}, and a \texttt{github: Option<Vec<GithubItem>>}.
+Disallowed fields are \texttt{None}.
+
+\paragraph{Proof-of-scoping snapshot.}
+Before invoking the LLM, \texttt{run\_turn} calls
+\texttt{ScopedContext::snapshot()}, which serialises the assembled context (minus
+any fields that should not appear in logs) and records it as an
+\texttt{agent\_context\_sent} telemetry event. This creates an immutable per-turn
+audit record proving that the context assembly respected the assigned condition.
+
+\paragraph{Double-gated tool executor.}
+The gate also governs which tools are available to the model.
+\texttt{allowed\_tool\_categories(condition)} returns a static slice of
+\texttt{ToolCategory} variants: \CI\ receives \texttt{[]}, \CII\ receives
+\texttt{[BoardWrite, ChatPost]}, and \CIII\ receives all three categories
+(\texttt{[BoardWrite, ChatPost, GithubLink]}). This list determines which tool
+definitions are sent to the model in the OpenAI request (first gate). The tool
+executor (\texttt{tools::execute}) independently re-validates the tool name
+against the condition's allowed categories before executing any action; any
+call that slips past the first gate is rejected and logged as
+\texttt{agent\_tool\_rejected} (second gate). Table~\ref{tab:tools} lists the
+five tools and their condition availability.
+
+\begin{table}[h]
+  \caption{Agent tools by condition availability. \checkmark~= available,
+    --~= not offered to model and rejected at executor.}
+  \label{tab:tools}
+  \begin{tabular}{llccc}
+    \toprule
+    Tool name & Action & \CI & \CII & \CIII \\
+    \midrule
+    \texttt{create\_card}        & Create a board card           & -- & \checkmark & \checkmark \\
+    \texttt{move\_card}          & Move a card to another column & -- & \checkmark & \checkmark \\
+    \texttt{update\_card}        & Edit card priority / assignee / description & -- & \checkmark & \checkmark \\
+    \texttt{post\_message}       & Draft a chat message for review & -- & \checkmark & \checkmark \\
+    \texttt{link\_card\_to\_github} & Link a card to an issue or PR & -- & -- & \checkmark \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Turn budget.}
+Each agent invocation is bounded by two hard limits: \texttt{MAX\_TURNS~=~5}
+model$\leftrightarrow$tool round-trips per invocation, and
+\texttt{MAX\_AGENT\_MESSAGES~=~50} total agent messages per participant across
+the entire session. These limits prevent runaway loops and bound infrastructure
+cost.
+
+\begin{figure}[h]
+  \centering
+  % TODO: Replace with final architecture diagram
+  \fbox{\rule{0pt}{5cm}\rule{0.85\linewidth}{0pt}}
+  \caption{The \ContextGate architecture. The \texttt{assemble()} call queries only
+    allowed sources for the participant's assigned condition and emits a
+    \texttt{agent\_context\_sent} snapshot. The double-gated tool executor
+    re-validates tool permissions independently at execution time, logging
+    violations as \texttt{agent\_tool\_rejected} events.}
+  \label{fig:gate}
+\end{figure}
+
+\subsection{Agent Turn Orchestration}
+\label{sec:system:agent}
+
+The \texttt{run\_turn} function orchestrates each agent invocation. After
+assembling the \texttt{ScopedContext} and recording the
+\texttt{agent\_context\_sent} event, it loads prior turns from the
+\texttt{study\_agent\_turns} table to maintain conversation continuity across
+the session. The function then enters a loop bounded by \texttt{MAX\_TURNS},
+alternating between LLM calls (with condition-appropriate tool definitions from
+\texttt{openai\_tool\_defs(condition)}) and tool execution calls.
+
+\paragraph{Condition-specific system prompt.}
+The system prompt varies by condition. For \CI, it instructs the model to
+``provide guidance but not suggest or execute actions,'' constraining it to an
+advisory role even though no tools are offered. For \CII\ and \CIII, the prompt
+frames the agent as ``a co-worker in the team workspace'' that can take actions
+on behalf of the participant. This framing difference is intentional: it matches
+participant expectations to the agent's actual capability.
+
+\paragraph{Chat message drafting.}
+The \texttt{post\_message} tool does not immediately post a message; instead,
+the tool executor returns a \texttt{ChatDraft} to the client, which renders it
+as a review panel. The participant must explicitly confirm before the message is
+sent. This keeps human oversight over public communication while still reducing
+the mechanical effort of composing and locating the correct channel.
+
+\subsection{Telemetry Infrastructure}
+\label{sec:system:telemetry}
+
+\Weld records 43 discrete event types (Table~\ref{tab:events}). Client events
+are batched and submitted to a single endpoint that validates each event type
+against a server-side allowlist (\texttt{ALLOWED\_EVENT\_TYPES}) before
+persistence; events not on the allowlist are silently dropped. This
+\emph{allowlist-by-construction} approach means that even a modified client
+cannot introduce new event types, preventing accidental capture of keystrokes,
+scroll positions, or other data outside the study protocol.
+
+Server-side events (agent lifecycle, context snapshots, tool outcomes) are
+recorded via \texttt{record\_server\_event} directly within the Axum handlers,
+bypassing the client batch path and therefore unaffected by client connectivity
+or manipulation.
+
+\begin{table}[h]
+  \caption{Telemetry event categories and types recorded by \Weld.}
+  \label{tab:events}
+  \small
+  \begin{tabular}{lp{8.5cm}}
+    \toprule
+    Category & Event types \\
+    \midrule
+    Session \& phase
+      & \texttt{session\_start}, \texttt{session\_end},
+        \texttt{session\_abandoned}, \texttt{session\_resumed},
+        \texttt{phase\_started}, \texttt{phase\_ended},
+        \texttt{consent\_given} \\
+    Survey
+      & \texttt{survey\_started}, \texttt{survey\_completed} \\
+    Task lifecycle
+      & \texttt{task\_shown}, \texttt{task\_completed}, \texttt{task\_skipped},
+        \texttt{task\_final\_state}, \texttt{task\_rating},
+        \texttt{instruction\_reopened} \\
+    Board
+      & \texttt{card\_created}, \texttt{card\_opened}, \texttt{card\_edited},
+        \texttt{card\_moved}, \texttt{card\_assigned}, \texttt{card\_labeled},
+        \texttt{card\_priority\_set}, \texttt{card\_deleted},
+        \texttt{card\_searched}, \texttt{board\_filtered} \\
+    Chat
+      & \texttt{message\_sent}, \texttt{message\_edited},
+        \texttt{message\_deleted}, \texttt{channel\_switched},
+        \texttt{thread\_opened}, \texttt{mention\_clicked},
+        \texttt{link\_clicked} \\
+    Cross-surface
+      & \texttt{card\_referenced\_from\_chat},
+        \texttt{chat\_referenced\_from\_card},
+        \texttt{pr\_referenced\_from\_card},
+        \texttt{card\_referenced\_from\_pr},
+        \texttt{issue\_referenced\_from\_card} \\
+    GitHub
+      & \texttt{github\_view\_opened}, \texttt{pr\_opened},
+        \texttt{issue\_opened}, \texttt{pr\_linked\_to\_card},
+        \texttt{issue\_linked\_to\_card} \\
+    Navigation
+      & \texttt{view\_changed}, \texttt{search\_used} \\
+    Agent
+      & \texttt{agent\_invoked}, \texttt{agent\_context\_sent},
+        \texttt{agent\_response}, \texttt{agent\_tool\_call},
+        \texttt{agent\_tool\_rejected}, \texttt{agent\_suggestion\_accepted},
+        \texttt{agent\_suggestion\_rejected}, \texttt{agent\_action\_undone},
+        \texttt{agent\_output\_edited}, \texttt{agent\_error},
+        \texttt{agent\_panel\_opened}, \texttt{agent\_panel\_collapsed} \\
+    \bottomrule
+  \end{tabular}
+\end{table}

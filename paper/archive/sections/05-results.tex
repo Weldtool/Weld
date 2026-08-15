@@ -1,0 +1,130 @@
+\section{Results}
+\label{sec:results}
+
+% ── PLACEHOLDER ─────────────────────────────────────────────────────────────
+% Complete once data collection is finished. Section order mirrors the RQs:
+%   manipulation check (scoping) reported FIRST, then RQ1 → RQ2 → RQ3.
+
+\subsection{Manipulation Check: Context Scoping Held}
+\label{sec:results:scoping}
+
+% Reported before any inferential result. From agent_context_sent snapshots:
+% verify 100% of C1 turns contained no board/GitHub context and 100% of C2
+% turns contained no GitHub context. This converts the IV from assumption to
+% evidence.
+
+\begin{table}[h]
+  \caption{Scoping manipulation check: share of agent turns whose
+    \texttt{agent\_context\_sent} snapshot contained each source, by condition.
+    Cells outside the condition's allowlist must be 0\%. [PLACEHOLDER]}
+  \label{tab:scoping}
+  \begin{tabular}{lccc}
+    \toprule
+    Source in snapshot & \CI & \CII & \CIII \\
+    \midrule
+    Chat   & --- & --- & --- \\
+    Board  & 0\% (expected) & --- & --- \\
+    GitHub & 0\% (expected) & 0\% (expected) & --- \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Participant Demographics and Data Quality}
+\label{sec:results:participants}
+
+% TODO: N per condition, attrition, task completion rates, data exclusions
+%   (was_interrupted tasks, cross-device resumes), CONSORT-style flow.
+
+\subsection{RQ1: Context Breadth and Effectiveness}
+\label{sec:results:rq1}
+
+% TODO: Primary linear mixed model on log baseline-normalized time
+%   (condition * task_type). Lead with effect sizes + 95% CIs. The
+%   condition × task-type interaction (H2) is the headline.
+%   Correctness reported beside time (ordinal CLMM). Cognitive-load delta (H3).
+
+\begin{figure}[h]
+  \centering
+  % TODO: Replace with actual figure — the H2 interaction plot.
+  \fbox{\rule{0pt}{4cm}\rule{0.8\linewidth}{0pt}}
+  \caption{Baseline-normalized task time by condition (\CI/\CII/\CIII) and task
+    type (comprehension / single-surface / cross-surface). Error bars show
+    95\% CI. The predicted condition~$\times$~task-type interaction
+    concentrates on cross-surface tasks. [PLACEHOLDER]}
+  \label{fig:time_by_condition}
+\end{figure}
+
+\begin{table}[h]
+  \caption{Per-task correctness (0--3 rubric) by condition and task type, and
+    within-person \NASATLX\ delta (agent~$-$~baseline) by condition. [PLACEHOLDER]}
+  \label{tab:correctness_load}
+  \begin{tabular}{lccc}
+    \toprule
+    Measure                       & \CI & \CII & \CIII \\
+    \midrule
+    Correctness, cross-surface (mean) & --- & --- & --- \\
+    Correctness, single-surface (mean)& --- & --- & --- \\
+    Correctness, comprehension (mean) & --- & --- & --- \\
+    \midrule
+    $\Delta$\NASATLX\ (agent $-$ baseline) & --- & --- & --- \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{RQ2: Reliance and Division of Labor}
+\label{sec:results:rq2}
+
+% TODO: Delegation ratio by condition; the agent funnel
+%   (invoked → tool attempted → executed → accepted/edited/undone);
+%   verification/override rates; whether reliance is calibrated to where the
+%   agent is actually wrong (cross with correctness). Thematic analysis of
+%   open-ended items (two coders, report κ).
+
+\begin{table}[h]
+  \caption{Reliance measures by condition: delegation ratio and the
+    accept/edit/override breakdown of agent suggestions. [PLACEHOLDER]}
+  \label{tab:reliance}
+  \begin{tabular}{lccc}
+    \toprule
+    Measure                          & \CI & \CII & \CIII \\
+    \midrule
+    Delegation ratio (median)        & n/a & --- & --- \\
+    Suggestions accepted (\%)        & --- & --- & --- \\
+    Output edited before use (\%)    & --- & --- & --- \\
+    Action undone / overridden (\%)  & --- & --- & --- \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{RQ3: Trust versus Reality}
+\label{sec:results:rq3}
+
+% TODO: Spearman correlations of trust composite and trust_speed_perceived
+%   against measured normalized time and correctness. Characterize divergence
+%   (H5): are agents that *do more* trusted even when no faster / occasionally
+%   wrong? Pair int_switch_perceived with behavioral view-switch rate.
+
+\begin{figure}[h]
+  \centering
+  \fbox{\rule{0pt}{4cm}\rule{0.8\linewidth}{0pt}}
+  \caption{Perception--behavior gap: perceived speedup / AI-trust score (y) vs.\
+    measured baseline-normalized time (x), per participant, colored by
+    condition. Divergence from the diagonal is the H5 finding. [PLACEHOLDER]}
+  \label{fig:perception_behavior}
+\end{figure}
+
+\begin{table}[h]
+  \caption{AI-trust and integration-perception scale means (SD) by condition,
+    with cross-surface telemetry counts for triangulation. [PLACEHOLDER]}
+  \label{tab:trust}
+  \begin{tabular}{lccc}
+    \toprule
+    Measure                          & \CI & \CII & \CIII \\
+    \midrule
+    AI trust scale (mean)            & --- & --- & --- \\
+    \texttt{trust\_speed\_perceived} & --- & --- & --- \\
+    Integration perception (mean)    & --- & --- & --- \\
+    Cross-surface events (median)    & --- & --- & --- \\
+    \bottomrule
+  \end{tabular}
+\end{table}

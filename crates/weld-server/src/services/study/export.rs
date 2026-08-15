@@ -1,10 +1,14 @@
 //! CSV export and JSON summary of the research dataset.
 //!
-//! Three CSV datasets, each flat with `participant_code` + `agent_condition`
+//! CSV datasets, each flat with `participant_code` + `agent_condition`
 //! denormalized so a sheet stands alone:
 //!   - `participants` — one row per participant (roster + lifecycle).
 //!   - `events`       — one row per behavioral telemetry event (the bulk).
 //!   - `survey`       — long format, one row per (participant, item).
+//!   - `agent_turns`  — the agent conversation, one row per turn. The analysis
+//!     plan names it as a source for correctness coding and the paper's H4
+//!     calibration test needs it to code agent-error type; without it the
+//!     transcripts stay in the database and neither analysis can be run.
 //!
 //! The follow-up contact table is deliberately NOT exportable here: it is
 //! access-restricted PII and excluded from the analysis dataset by design
@@ -22,6 +26,7 @@ pub enum Dataset {
     Participants,
     Events,
     Survey,
+    AgentTurns,
     AccessCodes,
 }
 
@@ -31,9 +36,11 @@ impl Dataset {
             "participants" => Ok(Self::Participants),
             "events" => Ok(Self::Events),
             "survey" => Ok(Self::Survey),
+            "agent_turns" => Ok(Self::AgentTurns),
             "access_codes" => Ok(Self::AccessCodes),
             other => Err(ApiError::Validation(format!(
-                "unknown dataset '{other}' (expected participants|events|survey|access_codes)"
+                "unknown dataset '{other}' \
+                 (expected participants|events|survey|agent_turns|access_codes)"
             ))),
         }
     }
@@ -44,6 +51,7 @@ impl Dataset {
             Self::Participants => "study_participants.csv",
             Self::Events => "study_events.csv",
             Self::Survey => "study_survey.csv",
+            Self::AgentTurns => "study_agent_turns.csv",
             Self::AccessCodes => "study_access_codes.csv",
         }
     }
@@ -55,8 +63,61 @@ pub async fn export_csv(pool: &PgPool, dataset: Dataset) -> Result<String, ApiEr
         Dataset::Participants => participants_csv(pool).await,
         Dataset::Events => events_csv(pool).await,
         Dataset::Survey => survey_csv(pool).await,
+        Dataset::AgentTurns => agent_turns_csv(pool).await,
         Dataset::AccessCodes => access_codes_csv(pool).await,
     }
+}
+
+/// The agent conversation, one row per turn, ordered so a task reads in sequence.
+///
+/// `turn_index` is the position within (participant, task) so a coder can follow
+/// the exchange without re-deriving order from timestamps. Content is the stored
+/// text verbatim — this is the only dataset carrying free text the agent
+/// produced, and the H4 calibration test is a judgement about that text.
+async fn agent_turns_csv(pool: &PgPool) -> Result<String, ApiError> {
+    let rows = sqlx::query!(
+        r#"SELECT p.participant_code, p.agent_condition,
+                  t.task_id, t.role, t.content, t.created_at,
+                  ROW_NUMBER() OVER (
+                      PARTITION BY t.participant_id, t.task_id
+                      ORDER BY t.created_at, t.id
+                  ) AS "turn_index!"
+           FROM study_agent_turns t
+           JOIN study_participants p ON p.id = t.participant_id
+           ORDER BY p.participant_code, t.task_id, t.created_at, t.id"#
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| ApiError::Internal(format!("export query failed: {e}")))?;
+
+    let mut out = String::new();
+    write_row(
+        &mut out,
+        &[
+            "participant_code",
+            "agent_condition",
+            "task_id",
+            "turn_index",
+            "role",
+            "content",
+            "created_at",
+        ],
+    );
+    for r in rows {
+        write_row(
+            &mut out,
+            &[
+                &r.participant_code,
+                &r.agent_condition,
+                &r.task_id,
+                &r.turn_index.to_string(),
+                &r.role,
+                &r.content,
+                &r.created_at.to_rfc3339(),
+            ],
+        );
+    }
+    Ok(out)
 }
 
 /// Access-code roster: which codes exist, whether spent, and by whom. Lets the

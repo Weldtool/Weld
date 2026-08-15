@@ -1,0 +1,113 @@
+\section{Related Work}
+\label{sec:related}
+
+\subsection{Fragmentation and Context-Switching in Software Development}
+\label{sec:related:fragmentation}
+
+The cognitive cost of task interruption and tool-switching in knowledge work has
+been well-documented. Mark et al.~\cite{mark2008cost} showed through in-situ
+observation that interrupted workers worked faster to compensate but reported
+higher stress and effort. Czerwinski et al.~\cite{czerwinski2004diary} found
+through diary studies that workers switched tasks on average every three
+minutes, with complex task resumption taking substantially longer than simple
+ones. In software engineering specifically, Ko et al.~\cite{ko2007information}
+identified information fragmentation across tools as a primary bottleneck for
+collocated teams: developers spent significant time locating and reconciling
+information scattered across email, wikis, issue trackers, and chat. LaToza
+et al.~\cite{latoza2006maintaining} found that maintaining accurate mental
+models across multiple tools was a persistent challenge, with developers
+frequently reverting to conversations to reconstruct shared state. Together,
+these findings motivate the core premise of integrated developer workspaces:
+that reducing inter-tool navigation distance reduces cognitive load and
+improves task throughput.
+
+Commercial responses---Linear (boards + notifications), Notion (docs +
+tasks), GitHub Projects (issues + boards), Slack with app integrations---have
+proliferated. Whether such consolidation outperforms separate tools is a
+question this study does \emph{not} attempt to answer: it has no
+fragmented-tooling arm. Instead, the integrated workspace is our apparatus, and
+the no-agent baseline phase serves as a per-person speed and workload anchor for
+the agent-context manipulation that follows---not as a controlled
+integration-versus-fragmentation comparison.
+
+\subsection{AI Agents for Developer Productivity}
+\label{sec:related:agents}
+
+The introduction of large language model (LLM) assistants into developer
+workflows has produced a growing body of empirical evidence. Chen et
+al.~\cite{chen2021codex} demonstrated that LLMs could generate functionally
+correct code for a substantial fraction of benchmark problems, and GitHub
+Copilot~\cite{copilot2022} subsequently reported that developers accepted a
+significant fraction of AI-generated suggestions in production use. Noy and
+Zhang~\cite{noy2023} showed in a randomized controlled trial that access to an
+LLM writing assistant improved task completion time and output quality for
+college-educated workers. These studies focus on single-surface, largely
+\emph{generative} tasks---writing code, text, or structured content.
+
+The evaluation of AI agents in \emph{coordination} tasks---where the agent must
+synthesize information across surfaces and take multi-step actions---is less
+developed. Work on agentic LLM frameworks such as ReAct~\cite{yao2023react} and
+Reflexion~\cite{shinn2023reflexion} demonstrates strong performance on synthetic
+benchmark tasks (web navigation, knowledge-base QA, code execution), but these
+benchmarks do not capture the human-in-the-loop, multi-surface collaboration
+dynamics present in real developer work. Studies of LLM agents in CSCW
+contexts---where an agent participates in a team workflow rather than assisting a
+single user on a single surface---are largely absent from the literature.
+
+\Weld's embedded agent operates in this understudied space: it can read the
+team's chat history, inspect and modify the Kanban board, and link cards to
+GitHub artifacts---all within a single turn. Crucially, the agent's actions are
+not auto-applied; board mutations and drafted chat messages are surfaced to the
+participant for review, keeping the human in the loop for consequential actions.
+This design reflects recent findings~\cite{noy2023} that humans are effective
+editors of AI-generated outputs even when they cannot independently generate
+them.
+
+\subsection{Context Management in LLM-Based Systems}
+\label{sec:related:context}
+
+A central design challenge for LLM-powered tools is \emph{context management}:
+deciding what information to include in the model's context window and at what
+granularity. In retrieval-augmented generation (RAG) systems~\cite{lewis2020rag},
+this is handled by a retrieval step that selects relevant passages from a corpus.
+In multi-agent systems, each agent typically receives a curated subset of shared
+state. The trade-off between context richness and noise (or cost, in
+token-priced systems) has been analysed from an accuracy standpoint but rarely
+from the perspective of user trust, cognitive load, or task-type interaction.
+
+Prior deployed systems typically gate context in one of two ways. The first
+approach is \emph{prompt-level} gating: the system prompt instructs the model
+to ignore or not request certain information sources. This is easy to implement
+but is neither verifiable nor robust---the model may still reference disallowed
+information if it was included upstream, and there is no audit trail proving
+that a given agent turn operated within intended bounds. The second approach is
+\emph{integration-level} gating: only the API calls corresponding to allowed
+sources are made before the model is invoked. This is the approach taken by
+\Weld's \ContextGate.
+
+The auditability of context decisions is closely related to the broader theme
+of transparency in AI systems. Dey's foundational framework~\cite{dey2001context}
+defines context as ``any information that can be used to characterise the
+situation of an entity,'' and argues that context-aware systems must make their
+information selection criteria explicit to maintain user trust. Cavoukian's
+privacy-by-design principles~\cite{cavoukian2009privacybydesign} extend this to
+governance: systems should embed privacy and data minimisation into their
+architecture, not bolt it on. The \ContextGate is an instance of this principle
+applied to agent information access: what the agent cannot see by construction,
+it cannot leak, misuse, or be manipulated into retrieving.
+
+\subsection{User Studies of AI-Augmented Tools}
+\label{sec:related:userstudies}
+
+Studies of AI-augmented developer tools have primarily measured productivity via
+proxy (task completion rate, time, code quality). Fewer studies employ validated
+psychometric instruments alongside behavioral measures. Our study combines
+NASA-TLX~\cite{hart1988tlx}---a widely used multidimensional workload
+scale---with the System Usability Scale~\cite{brooke1996sus} and a trust
+scale adapted from Madsen and Gregor~\cite{madsen2000measuring}, enabling
+comparison with prior HCI work on tool usability and AI trust. The pairing of
+subjective self-report scales with objective behavioral telemetry (time-on-task,
+cross-surface event counts) allows triangulation that neither source alone
+affords: participants may report low workload on tasks where telemetry shows
+long completion times, or vice versa, and this discrepancy is itself
+informative.
