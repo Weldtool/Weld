@@ -552,18 +552,38 @@ by contrast deliberately explicit about the route --- they are a per-person
 normaliser, equally explicit for every condition, and their purpose is a stable
 anchor rather than a test of navigation.
 
-\subsection{Participants and procedure}
+\subsection{Participants and procedure}\label{sec:participants}
 
 \skel{Fill the realised numbers from \code{study\_participants} plus the
 demographics block; keep the planned targets as stated in the archived analysis
 plan and report deviations honestly.}
 
-We target 20--30 participants (roughly 7--10 per condition), each contributing
-six baseline and six agent observations. Eligibility: adults 18 or over, at
+We target \emph{at least} 20--30 participants (roughly 7--10 per condition), each
+contributing six baseline and six agent observations, and we do not cap
+recruitment above that. Eligibility: adults 18 or over, at
 least one year of programming experience, and basic familiarity with issue
 trackers, team chat, and GitHub. Recruitment is by self-serve link through
 course lists, departmental channels, and developer communities; recruitment is
 student-focused but not student-limited.
+
+\paragraph{Uncapped recruitment, capped coding.} Sessions are self-serve and
+unproctored, so an additional participant costs the investigators nothing and
+improves every instrumented measure --- the primary outcome among them. The
+three human codings (correctness, agent error, themes) are linear in $N$ and
+constitute essentially the whole investigator cost of the study. We therefore
+cap the \emph{coded} sample rather than the collected one: the first ten
+participants per condition in enrolment order enter the human-coded set, by a
+rule fixed before recruitment opened and applied within condition, so it is
+neither steerable by anything that happens in a session nor capable of loading
+one arm. Everyone else contributes to every instrumented analysis. Because
+enrolment order is stamped at provisioning, and because condition is assigned by
+minimisation and is thus uncorrelated with it, the coded set is a balanced
+subsample rather than a selected one --- and we test that claim rather than
+assert it, comparing coded against uncoded participants on baseline time,
+baseline effort, agent-task time, and agent invocation rate. Section
+\ref{sec:results} reports both sample sizes with the participant flow, and the
+sensitivity panel refits the confirmatory contrast on the coded subset so that
+the timing and correctness results can be read on a common set of people.
 
 Sessions are unproctored and self-serve. The flow is: consent and eligibility
 screening $\rightarrow$ a brief orientation to the workspace $\rightarrow$ six
@@ -616,7 +636,8 @@ Away time, interruptions & \code{wall\_ms}, \code{away\_ms},
   \code{pause\_count}, \code{was\_interrupted} & Audit and exclusion flags. \\
 Time to first action & first surface event after \code{task\_shown} & Derived. \\
 Correctness (0--3) & manual coding of final state, agent transcript, DB &
-  Two coders, blind to condition. \\
+  Two coders, blind to condition. Agent-phase tasks, coded set only
+  (\S\ref{sec:participants}). \\
 PR review behaviour & \code{pr\_review\_opened}, \code{pr\_review\_submitted}
   (verdict and comment), \code{pr\_merged} & B4/T6 only. Review comments are
   never written to GitHub, so this event is their only record and the rubric
@@ -697,15 +718,30 @@ build used in the run --- it is a consequence of a UI decision, not a study
 setting, so a later interface change silently changes the measure.}
 
 \paragraph{Correctness.} Speed without correctness is not effectiveness, so
-correctness is scored for every task on a 0--3 rubric and always reported beside
+correctness is scored on a 0--3 rubric and always reported beside
 time. Scoring procedure is fixed in advance because it is the one primary
-measure produced by judgement rather than instrumentation: two coders score all
-tasks from a final-state export with condition, agent transcript, and timing
+measure produced by judgement rather than instrumentation: two coders score the
+tasks in scope from a final-state export with condition, agent transcript, and timing
 stripped --- blinding is mandatory, since knowing a participant was in C3 while
 judging their output is a direct route to confirming H1. We report
 quadratic-weighted Cohen's $\kappa$ \emph{before} adjudication, then resolve
 disagreements to consensus, still blind. The rubric is piloted and frozen before
 any real session is scored.
+
+Two scoping decisions are pre-registered with it, and both are decisions about
+the \emph{unit set} rather than sampling shortcuts within it --- whichever units
+are coded are coded in full by both coders, and $\kappa$ spans the whole coded
+set. First, only the six agent-phase tasks are scored. Every correctness model
+fits on agent tasks alone; the baseline scores would serve only the balance
+check, which still runs on baseline time and baseline effort --- both
+instrumented for every participant, and time is the anchor the primary model
+actually carries as a covariate. Second, scoring covers the coded set defined
+above rather than every participant recruited. Together these hold the largest of
+the three codings to $6\times30$ items instead of $12\times N$, which is what
+makes two coders and an independent adjudicator a realistic instrument rather
+than an aspiration. The final-state export is retained for all twelve tasks and
+every participant, so either decision can be reversed later without re-running
+anything.
 
 \paragraph{Trust, and what we mean by it.} We adopt Lee and See's definition:
 trust is \emph{the attitude that an agent will help achieve an individual's
@@ -778,6 +814,15 @@ the omnibus interaction reported as supporting evidence and everything else
 flagged exploratory. We lead with effect sizes and 95\% confidence intervals
 rather than $p$-values throughout.
 
+The confirmatory contrast is taken from the fitted model rather than from a test
+on baseline-divided ratios. Having declined to pre-divide by the anchor because
+that treats it as measured without error, we do not then reintroduce the ratio
+for the one test the paper leads with; the per-participant ratio contrast is
+reported beside it as the descriptive companion, since it is the quantity
+Figure~2 plots. The C2-versus-C3 contrast differences two
+coefficients, and its standard error comes from the model's covariance matrix, so
+the interval on the rung that isolates GitHub scope is not needlessly widened.
+
 Correctness is modelled in parallel with an ordinal cumulative-link mixed model,
 \code{correctness \textasciitilde{} condition * task\_type + (1 | participant)},
 and reported beside every timing result.
@@ -844,6 +889,61 @@ cross-reference traversal counts. H4's calibration claim is tested by crossing
 override behaviour against coded agent-error type --- do users override where the
 agent is actually wrong?
 
+That coding is a separate instrument from correctness and is worth
+distinguishing. Correctness scores the state the participant finished on; a task
+can end fully correct \emph{because} the participant caught and fixed a wrong
+suggestion, which is precisely H4's case and precisely what an outcome measure
+cannot see. So the agent's own turns are exported and coded, and the override
+rate is compared between tasks where the agent was right and tasks where it was
+wrong, restricted to tasks the agent was actually invoked on.
+
+Because every participant works in a clone of one fixed seed --- twelve cards,
+eighteen messages, three issues, three pull requests --- most claims the agent
+makes have a lookup answer rather than requiring a judgement. Coders therefore
+assign two independent binaries against a supplied answer key: \emph{factual
+error}, where the workspace contradicts what the agent said, and \emph{judgement
+error}, where the claim is accurate but the move is wrong for the task. Factual
+error is the pre-specified stratifier, being both the closer reading of ``where
+the agent is actually correct'' and the half two coders can agree on;
+agreement is reported separately for each, since pooling them would hide that one
+is a lookup and the other an opinion.
+
+What must be blinded here is not the condition but the \emph{outcome}. Condition
+is not the contrast in this test --- the comparison is between strata of agent
+correctness --- so a coder who infers the condition from the transcript has no
+route to move the result, and inferring it is unavoidable anyway since the
+transcript is the evidence. But a coder who reads a participant writing ``no,
+that's the wrong PR, undo it'' has inferred the stratifying variable from the
+behaviour the hypothesis predicts, which would let H4 confirm itself. Each
+exchange is therefore truncated after the agent's final turn. Correctness is
+coded first and separately, in its own blinded packet, so the load-bearing
+measure is never contaminated by this one.
+
+H4's calibration clause predicts \emph{imperfect} calibration --- a small gap ---
+and a hypothesis satisfied by a null is exactly the shape that invites an
+underpowered interval to be read as confirmation. We fix the reading in advance:
+the gap is reported as a difference in proportions with its confidence interval,
+and an interval spanning both zero and a substantial gap is reported as
+uninformative about H4 rather than as support for it.
+
+The four open-ended items are coded against a codebook built from
+an initial open reading and then frozen, one primary theme per response so that
+Cohen's $\kappa$ is well defined, unweighted because themes are nominal, and
+reported pre-adjudication as with correctness. This is the one coding that is not
+fully double-coded: one coder codes every response and a second independently
+codes a stratified 25\,\% reliability sample drawn across all four items, with
+$\kappa$ computed on that overlap alone and reported beside the corpus size so it
+cannot be read as agreement over the whole set. That follows from the status
+these findings already carry --- they are reported as illustrative rather than
+confirmatory, and a double-coded reliability sample is the standard instrument
+for that status, where full double-coding is the standard for a measure carrying
+a hypothesis. Correctness and agent error are fully double-coded with no sampling
+shortcut, for exactly that reason. Across all three codings,
+disagreements are resolved by an independent third coder who sees the disputed
+items and neither coder's choice, rather than by discussion to consensus:
+discussion lets the more confident or more senior coder prevail, which
+reintroduces at adjudication the bias blinding was meant to exclude.
+
 RQ3 correlates the three-item trust composite (\S\ref{sec:measures}) and
 \code{trust\_speed\_perceived} (Spearman) against measured normalised time and
 correctness, and characterises any divergence. Each participant contributes one point --- their exit-survey trust
@@ -852,8 +952,17 @@ conditions for the headline correlation, and repeated within each condition as a
 secondary that is immune to the seeing-versus-doing confound but thinly powered
 (\S\ref{sec:threats}). \code{trust\_rely} crossed with \code{trust\_verify} gives reliance
 calibration; perceived context-switching is paired with the behavioural
-view-switch rate. Four open-ended items are thematically coded by two coders with
-$\kappa$ reported on a shared subset.
+view-switch rate.
+
+Crossing five perception measures with four performance summaries, pooled and
+within each condition, is roughly a hundred correlations, of which five would
+clear $p < .05$ with no effect present at all. One correlation is therefore fixed
+in advance as primary --- perceived speedup against measured normalised time on
+the cross-surface agent tasks, pooled --- and reported unadjusted; every other
+cell is exploratory, carries a Benjamini--Hochberg adjusted $p$ over that family,
+and the number of tests is reported with the table. If Cronbach's $\alpha$ for the
+trust composite falls below the pre-committed $0.70$, composite rows are demoted
+to descriptive and the three items reported individually.
 
 \subsection{Timing validity}\label{sec:timing}
 
@@ -862,7 +971,17 @@ is visible, pauses on background or close, resumes on return, and persists acros
 reloads, so away-time is excluded by construction rather than after the fact.
 Each task additionally logs away time, pause count, and an interruption flag. We
 analyse active time as primary, run a sensitivity analysis excluding interrupted
-tasks, and report the interruption rate.
+tasks, and report the interruption rate per condition --- a correction that lands
+unevenly across arms is a confound rather than a cleanup.
+
+Four fits are produced on every run and reported side by side: primary
+(intention-to-treat on active time), idle-adjusted, interrupted tasks excluded,
+and as-used. The first is of record, fixed in advance; the others exist so that a
+headline which moves across them is reported as moving rather than resolved in
+the direction we prefer. Because task wording offers the assistant and never
+instructs its use (\S\ref{sec:design}), some agent-phase tasks are completed with
+no agent use at all; agent uptake is reported per condition so a reader can see
+how much the intention-to-treat estimate is diluted.
 
 Because the clock catches stepping away from the tab but not stepping away from a
 tab left in front, one further rule was pre-specified: within a task, 180 seconds
@@ -887,10 +1006,34 @@ RQ3. Every subsection is currently a placeholder naming the exact table or
 figure it will contain. Report the realised sample and any deviation from
 \S\ref{sec:analysis} at the top.}
 
+\subsection{Sample and participant flow}
+
+\NUM{CONSORT-style table: provisioned, consented, completed, abandoned, tasks
+skipped, and analysed, per condition
+(\code{tables/participant\_flow.csv}).}
+\NUM{Coding coverage: collected vs.\ hand-coded participants per condition, and
+the share of agent-phase items scored (\code{tables/coding\_coverage.csv}).}
+\NUM{Coded vs.\ uncoded participants on the instrumented measures --- baseline
+time, baseline effort, agent-task time, agent invocation rate
+(\code{tables/coded\_set\_comparison.csv}). Expect no differences.}
+\todo{Both sample sizes go here, before any result computed on either. State the
+cap as the pre-registered rule it is (first ten per condition in enrolment
+order), and state which correctness rounds were coded --- agent-phase only, as
+planned, or all twelve --- with $\kappa$ over the coded set. If coded and uncoded
+participants differ on any instrumented measure, say so here and carry it as a
+bound on how far the correctness result generalises; it does not touch the
+between-condition contrasts, because the cap is applied within condition.}
+\NUM{Baseline balance across arms --- time and effort on the six manual tasks
+before the agent existed, plus correctness if the baseline round was coded
+(\code{tables/baseline\_balance.csv}).}
+\todo{If the arms differ at baseline, report it here, not in Limitations: it is
+a caveat on every contrast that follows.}
+
 \subsection{Manipulation check}
 
 \NUM{Table: per-condition counts of agent invocations and the proportion of
-context snapshots containing board / GitHub content. Expect 0\% off-scope.}
+context snapshots containing board / GitHub content. Expect 0\% off-scope
+(\code{tables/manipulation\_check.csv}).}
 \todo{If any snapshot leaked off-scope context, report it here and state how the
 affected observations were handled --- do not quietly drop them.}
 
@@ -899,32 +1042,69 @@ affected observations were handled --- do not quietly drop them.}
 \NUM{Figure 2: normalised time by condition $\times$ task type --- the H2
 interaction plot.}
 \NUM{Figure 3: correctness on the same axes.}
-\NUM{Table: model coefficients with 95\% CIs, plus cell-level Cohen's $d$.}
-\NUM{The confirmatory focused contrast, C3 vs.\ C1 on cross-surface tasks.}
+\NUM{Table: model coefficients with 95\% CIs
+(\code{tables/primary\_time\_model.csv}).}
+\NUM{The confirmatory contrast, C3 vs.\ C1 on cross-surface tasks, taken from the
+model (\code{tables/model\_contrasts.csv}), with the descriptive ratio contrast
+alongside (\code{tables/focused\_contrast.csv}).}
 \NUM{T6 specifically: C3 vs.\ C2, the cleanest top-of-ladder test.}
+\NUM{Timing validity: idle-rule trigger count, interruption rate, and agent
+uptake per condition (\code{tables/timing\_validity.csv},
+\code{tables/agent\_uptake.csv}); the confirmatory contrast under all five
+pre-specified variants (\code{tables/sensitivity\_panel.csv}), the last of which
+refits it on the correctness-coded participants alone.}
+\todo{If the headline moves across the sensitivity panel, say so here and give
+the range --- do not report only the primary row.}
+\todo{Correctness is estimated on the coded subset and time on the full sample.
+Report the correctness result beside the coded-subset row of the sensitivity
+panel, not beside the primary row, so the two rest on the same people. If the
+two timing estimates diverge materially, that is the finding to report, not the
+one to reconcile.}
 
 \subsection{RQ2 --- Reliance and the division of labour}
 
 \NUM{Figure 4: delegation ratio by condition.}
 \NUM{Table: the agent funnel --- invoked, tool attempted, executed, accepted,
-edited, undone --- by condition.}
-\NUM{Calibration: override rate crossed with coded agent-error type.}
+edited, undone --- by condition (\code{tables/agent\_funnel.csv}), with rates and
+cross-reference traversals (\code{tables/reliance\_detail.csv}).}
+\NUM{Calibration: override rate crossed with coded agent-error type, on invoked
+tasks, with the pooled gap, its interval and its exact test
+(\code{tables/calibration.csv}); coder agreement for each error code
+(\code{tables/agent\_error\_agreement.csv}).}
+\todo{State whether the agent-error coding was available. If the analysis fell
+back to outcome correctness, say so and label it the weaker measure.}
+\todo{If the gap's interval spans both zero and a substantial difference, report
+it as uninformative about H4 --- not as support for imperfect calibration.}
 
 \subsection{RQ3 --- Trust versus measured effectiveness}
 
 \NUM{Figure 5: perception--behaviour scatter, trust composite against measured
 normalised time, points coloured by condition.}
-\NUM{Correlations with CIs; trust\_rely $\times$ trust\_verify cross-tab.}
+\NUM{The pre-specified primary correlation, unadjusted; then the exploratory
+family with FDR-adjusted $p$ and the count of tests
+(\code{tables/perception\_correlations.csv}).}
+\NUM{trust\_rely $\times$ trust\_verify cross-tab; perceived switching against the
+behavioural view-switch rate (\code{tables/switching\_perception.csv}).}
+\todo{Report Cronbach's $\alpha$ for the trust composite. Below 0.70, demote every
+composite result to descriptive and report the three items individually.}
 
 \subsection{Cognitive load and usability}
 
-\NUM{$\Delta$TLX composite and subscales by condition; SUS score against
-published norms.}
+\NUM{$\Delta$TLX composite and subscales by condition; the per-task effort ANCOVA
+(\code{tables/effort\_model.csv}); SUS score against published norms.}
+\NUM{Integration-perception items by condition
+(\code{tables/integration\_perception.csv}).}
 
 \subsection{Qualitative findings}
 
-\NUM{Themes from the four open-ended items with $\kappa$; two or three
+\NUM{Themes from the four open-ended items with $\kappa$
+(\code{tables/themes.csv}, \code{tables/theme\_agreement.csv}); two or three
 representative quotes per theme, screened for identifying content.}
+\todo{Report $\kappa$ with both counts --- the double-coded reliability sample
+and the full corpus (\code{n\_items} and \code{n\_coded}) --- so it is not read
+as agreement over every response. Repeat here that these findings are
+illustrative rather than confirmatory; that is what licenses the reliability
+sample in the first place.}
 
 % =====================================================================
 \section{Discussion}
@@ -984,6 +1164,22 @@ indicative rather than conclusive.
 \paragraph{No fragmented-tools arm.} The study cannot speak to whether an
 integrated workspace beats separate tools. Integration motivates the apparatus;
 it is not a claim we test.
+
+\paragraph{Two sample sizes.} Instrumented measures --- including the primary
+outcome and its confirmatory contrast --- rest on the full collected sample;
+the hand-coded measures rest on the capped coded subset
+(\S\ref{sec:participants}). What this costs is precision on the judged measures,
+not validity: the cap is a rule fixed before recruitment opened, keyed to
+enrolment order (stamped at provisioning, so nothing about a session can move
+anyone across it) and applied within condition (so no arm is loaded with early or
+late enrollees). The residual risk is that early and late enrollees differ in
+kind; we test it directly against the instrumented measures, which exist for
+uncoded participants precisely because the cap removes hand coding and not
+telemetry, and report the result with the participant flow. The alternative ---
+capping recruitment to fit the coding budget --- would have traded precision on
+the outcome the study is least able to estimate for coverage of the one it can
+always rebuild, since the raw exports are retained for every participant and
+further coding needs no new sessions.
 
 \paragraph{A partial view of GitHub.} Weld re-presents the parts of GitHub the
 task set needs --- issues, pull requests, diffs, review verdicts and comments,
