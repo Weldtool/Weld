@@ -21,6 +21,20 @@
 	const githubConnected = $derived(page.url.searchParams.get('github_connected') === 'true');
 	const githubLinked = $derived(page.url.searchParams.get('github_linked') === 'true');
 
+	// Reasons the server sends the browser back here without connecting.
+	const GITHUB_ERRORS: Record<string, string> = {
+		link_required:
+			'Link your GitHub account below first, then install the GitHub App. Weld uses your account to confirm the installation is yours.',
+		installation_not_authorized:
+			"Your GitHub account doesn't have access to that installation, so it wasn't connected.",
+		unsupported_action: "That GitHub setup action isn't supported."
+	};
+	const githubError = $derived.by(() => {
+		const code = page.url.searchParams.get('github_error');
+		if (!code) return null;
+		return GITHUB_ERRORS[code] ?? 'GitHub could not be connected. Please try again.';
+	});
+
 	async function loadConnection() {
 		if (!teamId) return;
 		connectionLoading = true;
@@ -63,8 +77,9 @@
 		try {
 			const { url } = await githubApi.getOAuthUrl();
 			window.location.href = url;
-		} catch {
+		} catch (e) {
 			linkingGitHub = false;
+			connectionError = e instanceof Error ? e.message : 'Failed to start GitHub linking';
 		}
 	}
 
@@ -153,6 +168,14 @@
 		class="mb-6 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-600 dark:text-emerald-400"
 	>
 		GitHub account linked successfully.
+	</div>
+{/if}
+{#if githubError}
+	<div
+		role="alert"
+		class="mb-6 rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-400"
+	>
+		{githubError}
 	</div>
 {/if}
 
@@ -316,7 +339,8 @@
 		</div>
 		<p class="text-sm text-[var(--muted-foreground)]">
 			Connect a GitHub App installation to your workspace to receive webhook events and sync issues
-			and pull requests.
+			and pull requests. Link your GitHub account below first — it's how Weld confirms the
+			installation belongs to you.
 		</p>
 
 		{#if connectionError}

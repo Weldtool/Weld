@@ -1,5 +1,5 @@
 use crate::errors::ApiError;
-use crate::services::team::helpers::require_team_role;
+use crate::services::team::helpers::{require_team_role, role_level};
 use serde::Serialize;
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -18,14 +18,19 @@ pub struct TaskRef {
     pub github_pr_id: Option<i64>,
 }
 
-/// List referenceable tasks across a team's active projects. Caller must be a
-/// member of the team (Viewer+).
+/// List referenceable tasks across the team's active projects that the caller
+/// can see. Caller must be a member of the team (Viewer+).
+///
+/// Follows the same rule as the project list: Owners/Admins see every project,
+/// Members/Viewers only the ones they have been added to. Without the filter
+/// this endpoint handed out the titles of every task in the team.
 pub async fn list_team_task_refs(
     pool: &PgPool,
     team_id: Uuid,
     caller_id: Uuid,
 ) -> Result<Vec<TaskRef>, ApiError> {
-    require_team_role(pool, team_id, caller_id, TeamRole::Viewer).await?;
+    let role = require_team_role(pool, team_id, caller_id, TeamRole::Viewer).await?;
+    let sees_all_projects = role_level(&role) >= role_level(&TeamRole::Admin);
 
     let refs = sqlx::query_as!(
         TaskRef,
@@ -36,9 +41,15 @@ pub async fn list_team_task_refs(
         WHERE p.team_id = $1
           AND p.deleted_at IS NULL
           AND t.deleted_at IS NULL
+          AND ($2 OR EXISTS (
+                SELECT 1 FROM project_memberships pm
+                WHERE pm.project_id = p.id AND pm.user_id = $3
+          ))
         ORDER BY t.short_id DESC
         "#,
         team_id,
+        sees_all_projects,
+        caller_id,
     )
     .fetch_all(pool)
     .await?;

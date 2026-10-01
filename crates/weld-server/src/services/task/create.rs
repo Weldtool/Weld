@@ -1,4 +1,4 @@
-use super::helpers::TaskWithLabels;
+use super::helpers::{TaskWithLabels, validate_assignee, validate_labels};
 use crate::errors::ApiError;
 use crate::services::column::helpers::fetch_column;
 use crate::services::project::helpers::{fetch_active_project, require_project_team_role};
@@ -38,6 +38,13 @@ pub async fn create_task(
         return Err(ApiError::Validation(
             "Column does not belong to this project".into(),
         ));
+    }
+
+    if let Some(assignee_id) = input.assignee_id {
+        validate_assignee(pool, project.team_id, assignee_id).await?;
+    }
+    if let Some(labels) = &input.labels {
+        validate_labels(pool, project_id, labels).await?;
     }
 
     let next_position: Option<f64> = sqlx::query_scalar!(

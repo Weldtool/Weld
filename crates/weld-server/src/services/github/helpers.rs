@@ -232,34 +232,130 @@ struct ReposResponse {
     pub repositories: Vec<RepoItem>,
 }
 
+/// GitHub's largest page size, and the most pages we will walk for one listing.
+/// 10 × 100 covers any realistic installation while bounding a runaway loop.
+const PAGE_SIZE: usize = 100;
+const MAX_PAGES: usize = 10;
+
 /// Lists all repositories accessible to the installation.
+///
+/// Paginated: a single page silently truncated the picker at 100 repositories.
 #[instrument(skip(installation_token))]
 pub async fn list_installation_repos(installation_token: &str) -> Result<Vec<String>, ApiError> {
-    let resp = gh_client()
-        .get("https://api.github.com/installation/repositories?per_page=100")
-        .bearer_auth(installation_token)
-        .header("Accept", "application/vnd.github.v3+json")
-        .send()
-        .await?;
+    let mut repos = Vec::new();
 
-    if !resp.status().is_success() {
-        let status = resp.status();
-        let body = resp.text().await.unwrap_or_default();
-        return Err(ApiError::Internal(format!(
-            "GitHub list-repos request failed ({status}): {body}"
-        )));
+    for page in 1..=MAX_PAGES {
+        let resp = gh_client()
+            .get(format!(
+                "https://api.github.com/installation/repositories?per_page={PAGE_SIZE}&page={page}"
+            ))
+            .bearer_auth(installation_token)
+            .header("Accept", "application/vnd.github.v3+json")
+            .send()
+            .await?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            return Err(ApiError::Internal(format!(
+                "GitHub list-repos request failed ({status}): {body}"
+            )));
+        }
+
+        let repos_resp: ReposResponse = resp
+            .json()
+            .await
+            .map_err(|e| ApiError::Internal(format!("Failed to parse repos response: {e}")))?;
+
+        let fetched = repos_resp.repositories.len();
+        repos.extend(repos_resp.repositories.into_iter().map(|r| r.full_name));
+        if fetched < PAGE_SIZE {
+            break;
+        }
     }
 
-    let repos_resp: ReposResponse = resp
-        .json()
-        .await
-        .map_err(|e| ApiError::Internal(format!("Failed to parse repos response: {e}")))?;
+    Ok(repos)
+}
 
-    Ok(repos_resp
-        .repositories
-        .into_iter()
-        .map(|r| r.full_name)
-        .collect())
+// ── Installation ownership ─────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+struct UserInstallation {
+    pub id: i64,
+}
+
+#[derive(Deserialize)]
+struct UserInstallationsResponse {
+    pub installations: Vec<UserInstallation>,
+}
+
+/// Whether the GitHub user behind `user_token` can reach `installation_id`.
+///
+/// The `installation_id` GitHub appends to the setup redirect is just a query
+/// parameter — anyone can type a different one. Installation ids are sequential,
+/// so trusting it would let a team attach itself to a stranger's installation
+/// and read their repositories. GitHub's own guidance is to confirm the id
+/// against the installations the *user* can access, which is what this does.
+#[instrument(skip(user_token))]
+pub async fn user_can_access_installation(
+    user_token: &str,
+    installation_id: i64,
+) -> Result<bool, ApiError> {
+    for page in 1..=MAX_PAGES {
+        let resp = gh_client()
+            .get(format!(
+                "https://api.github.com/user/installations?per_page={PAGE_SIZE}&page={page}"
+            ))
+            .bearer_auth(user_token)
+            .header("Accept", "application/vnd.github.v3+json")
+            .send()
+            .await?;
+
+        if !resp.status().is_success() {
+            return Err(github_error("list user installations", resp).await);
+        }
+
+        let body: UserInstallationsResponse = resp
+            .json()
+            .await
+            .map_err(|e| ApiError::Internal(format!("Failed to parse installations: {e}")))?;
+
+        if body.installations.iter().any(|i| i.id == installation_id) {
+            return Ok(true);
+        }
+        if body.installations.len() < PAGE_SIZE {
+            break;
+        }
+    }
+
+    Ok(false)
+}
+
+// ── Repository slugs ───────────────────────────────────────────────────────
+
+/// Validates an `owner/name` repository slug.
+///
+/// Repo slugs are interpolated into GitHub API paths. Left unchecked, a value
+/// like `../../user` or `a/b?x=` would redirect the request to a different
+/// endpoint while still carrying the team's installation token.
+pub fn validate_repo_slug(repo: &str) -> Result<(), ApiError> {
+    let invalid = || ApiError::Validation("Repository must be in the form owner/name".to_string());
+
+    let (owner, name) = repo.split_once('/').ok_or_else(invalid)?;
+    let segment_ok = |s: &str| {
+        !s.is_empty()
+            && s.len() <= 100
+            && s != "."
+            && s != ".."
+            && s.chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
+    };
+
+    if segment_ok(owner) && segment_ok(name) {
+        Ok(())
+    } else {
+        Err(invalid())
+    }
 }
 
 // ── OAuth token exchange ───────────────────────────────────────────────────
@@ -445,31 +541,31 @@ pub struct GithubStateToken {
     pub sub: String,  // UUID as string (team_id or user_id depending on kind)
     pub kind: String, // "install" or "oauth"
     exp: i64,
+    /// The Weld user who started the flow. Lets the callback re-check their
+    /// permissions and act as them, rather than trusting whoever arrives.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    actor: Option<String>,
+    /// SHA-256 of the nonce held in the initiating browser's cookie.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    nonce_hash: Option<String>,
 }
 
 const STATE_TOKEN_TTL_SECS: i64 = 900; // 15 minutes
 
-/// Signs a short-lived state token used for CSRF protection in GitHub callbacks.
-pub fn sign_state_token(jwt_secret: &str, id: Uuid, kind: &str) -> Result<String, ApiError> {
-    let claims = GithubStateToken {
-        sub: id.to_string(),
-        kind: kind.to_string(),
-        exp: Utc::now().timestamp() + STATE_TOKEN_TTL_SECS,
-    };
+fn encode_state(jwt_secret: &str, claims: &GithubStateToken) -> Result<String, ApiError> {
     encode(
         &Header::default(),
-        &claims,
+        claims,
         &jsonwebtoken::EncodingKey::from_secret(jwt_secret.as_ref()),
     )
     .map_err(|e| ApiError::Internal(format!("Failed to sign state token: {e}")))
 }
 
-/// Verifies and decodes a state token. Checks expiry and `kind`.
-pub fn verify_state_token(
+fn decode_state(
     jwt_secret: &str,
     token: &str,
     expected_kind: &str,
-) -> Result<Uuid, ApiError> {
+) -> Result<GithubStateToken, ApiError> {
     let mut validation = jsonwebtoken::Validation::default();
     validation.validate_exp = false; // we check exp manually below
     validation.required_spec_claims.clear();
@@ -489,8 +585,150 @@ pub fn verify_state_token(
         return Err(ApiError::Validation("State token kind mismatch".into()));
     }
 
-    Uuid::parse_str(&data.claims.sub)
+    Ok(data.claims)
+}
+
+/// Signs a short-lived state token used for CSRF protection in GitHub callbacks.
+pub fn sign_state_token(jwt_secret: &str, id: Uuid, kind: &str) -> Result<String, ApiError> {
+    encode_state(
+        jwt_secret,
+        &GithubStateToken {
+            sub: id.to_string(),
+            kind: kind.to_string(),
+            exp: Utc::now().timestamp() + STATE_TOKEN_TTL_SECS,
+            actor: None,
+            nonce_hash: None,
+        },
+    )
+}
+
+/// Verifies and decodes a state token. Checks expiry and `kind`.
+pub fn verify_state_token(
+    jwt_secret: &str,
+    token: &str,
+    expected_kind: &str,
+) -> Result<Uuid, ApiError> {
+    let claims = decode_state(jwt_secret, token, expected_kind)?;
+    Uuid::parse_str(&claims.sub)
         .map_err(|_| ApiError::Validation("State token contains invalid UUID".into()))
+}
+
+// ── Browser-bound state ────────────────────────────────────────────────────
+//
+// A signed state token alone only proves *we* issued it — not that the browser
+// arriving at the callback is the one that asked for it. Without that binding an
+// attacker can hand a victim their own state: the victim authorises on GitHub
+// and the result (the victim's token, or the victim's installation) lands on
+// the attacker's Weld account. So each flow also drops a random nonce in an
+// HttpOnly cookie and commits to its hash inside the token; the callback
+// requires both to line up.
+
+/// A state token plus the `Set-Cookie` value that binds it to this browser.
+pub struct BoundState {
+    pub token: String,
+    pub cookie: String,
+}
+
+/// What a verified, browser-bound state token vouches for.
+pub struct VerifiedState {
+    /// The team (install) or user (oauth) the flow is for.
+    pub subject: Uuid,
+    /// The Weld user who started the flow.
+    pub actor: Uuid,
+}
+
+fn state_cookie_name(kind: &str) -> String {
+    format!("gh_state_{kind}")
+}
+
+fn hash_nonce(nonce: &str) -> String {
+    hex::encode(sha2::Sha256::digest(nonce.as_bytes()))
+}
+
+/// Issues a state token for `kind`, bound to the calling browser via a cookie.
+///
+/// Mirrors the refresh cookie's SameSite handling: with HTTPS the frontend and
+/// API sit on different sites, so the cookie must be `SameSite=None; Secure` to
+/// be stored from the API call at all; over plain HTTP in dev, `Lax` is enough
+/// and is still sent on GitHub's top-level redirect back to us.
+pub fn issue_bound_state(
+    jwt_secret: &str,
+    kind: &str,
+    subject: Uuid,
+    actor: Uuid,
+    secure: bool,
+) -> Result<BoundState, ApiError> {
+    let nonce = hex::encode(rand::random::<[u8; 32]>());
+
+    let token = encode_state(
+        jwt_secret,
+        &GithubStateToken {
+            sub: subject.to_string(),
+            kind: kind.to_string(),
+            exp: Utc::now().timestamp() + STATE_TOKEN_TTL_SECS,
+            actor: Some(actor.to_string()),
+            nonce_hash: Some(hash_nonce(&nonce)),
+        },
+    )?;
+
+    let (same_site, secure_flag) = if secure {
+        ("None", "; Secure")
+    } else {
+        ("Lax", "")
+    };
+    let cookie = format!(
+        "{}={nonce}; HttpOnly; SameSite={same_site}; Path=/api/v1/github; Max-Age={STATE_TOKEN_TTL_SECS}{secure_flag}",
+        state_cookie_name(kind),
+    );
+
+    Ok(BoundState { token, cookie })
+}
+
+/// Verifies a browser-bound state token against the request's cookies.
+///
+/// The token is checked first, so a malformed or expired one is reported as
+/// such; only a well-formed token then has to match the browser's nonce.
+pub fn verify_bound_state(
+    jwt_secret: &str,
+    token: &str,
+    expected_kind: &str,
+    headers: &axum::http::HeaderMap,
+) -> Result<VerifiedState, ApiError> {
+    let claims = decode_state(jwt_secret, token, expected_kind)?;
+    let mismatch = || {
+        ApiError::Validation(
+            "This GitHub request was not started from this browser. Start again from Settings."
+                .into(),
+        )
+    };
+
+    let expected_hash = claims.nonce_hash.as_deref().ok_or_else(mismatch)?;
+    let nonce = cookie_value(headers, &state_cookie_name(expected_kind)).ok_or_else(mismatch)?;
+    if hash_nonce(&nonce) != expected_hash {
+        return Err(mismatch());
+    }
+
+    let parse = |s: &str| {
+        Uuid::parse_str(s)
+            .map_err(|_| ApiError::Validation("State token contains invalid UUID".into()))
+    };
+    Ok(VerifiedState {
+        subject: parse(&claims.sub)?,
+        actor: parse(claims.actor.as_deref().ok_or_else(mismatch)?)?,
+    })
+}
+
+/// Reads a single cookie's value from the request headers.
+fn cookie_value(headers: &axum::http::HeaderMap, name: &str) -> Option<String> {
+    headers
+        .get_all(axum::http::header::COOKIE)
+        .iter()
+        .filter_map(|v| v.to_str().ok())
+        .flat_map(|cookies| cookies.split(';'))
+        .find_map(|cookie| {
+            let (key, value) = cookie.trim().split_once('=')?;
+            (key == name).then(|| value.to_string())
+        })
 }
 
 // ── Config guard ───────────────────────────────────────────────────────────
@@ -529,4 +767,90 @@ pub fn build_install_url(github: &GithubConfig, state_token: &str) -> String {
         "https://github.com/apps/{}/installations/new?state={state_token}",
         github.app_slug
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::HeaderMap;
+
+    #[test]
+    fn repo_slug_accepts_real_repositories() {
+        for repo in ["acme/api", "my-org/my.repo_name", "A1/b-2"] {
+            assert!(validate_repo_slug(repo).is_ok(), "{repo}");
+        }
+    }
+
+    #[test]
+    fn repo_slug_rejects_anything_that_could_reshape_the_url() {
+        for repo in [
+            "",
+            "noslash",
+            "/name",
+            "owner/",
+            "a/b/c",
+            "../../user",
+            "owner/..",
+            "./name",
+            "owner/na me",
+            "owner/name?x=1",
+            "owner/name#frag",
+            "owner/na%2Fme",
+        ] {
+            assert!(validate_repo_slug(repo).is_err(), "{repo:?}");
+        }
+    }
+
+    fn headers_with_cookie(cookie: &str) -> HeaderMap {
+        let mut headers = HeaderMap::new();
+        headers.insert(axum::http::header::COOKIE, cookie.parse().unwrap());
+        headers
+    }
+
+    /// The `name=value` pair out of a Set-Cookie string.
+    fn pair(set_cookie: &str) -> &str {
+        set_cookie.split(';').next().unwrap()
+    }
+
+    #[test]
+    fn bound_state_round_trips_in_the_issuing_browser() {
+        let (team, user) = (Uuid::new_v4(), Uuid::new_v4());
+        let bound = issue_bound_state("secret", "install", team, user, false).unwrap();
+        let headers = headers_with_cookie(&format!("other=1; {}", pair(&bound.cookie)));
+
+        let verified = verify_bound_state("secret", &bound.token, "install", &headers).unwrap();
+        assert_eq!(verified.subject, team);
+        assert_eq!(verified.actor, user);
+    }
+
+    #[test]
+    fn bound_state_fails_without_or_with_another_browsers_cookie() {
+        let (team, user) = (Uuid::new_v4(), Uuid::new_v4());
+        let bound = issue_bound_state("secret", "install", team, user, false).unwrap();
+        let other = issue_bound_state("secret", "install", team, user, false).unwrap();
+
+        assert!(verify_bound_state("secret", &bound.token, "install", &HeaderMap::new()).is_err());
+        let wrong = headers_with_cookie(pair(&other.cookie));
+        assert!(verify_bound_state("secret", &bound.token, "install", &wrong).is_err());
+    }
+
+    #[test]
+    fn unbound_state_token_is_not_accepted_as_bound() {
+        let token = sign_state_token("secret", Uuid::new_v4(), "oauth").unwrap();
+        let headers = headers_with_cookie("gh_state_oauth=anything");
+        assert!(verify_bound_state("secret", &token, "oauth", &headers).is_err());
+    }
+
+    #[test]
+    fn state_cookie_is_cross_site_capable_only_over_https() {
+        let (a, b) = (Uuid::new_v4(), Uuid::new_v4());
+        let secure = issue_bound_state("secret", "oauth", a, b, true).unwrap();
+        assert!(secure.cookie.contains("SameSite=None"));
+        assert!(secure.cookie.contains("Secure"));
+        assert!(secure.cookie.contains("HttpOnly"));
+
+        let dev = issue_bound_state("secret", "oauth", a, b, false).unwrap();
+        assert!(dev.cookie.contains("SameSite=Lax"));
+        assert!(!dev.cookie.contains("Secure"));
+    }
 }

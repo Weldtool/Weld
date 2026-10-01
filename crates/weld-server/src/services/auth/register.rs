@@ -21,6 +21,20 @@ pub async fn register_user(
     password: &str,
     display_name: &str,
 ) -> Result<RegisteredUser, ApiError> {
+    // Emails are compared case-insensitively everywhere, so store one canonical
+    // form and refuse a second account that differs only by case.
+    let email = email.trim().to_lowercase();
+    let taken = sqlx::query_scalar!(
+        "SELECT EXISTS(SELECT 1 FROM users WHERE LOWER(email) = $1)",
+        email
+    )
+    .fetch_one(pool)
+    .await?
+    .unwrap_or(false);
+    if taken {
+        return Err(ApiError::Conflict("Email is already registered".into()));
+    }
+
     // hash password with Argon2id
     let salt =
         argon2::password_hash::SaltString::generate(&mut argon2::password_hash::rand_core::OsRng);

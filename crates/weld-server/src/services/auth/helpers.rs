@@ -69,13 +69,23 @@ pub fn extract_refresh_token(headers: &HeaderMap) -> Result<String, ApiError> {
 /// SameSite=None requires Secure, so browsers reject it otherwise — in dev
 /// (HTTP, secure=false) we fall back to Lax which works for same-origin.
 pub fn build_refresh_token_cookie(token: &str, secure: bool) -> String {
+    refresh_token_cookie(token, 604_800, secure)
+}
+
+/// Build the Set-Cookie string that removes the refresh token (logout). The
+/// attributes must match the ones it was set with or the browser keeps it.
+pub fn build_cleared_refresh_token_cookie(secure: bool) -> String {
+    refresh_token_cookie("", 0, secure)
+}
+
+fn refresh_token_cookie(token: &str, max_age_secs: u32, secure: bool) -> String {
     let (same_site, secure_flag) = if secure {
         ("None", "; Secure")
     } else {
         ("Lax", "")
     };
     format!(
-        "refresh_token={}; HttpOnly; SameSite={}; Path=/api/v1/auth; Max-Age=604800{}",
-        token, same_site, secure_flag
+        "refresh_token={}; HttpOnly; SameSite={}; Path=/api/v1/auth; Max-Age={}{}",
+        token, same_site, max_age_secs, secure_flag
     )
 }

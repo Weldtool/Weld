@@ -16,8 +16,7 @@ use weld_core::models::enums::TeamRole;
 use super::seed::SEED_JSON;
 use crate::errors::ApiError;
 use crate::services::github::sync::{IssueTemplate, RepoBranches};
-use crate::services::project::helpers::fetch_active_project;
-use crate::services::team::helpers::require_team_role;
+use crate::services::project::helpers::{fetch_active_project, require_project_team_role};
 
 #[derive(Debug, Deserialize)]
 struct SeedRoot {
@@ -83,7 +82,7 @@ fn fixtures() -> Result<GithubFixtures, ApiError> {
 /// access control. The fixture content itself is identical for all participants.
 async fn check_access(pool: &PgPool, project_id: Uuid, caller_id: Uuid) -> Result<(), ApiError> {
     let project = fetch_active_project(pool, project_id).await?;
-    require_team_role(pool, project.team_id, caller_id, TeamRole::Viewer).await?;
+    require_project_team_role(pool, &project, caller_id, TeamRole::Viewer).await?;
     Ok(())
 }
 

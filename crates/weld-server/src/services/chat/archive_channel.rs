@@ -1,9 +1,7 @@
-use super::helpers::fetch_active_channel;
+use super::helpers::{fetch_active_channel, require_channel_admin};
 use crate::errors::ApiError;
-use crate::services::team::helpers::require_team_role;
 use sqlx::PgPool;
 use uuid::Uuid;
-use weld_core::models::enums::TeamRole;
 
 pub async fn archive_channel(
     pool: &PgPool,
@@ -11,7 +9,7 @@ pub async fn archive_channel(
     caller_id: Uuid,
 ) -> Result<(), ApiError> {
     let channel = fetch_active_channel(pool, channel_id).await?;
-    require_team_role(pool, channel.team_id, caller_id, TeamRole::Admin).await?;
+    require_channel_admin(pool, &channel, caller_id).await?;
 
     sqlx::query!(
         "UPDATE channels SET deleted_at = NOW(), updated_at = NOW()

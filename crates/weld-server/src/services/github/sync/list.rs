@@ -4,8 +4,7 @@ use uuid::Uuid;
 use crate::errors::ApiError;
 use crate::services::github::helpers::{create_installation_token, gh_client, github_error};
 use crate::services::github::user_token::{ActingToken, acting_token_for_team};
-use crate::services::project::helpers::fetch_active_project;
-use crate::services::team::helpers::require_team_role;
+use crate::services::project::helpers::{fetch_active_project, require_project_team_role};
 use crate::state::GithubConfig;
 use weld_core::models::enums::TeamRole;
 
@@ -97,7 +96,9 @@ pub(crate) async fn resolve_repo_and_token(
     role: TeamRole,
 ) -> Result<(String, String), ApiError> {
     let project = fetch_active_project(pool, project_id).await?;
-    require_team_role(pool, project.team_id, caller_id, role).await?;
+    // Project-level access, not just team membership: Members and Viewers only
+    // reach the GitHub data of projects they have been added to.
+    require_project_team_role(pool, &project, caller_id, role).await?;
 
     let repo = project.github_repo.ok_or_else(|| {
         ApiError::Validation("Project has no GitHub repository configured".into())
@@ -129,7 +130,9 @@ pub(crate) async fn resolve_repo_and_acting_token(
     role: TeamRole,
 ) -> Result<(String, ActingToken), ApiError> {
     let project = fetch_active_project(pool, project_id).await?;
-    require_team_role(pool, project.team_id, caller_id, role).await?;
+    // Project-level access, not just team membership: Members and Viewers only
+    // reach the GitHub data of projects they have been added to.
+    require_project_team_role(pool, &project, caller_id, role).await?;
 
     let repo = project.github_repo.ok_or_else(|| {
         ApiError::Validation("Project has no GitHub repository configured".into())

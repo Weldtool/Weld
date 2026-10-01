@@ -28,6 +28,59 @@ pub async fn fetch_active_task(pool: &PgPool, task_id: Uuid) -> Result<Task, Api
     .ok_or_else(|| ApiError::NotFound("Task not found".into()))
 }
 
+/// Rejects label ids that don't belong to `project_id`.
+///
+/// `task_labels` only has a foreign key to `labels`, so without this a task
+/// could carry a label from another project — or another team entirely.
+pub async fn validate_labels(
+    pool: &PgPool,
+    project_id: Uuid,
+    label_ids: &[Uuid],
+) -> Result<(), ApiError> {
+    if label_ids.is_empty() {
+        return Ok(());
+    }
+    let unique: std::collections::HashSet<&Uuid> = label_ids.iter().collect();
+    let found = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) as "count!" FROM labels WHERE project_id = $1 AND id = ANY($2)"#,
+        project_id,
+        label_ids,
+    )
+    .fetch_one(pool)
+    .await?;
+
+    if found as usize != unique.len() {
+        return Err(ApiError::Validation(
+            "One or more labels do not belong to this project".into(),
+        ));
+    }
+    Ok(())
+}
+
+/// Rejects an assignee who isn't on the project's team.
+pub async fn validate_assignee(
+    pool: &PgPool,
+    team_id: Uuid,
+    assignee_id: Uuid,
+) -> Result<(), ApiError> {
+    let on_team = sqlx::query_scalar!(
+        "SELECT EXISTS(SELECT 1 FROM team_memberships
+                        WHERE team_id = $1 AND user_id = $2)",
+        team_id,
+        assignee_id
+    )
+    .fetch_one(pool)
+    .await?
+    .unwrap_or(false);
+
+    if !on_team {
+        return Err(ApiError::Validation(
+            "Assignee must be a member of the team".into(),
+        ));
+    }
+    Ok(())
+}
+
 pub async fn fetch_task_label_ids(pool: &PgPool, task_id: Uuid) -> Result<Vec<Uuid>, ApiError> {
     let rows = sqlx::query_scalar!(
         "SELECT label_id FROM task_labels WHERE task_id = $1",

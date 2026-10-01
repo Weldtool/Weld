@@ -1,4 +1,4 @@
-use super::helpers::{TaskWithLabels, fetch_active_task};
+use super::helpers::{TaskWithLabels, fetch_active_task, validate_assignee, validate_labels};
 use crate::errors::ApiError;
 use crate::services::project::helpers::{fetch_active_project, require_project_team_role};
 use chrono::{DateTime, Utc};
@@ -32,6 +32,13 @@ pub async fn update_task(
         && t.trim().is_empty()
     {
         return Err(ApiError::Validation("Task title cannot be empty".into()));
+    }
+
+    if let Some(Some(assignee_id)) = input.assignee_id {
+        validate_assignee(pool, project.team_id, assignee_id).await?;
+    }
+    if let Some(labels) = &input.labels {
+        validate_labels(pool, task.project_id, labels).await?;
     }
 
     let new_title = input

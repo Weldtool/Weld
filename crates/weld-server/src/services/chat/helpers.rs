@@ -96,6 +96,28 @@ pub async fn require_channel_post_access(
     Ok(role)
 }
 
+/// Verify the user may administer this channel: Admin+ on the team and, for
+/// private channels and DMs, also a member of the channel.
+///
+/// Team Admins run the workspace, but a private conversation they were never
+/// part of is not theirs to rename, archive or moderate — the same rule the
+/// roster endpoints already apply.
+pub async fn require_channel_admin(
+    pool: &PgPool,
+    channel: &Channel,
+    user_id: Uuid,
+) -> Result<(), ApiError> {
+    require_team_role(pool, channel.team_id, user_id, TeamRole::Admin).await?;
+
+    if (channel.is_private || channel.is_direct)
+        && !is_channel_member(pool, channel.id, user_id).await?
+    {
+        return Err(ApiError::Forbidden("Not a member of this channel".into()));
+    }
+
+    Ok(())
+}
+
 #[derive(Debug, Clone)]
 pub struct LastMessage {
     pub channel_id: Uuid,

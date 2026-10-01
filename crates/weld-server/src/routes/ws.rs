@@ -5,6 +5,7 @@ use crate::realtime::events::{ClientMessage, Envelope, RoomKey, ServerAck};
 use crate::realtime::hub::{ClientHandle, ConnId};
 use crate::routes::chat::MessageResponse;
 use crate::services::chat::helpers::{fetch_active_channel, require_channel_access};
+use crate::services::project::helpers::{fetch_active_project, require_project_team_role};
 use crate::services::team::helpers::require_team_role;
 use crate::state::AppState;
 use axum::extract::ws::{CloseFrame, Message, WebSocket, WebSocketUpgrade};
@@ -318,17 +319,20 @@ async fn resolve_and_authorize(
     user_id: Uuid,
 ) -> Result<RoomKey, String> {
     let key = RoomKey::from_str(room).map_err(|e| e.to_string())?;
+    authorize_room(pool, key, user_id).await
+}
+
+/// Checks that `user_id` may currently listen to `key`.
+async fn authorize_room(pool: &PgPool, key: RoomKey, user_id: Uuid) -> Result<RoomKey, String> {
     match key {
         RoomKey::Project(project_id) => {
-            let team_id: Option<Uuid> = sqlx::query_scalar!(
-                "SELECT team_id FROM projects WHERE id = $1 AND deleted_at IS NULL",
-                project_id
-            )
-            .fetch_optional(pool)
-            .await
-            .map_err(|e| format!("db error: {e}"))?;
-            let team_id = team_id.ok_or_else(|| "project not found".to_string())?;
-            require_team_role(pool, team_id, user_id, TeamRole::Viewer)
+            let project = fetch_active_project(pool, project_id)
+                .await
+                .map_err(|_| "project not found".to_string())?;
+            // Project-level access: being on the team is not enough for
+            // Members/Viewers, so a board they can't open over REST must not
+            // stream to them over the socket either.
+            require_project_team_role(pool, &project, user_id, TeamRole::Viewer)
                 .await
                 .map_err(|_| "forbidden".to_string())?;
             Ok(key)
@@ -347,6 +351,20 @@ async fn resolve_and_authorize(
                 .await
                 .map_err(|_| "forbidden".to_string())?;
             Ok(key)
+        }
+    }
+}
+
+/// Drops any of `user_id`'s live subscriptions they are no longer entitled to.
+///
+/// Authorisation is otherwise only checked when a room is joined, so someone
+/// removed from a private channel, a project or a whole team would keep
+/// receiving its events until they happened to reconnect. Call this after any
+/// change that can take access away.
+pub async fn revalidate_user_rooms(state: &AppState, user_id: Uuid) {
+    for room in state.hub.rooms_for_user(user_id) {
+        if authorize_room(&state.db, room, user_id).await.is_err() {
+            state.hub.unsubscribe_user(user_id, room);
         }
     }
 }

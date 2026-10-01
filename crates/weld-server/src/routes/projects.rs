@@ -222,5 +222,7 @@ pub async fn remove_member(
     Path((id, user_id)): Path<(Uuid, Uuid)>,
 ) -> Result<StatusCode, ApiError> {
     project::remove_project_member(&state.db, id, auth.user_id, user_id).await?;
+    // Stop streaming the project's board to any socket they still have open.
+    super::ws::revalidate_user_rooms(&state, user_id).await;
     Ok(StatusCode::NO_CONTENT)
 }

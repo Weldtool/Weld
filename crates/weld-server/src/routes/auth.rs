@@ -1,4 +1,5 @@
 use crate::errors::ApiError;
+use crate::rate_limit;
 use crate::services::auth;
 use crate::state::AppState;
 use axum::Json;
@@ -44,8 +45,11 @@ pub struct LoginResponse {
 
 pub async fn register(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(input): Json<RegisterRequest>,
 ) -> Result<(StatusCode, Json<RegisterResponse>), ApiError> {
+    rate_limit::check_ip(&rate_limit::REGISTER_BY_IP, &headers)?;
+
     input
         .validate()
         .map_err(|e| ApiError::Validation(e.to_string()))?;
@@ -75,10 +79,31 @@ pub async fn register(
 
 pub async fn login(
     State(state): State<AppState>,
+    request_headers: HeaderMap,
     Json(input): Json<LoginRequest>,
 ) -> Result<(StatusCode, HeaderMap, Json<LoginResponse>), ApiError> {
+    rate_limit::check_ip(&rate_limit::LOGIN_BY_IP, &request_headers)?;
+
+    // Failed attempts are counted per account, so guessing one password from
+    // many addresses is still capped.
+    let account = input.email.trim().to_lowercase();
+    if rate_limit::LOGIN_FAILURES_BY_EMAIL.is_limited(&account) {
+        return Err(rate_limit::too_many());
+    }
+
     let result =
-        auth::login_user(&state.db, &input.email, &input.password, &state.jwt_secret).await?;
+        match auth::login_user(&state.db, &input.email, &input.password, &state.jwt_secret).await {
+            Ok(result) => {
+                rate_limit::LOGIN_FAILURES_BY_EMAIL.reset(&account);
+                result
+            }
+            Err(err) => {
+                if matches!(err, ApiError::Unauthorized(_)) {
+                    rate_limit::LOGIN_FAILURES_BY_EMAIL.record(&account);
+                }
+                return Err(err);
+            }
+        };
 
     let mut headers = HeaderMap::new();
     let cookie =
@@ -103,10 +128,20 @@ pub async fn login(
 pub async fn logout(
     State(state): State<AppState>,
     headers: HeaderMap,
-) -> Result<StatusCode, ApiError> {
+) -> Result<(StatusCode, HeaderMap), ApiError> {
     let refresh_token = auth::helpers::extract_refresh_token(&headers)?;
     auth::logout(&state.db, &refresh_token).await?;
-    Ok(StatusCode::OK)
+
+    // Expire the cookie too; otherwise the browser keeps presenting a token
+    // that no longer exists on every later refresh attempt.
+    let mut response_headers = HeaderMap::new();
+    response_headers.insert(
+        SET_COOKIE,
+        auth::helpers::build_cleared_refresh_token_cookie(state.secure_cookies)
+            .parse()
+            .map_err(|_| ApiError::Internal("Failed to set cookie header".into()))?,
+    );
+    Ok((StatusCode::OK, response_headers))
 }
 
 pub async fn refresh_token(

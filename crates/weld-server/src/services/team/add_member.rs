@@ -26,8 +26,29 @@ pub async fn add_team_member(
 ) -> Result<TeamMember, ApiError> {
     require_team_role(pool, team_id, caller_id, TeamRole::Admin).await?;
 
+    let team = sqlx::query!(
+        "SELECT is_personal FROM teams WHERE id = $1 AND deleted_at IS NULL",
+        team_id
+    )
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| ApiError::NotFound("Team not found".into()))?;
+
+    // A personal workspace is private to its owner by definition.
+    if team.is_personal {
+        return Err(ApiError::Validation(
+            "Cannot add members to a personal workspace".into(),
+        ));
+    }
+
     let role_str = match role {
-        TeamRole::Owner => "owner",
+        // A team has exactly one Owner (`teams.owner_id`). Letting an Admin mint
+        // another would hand out the one role that can delete the team.
+        TeamRole::Owner => {
+            return Err(ApiError::Validation(
+                "Members cannot be added as Owner".into(),
+            ));
+        }
         TeamRole::Admin => "admin",
         TeamRole::Member => "member",
         TeamRole::Viewer => "viewer",

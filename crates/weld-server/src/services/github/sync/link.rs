@@ -4,6 +4,7 @@ use weld_core::models::enums::Priority;
 use weld_core::models::task::Task;
 
 use crate::errors::ApiError;
+use crate::services::github::helpers::validate_repo_slug;
 use crate::services::project::helpers::{fetch_active_project, require_project_team_role};
 use crate::services::task::helpers::{TaskWithLabels, fetch_active_task, fetch_task_label_ids};
 
@@ -16,6 +17,13 @@ pub async fn link_task(
     issue_number: Option<i64>,
     pr_number: Option<i64>,
 ) -> Result<TaskWithLabels, ApiError> {
+    validate_repo_slug(repo)?;
+    if issue_number.is_some_and(|n| n <= 0) || pr_number.is_some_and(|n| n <= 0) {
+        return Err(ApiError::Validation(
+            "Issue and pull request numbers must be positive".into(),
+        ));
+    }
+
     let task = fetch_active_task(pool, task_id).await?;
     let project = fetch_active_project(pool, task.project_id).await?;
     require_project_team_role(
