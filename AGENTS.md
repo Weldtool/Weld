@@ -18,15 +18,23 @@ weld/
 │   │       └── models/           # Domain models (user, task, message, project, secret, timeentry, github, enums)
 │   ├── weld-server/              # Axum 0.8 backend
 │   │   ├── migrations/           # sqlx SQL migrations
+│   │   ├── tests/                # Integration tests, one file per area
 │   │   └── src/
 │   │       ├── main.rs           # Entry point — tokio, tracing, PgPool, TcpListener
-│   │       ├── config.rs         # Config::from_env() — HOST, PORT, DATABASE_URL
-│   │       ├── state.rs          # AppState (holds PgPool)
-│   │       └── routes/mod.rs     # Route definitions (currently: GET /health)
+│   │       ├── config.rs         # Config::from_env() — all env vars
+│   │       ├── state.rs          # AppState (PgPool, realtime Hub, GitHub/agent config)
+│   │       ├── errors.rs         # ApiError → HTTP status; Internal detail is logged, never returned
+│   │       ├── rate_limit.rs     # In-process limiter for the unauthenticated endpoints
+│   │       ├── middleware/       # AuthUser extractor (JWT bearer)
+│   │       ├── realtime/         # WebSocket hub: rooms, events, broadcast
+│   │       ├── routes/           # HTTP handlers; mod.rs holds the route table
+│   │       └── services/         # Business logic per area: auth, team, project, board,
+│   │                             #   column, label, task, chat, github, study
 │   ├── weld-uniffi/              # UniFFI bindings for mobile (planned)
 │   └── weld-tui/                 # Terminal UI with Ratatui (planned)
+├── .sqlx/                        # Committed sqlx offline query cache (`cargo sqlx prepare --workspace`)
 ├── apps/
-│   ├── web/                      # SvelteKit + Tailwind + shadcn-svelte (planned)
+│   ├── web/                      # SvelteKit + Tailwind + shadcn-svelte
 │   ├── desktop/                  # Tauri v2 (planned)
 │   ├── android/                  # Kotlin Compose (planned)
 │   └── ios/                      # SwiftUI (planned)
@@ -54,7 +62,9 @@ weld/
 - No `.unwrap()` in library code — use `?` or `.expect("reason")`
 - `#[instrument]` from `tracing` on all async service methods
 - `cargo clippy -- -W clippy::all` and `cargo fmt` before commits
-- Integration tests for all API endpoints using `sqlx::test`
+- Integration tests for all API endpoints (`crates/weld-server/tests/`, run against the `DATABASE_URL` database)
+- Changing or adding a `sqlx::query!` means regenerating `.sqlx/` with `cargo sqlx prepare --workspace`
+- Access checks: use `require_project_team_role` for anything scoped to a project (team membership alone does not grant project access to Members/Viewers), and `require_channel_access` / `require_channel_admin` for channels
 
 ### TypeScript / Svelte
 - Strict TypeScript — no `any` types
@@ -73,16 +83,19 @@ weld/
 
 ## Current State
 
-**Phase 1 (Foundation) is in progress.** What exists today:
-- Cargo workspace with `weld-core` and `weld-server`
-- All domain models defined in `weld-core/src/models/`
-- Axum server with health check endpoint
-- PostgreSQL connection pool via sqlx
-- Initial migration: users, teams, team_memberships, projects tables
-- Docker Compose for local infrastructure
-- Dev scripts (setup.sh, migrate.sh) and Makefile
+What exists today:
+- Cargo workspace with `weld-core` (domain models) and `weld-server`
+- Auth: register/login, JWT access tokens, rotating refresh-token cookie
+- Teams (with personal workspaces), projects with per-project membership
+- Board: columns, tasks, labels, drag-and-drop ordering
+- Chat: channels (public/private/DM), threads, mentions, task references
+- Realtime WebSocket hub (project, channel and team rooms, presence)
+- GitHub App integration: install + account linking, issue/PR sync, webhooks, review and merge
+- Research-study mode (`STUDY_MODE`): participant provisioning, telemetry, context-scoped agent, export
+- SvelteKit web app in `apps/web`
+- Docker Compose for local infrastructure, dev scripts and Makefile
 
-**What's being built next:** Auth system (register, login, JWT middleware), SvelteKit frontend setup, project CRUD.
+Not built yet: secrets vault, time tracking, desktop/mobile/TUI shells.
 
 ## Key Domain Models
 
@@ -97,9 +110,13 @@ All models are defined in `crates/weld-core/src/models/`.
 ```bash
 make setup    # First time: install deps, start Docker, create .env, run migrations
 make start    # Daily: start Docker + run migrations
-make server   # Start the Axum backend on :3000
-make test     # Run all Rust tests
+make server   # Start the Axum backend on :3001
+make web      # Start the SvelteKit dev server on :3000 (proxies /api to :3001)
+make test     # Run all Rust tests (needs the database from `make start`)
 make lint     # clippy + fmt check
+make pr       # Everything CI runs for Rust, plus `cargo sqlx prepare`
 ```
+
+Web checks run from `apps/web`: `pnpm check`, `pnpm lint`, `pnpm test`.
 
 Requires: Rust (stable), Docker, sqlx-cli, Node.js 20+ and pnpm (for web frontend).
