@@ -238,6 +238,7 @@ async fn post_to_subscribed_channels(
             metadata: msg.metadata,
             edited_at: msg.edited_at,
             created_at: msg.created_at,
+            reply_count: None,
         };
 
         publish_channel_event(hub, row.id, "chat.message.new", &resp);

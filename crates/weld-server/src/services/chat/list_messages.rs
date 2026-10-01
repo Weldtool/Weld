@@ -1,12 +1,17 @@
 use super::helpers::{fetch_active_channel, require_channel_access};
 use crate::errors::ApiError;
 use sqlx::PgPool;
+use std::collections::HashMap;
 use uuid::Uuid;
 use weld_core::models::message::ChatMessage;
 
 pub struct MessagePage {
     pub messages: Vec<ChatMessage>,
     pub next_before: Option<Uuid>,
+    /// Live reply count per message on this page that has a thread. Replies
+    /// themselves are not listed here, so without this a client that reloads
+    /// has no way to know a thread exists and can't offer to open it.
+    pub reply_counts: HashMap<Uuid, i64>,
 }
 
 const DEFAULT_LIMIT: i64 = 50;
@@ -71,8 +76,25 @@ pub async fn list_messages(
         None
     };
 
+    let ids: Vec<Uuid> = rows.iter().map(|m| m.id).collect();
+    let reply_counts = sqlx::query!(
+        r#"
+        SELECT thread_parent_id as "parent_id!", COUNT(*) as "count!"
+        FROM messages
+        WHERE thread_parent_id = ANY($1) AND deleted_at IS NULL
+        GROUP BY thread_parent_id
+        "#,
+        &ids,
+    )
+    .fetch_all(pool)
+    .await?
+    .into_iter()
+    .map(|r| (r.parent_id, r.count))
+    .collect();
+
     Ok(MessagePage {
         messages: rows,
         next_before,
+        reply_counts,
     })
 }

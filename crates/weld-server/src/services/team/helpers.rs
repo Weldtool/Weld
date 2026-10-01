@@ -3,11 +3,38 @@ use sqlx::PgPool;
 use uuid::Uuid;
 use weld_core::models::enums::TeamRole;
 
+/// How many times a create/rename re-derives its slug after losing a race.
+///
+/// Slugs are picked with a check-then-insert, so two requests for the same name
+/// can both choose the same "free" slug. The unique index catches the loser,
+/// which then simply derives the next free slug instead of failing with a 500.
+pub const SLUG_ATTEMPTS: usize = 8;
+
+/// Whether `err` is a unique-constraint violation (here: a slug just taken).
+pub fn is_unique_violation(err: &sqlx::Error) -> bool {
+    matches!(err, sqlx::Error::Database(db) if db.is_unique_violation())
+}
+
+pub fn slug_conflict(kind: &str) -> ApiError {
+    ApiError::Conflict(format!(
+        "Could not reserve a unique URL for this {kind}. Please try again."
+    ))
+}
+
 pub fn slugify(name: &str) -> String {
     slug::slugify(name)
 }
 
-pub async fn generate_unique_team_slug(pool: &PgPool, name: &str) -> Result<String, ApiError> {
+/// Derives a slug for `name` that no other active team uses.
+///
+/// `exclude` is the team being renamed, if any: its own current slug must not
+/// count as a collision, or renaming a team to the name it already has (or
+/// changing only its capitalisation) bumps the slug to `name-2`.
+pub async fn generate_unique_team_slug(
+    pool: &PgPool,
+    name: &str,
+    exclude: Option<Uuid>,
+) -> Result<String, ApiError> {
     let base = slugify(name);
     let base = if base.is_empty() {
         "team".to_string()
@@ -18,8 +45,11 @@ pub async fn generate_unique_team_slug(pool: &PgPool, name: &str) -> Result<Stri
     let mut count = 1;
     loop {
         let exists = sqlx::query_scalar!(
-            "SELECT EXISTS(SELECT 1 FROM teams WHERE slug = $1 AND deleted_at IS NULL)",
-            candidate
+            "SELECT EXISTS(SELECT 1 FROM teams
+                           WHERE slug = $1 AND deleted_at IS NULL
+                             AND ($2::uuid IS NULL OR id <> $2))",
+            candidate,
+            exclude
         )
         .fetch_one(pool)
         .await?

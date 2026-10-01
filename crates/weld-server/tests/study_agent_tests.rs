@@ -95,3 +95,56 @@ async fn c3_context_has_everything() {
     let github = scoped.github.expect("C3 must assemble github");
     assert!(!github.is_empty(), "C3 github fixtures should be non-empty");
 }
+
+/// Linking a PR through the agent's tool must not wipe the card's issue link
+/// (and vice versa): `link_task` writes both fields, so the tool has to carry
+/// the one the model didn't mention.
+#[tokio::test]
+async fn agent_link_tool_preserves_the_cards_other_link() {
+    use serde_json::json;
+    use weld_server::services::github::sync::link_task;
+    use weld_server::services::study::agent::tools;
+
+    let pool = pool().await;
+    let mut ctx = provision_ctx(&pool).await;
+    ctx.condition = AgentCondition::C3;
+    let hub = std::sync::Arc::new(weld_server::realtime::Hub::new());
+
+    let card_id: uuid::Uuid = sqlx::query_scalar(
+        "SELECT id FROM tasks WHERE project_id = $1 AND deleted_at IS NULL LIMIT 1",
+    )
+    .bind(ctx.project_id)
+    .fetch_one(&pool)
+    .await
+    .expect("a seeded card");
+
+    link_task(
+        &pool,
+        card_id,
+        ctx.user_id,
+        "welddev/pettracker",
+        Some(7),
+        None,
+    )
+    .await
+    .expect("link issue");
+
+    tools::execute(
+        &pool,
+        &hub,
+        &ctx,
+        "link_card_to_github",
+        &json!({"card_id": card_id.to_string(), "pr_number": 22}),
+    )
+    .await
+    .expect("agent links the PR");
+
+    let (issue, pr): (Option<i64>, Option<i64>) =
+        sqlx::query_as("SELECT github_issue_id, github_pr_id FROM tasks WHERE id = $1")
+            .bind(card_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(pr, Some(22));
+    assert_eq!(issue, Some(7), "the existing issue link was erased");
+}

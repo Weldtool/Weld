@@ -44,6 +44,10 @@ class ChatStore {
 	activeChannelId = $state<string | null>(null);
 	activeTeamId = $state<string | null>(null);
 	threadByParent = $state<Record<string, ThreadState>>({});
+	/** parent message id -> number of thread replies. Seeded from the channel
+	 * list (replies themselves aren't in it) and kept current from realtime
+	 * events, so a thread stays discoverable after a reload. */
+	replyCounts = $state<Record<string, number>>({});
 	error = $state<string | null>(null);
 
 	#unsubs: Array<() => void> = [];
@@ -51,6 +55,11 @@ class ChatStore {
 	#typingTimer: ReturnType<typeof setInterval> | null = null;
 	#lastTypingEmitAt = 0;
 	#mentionListener: ((msg: ChatMessage) => void) | null = null;
+	/** Reply ids already added to / removed from `replyCounts`. The same reply
+	 * reaches us more than once (our own POST and its realtime echo, a delete
+	 * and its echo), and must only move the count once. */
+	#countedReplies = new Set<string>();
+	#removedReplies = new Set<string>();
 
 	async loadForTeam(teamId: string): Promise<void> {
 		if (this.activeTeamId === teamId && this.channels.length > 0) return;
@@ -182,6 +191,7 @@ class ChatStore {
 			});
 			this.#replacePending(channelId, clientId, confirmed);
 			if (threadParentId) this.#replaceThreadPending(threadParentId, clientId, confirmed);
+			this.#noteReply(confirmed);
 			// User-sent message (the agent's chat_post path is server-side) — capture
 			// for B2/T3/T6 and who-did-it. Content length only, never the text (§5).
 			telemetry.log('message_sent', {
@@ -217,8 +227,11 @@ class ChatStore {
 			this.#replacePending(channelId, clientId, confirmed);
 			if (pending.thread_parent_id)
 				this.#replaceThreadPending(pending.thread_parent_id, clientId, confirmed);
+			this.#noteReply(confirmed);
 		} catch (err) {
 			this.#markPendingFailed(channelId, clientId);
+			if (pending.thread_parent_id)
+				this.#markThreadPendingFailed(pending.thread_parent_id, clientId);
 			this.error = err instanceof Error ? err.message : 'Failed to send message.';
 		}
 	}
@@ -245,8 +258,13 @@ class ChatStore {
 	}
 
 	async deleteMessage(messageId: string, channelId: string): Promise<void> {
+		const parentId = this.#findMessage(channelId, messageId)?.thread_parent_id ?? null;
 		await messagesApi.delete(messageId);
 		this.#applyMessageDelete(channelId, messageId);
+		if (parentId) {
+			this.#removeFromThread(parentId, messageId);
+			this.#noteReplyRemoved(parentId, messageId);
+		}
 		telemetry.log('message_deleted', { message_id: messageId, channel_id: channelId });
 	}
 
@@ -273,6 +291,9 @@ class ChatStore {
 				...this.threadByParent,
 				[parentId]: { parent: view.parent, replies: view.replies, loading: false, error: null }
 			};
+			// The loaded thread is the authoritative count.
+			for (const reply of view.replies) this.#countedReplies.add(reply.id);
+			this.replyCounts = { ...this.replyCounts, [parentId]: view.replies.length };
 		} catch (err) {
 			this.threadByParent = {
 				...this.threadByParent,
@@ -287,22 +308,26 @@ class ChatStore {
 	}
 
 	closeThread(parentId: string): void {
+		// Carry the open thread's count over to the summary the list falls back to.
+		const open = this.threadByParent[parentId];
+		if (open?.parent && !open.loading) {
+			this.replyCounts = {
+				...this.replyCounts,
+				[parentId]: open.replies.filter((m) => !isPending(m)).length
+			};
+		}
 		const next = { ...this.threadByParent };
 		delete next[parentId];
 		this.threadByParent = next;
 	}
 
-	/** Number of replies a parent message has, considering both loaded thread
-	 * state and any thread replies present in the channel cache. */
+	/** Number of replies a parent message has: the loaded thread when it is
+	 * open, otherwise the count the server reported plus what realtime has
+	 * added or removed since. */
 	threadReplyCount(parentId: string): number {
 		const thread = this.threadByParent[parentId];
-		if (thread?.replies) return thread.replies.length;
-		// Fallback: count any cached thread children we've seen via realtime.
-		let count = 0;
-		for (const ch of Object.values(this.messagesByChannel)) {
-			for (const m of ch.messages) if (m.thread_parent_id === parentId) count++;
-		}
-		return count;
+		if (thread?.parent && !thread.loading) return thread.replies.length;
+		return this.replyCounts[parentId] ?? 0;
 	}
 
 	emitTyping(channelId: string): void {
@@ -357,6 +382,9 @@ class ChatStore {
 		this.typingByChannel = {};
 		this.unreadByChannel = {};
 		this.threadByParent = {};
+		this.replyCounts = {};
+		this.#countedReplies.clear();
+		this.#removedReplies.clear();
 		this.activeChannelId = null;
 		this.activeTeamId = null;
 		this.error = null;
@@ -376,6 +404,11 @@ class ChatStore {
 				loadError: null
 			};
 			const incoming = [...page.messages].reverse(); // newest-first → ascending
+			const counts = { ...this.replyCounts };
+			for (const m of page.messages) {
+				if (m.reply_count !== undefined) counts[m.id] = m.reply_count;
+			}
+			this.replyCounts = counts;
 			const merged = before ? [...incoming, ...cur.messages] : [...cur.messages, ...incoming];
 			const dedup = dedupAndSort(merged);
 			this.messagesByChannel = {
@@ -434,6 +467,7 @@ class ChatStore {
 	handleIncoming(msg: ChatMessage): void {
 		this.#applyMessageUpsert(msg);
 		if (msg.thread_parent_id) this.#applyThreadUpsert(msg.thread_parent_id, msg);
+		this.#noteReply(msg);
 		realtime.setCursor(`channel:${msg.channel_id}`, msg.created_at);
 		if (msg.channel_id !== this.activeChannelId) {
 			this.unreadByChannel = {
@@ -456,7 +490,41 @@ class ChatStore {
 		const parentId = envelope.payload.thread_parent_id as string | undefined;
 		if (!id || !channelId) return;
 		this.#applyMessageDelete(channelId, id);
-		if (parentId) this.#removeFromThread(parentId, id);
+		if (parentId) {
+			this.#removeFromThread(parentId, id);
+			this.#noteReplyRemoved(parentId, id);
+		}
+	}
+
+	/** Count a confirmed thread reply towards its parent, once. */
+	#noteReply(msg: ChatMessage): void {
+		const parentId = msg.thread_parent_id;
+		if (!parentId || this.#countedReplies.has(msg.id)) return;
+		this.#countedReplies.add(msg.id);
+		this.replyCounts = {
+			...this.replyCounts,
+			[parentId]: (this.replyCounts[parentId] ?? 0) + 1
+		};
+	}
+
+	/** Take a deleted thread reply off its parent's count, once. */
+	#noteReplyRemoved(parentId: string, messageId: string): void {
+		if (this.#removedReplies.has(messageId)) return;
+		this.#removedReplies.add(messageId);
+		this.replyCounts = {
+			...this.replyCounts,
+			[parentId]: Math.max(0, (this.replyCounts[parentId] ?? 0) - 1)
+		};
+	}
+
+	#findMessage(channelId: string, messageId: string): AnyMessage | undefined {
+		const inChannel = this.messagesByChannel[channelId]?.messages.find((m) => m.id === messageId);
+		if (inChannel) return inChannel;
+		for (const thread of Object.values(this.threadByParent)) {
+			const inThread = thread.replies.find((m) => m.id === messageId);
+			if (inThread) return inThread;
+		}
+		return undefined;
 	}
 
 	#onUserTyping(envelope: RealtimeEnvelope): void {

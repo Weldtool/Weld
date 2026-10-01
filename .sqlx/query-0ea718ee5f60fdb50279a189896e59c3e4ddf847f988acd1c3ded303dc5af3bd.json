@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        INSERT INTO teams (name, slug, owner_id)\n        VALUES ($1, $2, $3)\n        RETURNING id, name, slug, owner_id, created_at\n        ",
+  "query": "\n            UPDATE teams SET name = $1, slug = $2\n            WHERE id = $3 AND deleted_at IS NULL\n            RETURNING id, name, slug, owner_id, is_personal, created_at\n            ",
   "describe": {
     "columns": [
       {
@@ -25,6 +25,11 @@
       },
       {
         "ordinal": 4,
+        "name": "is_personal",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
         "name": "created_at",
         "type_info": "Timestamptz"
       }
@@ -41,8 +46,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "07bed1ea4217b4be395364f96b01d412dfa7a3fb5d6b8ee2cfe26333452b7ff0"
+  "hash": "0ea718ee5f60fdb50279a189896e59c3e4ddf847f988acd1c3ded303dc5af3bd"
 }

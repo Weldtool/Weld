@@ -117,6 +117,11 @@ pub struct MessageResponse {
     pub metadata: serde_json::Value,
     pub edited_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
+    /// Number of thread replies. Only set when listing a channel's messages;
+    /// absent from realtime events and single-message responses, which don't
+    /// compute it, so a client never mistakes "not computed" for zero.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reply_count: Option<i64>,
 }
 
 impl From<ChatMessage> for MessageResponse {
@@ -132,6 +137,7 @@ impl From<ChatMessage> for MessageResponse {
             metadata: m.metadata,
             edited_at: m.edited_at,
             created_at: m.created_at,
+            reply_count: None,
         }
     }
 }
@@ -145,7 +151,17 @@ pub struct MessagePageResponse {
 impl From<MessagePage> for MessagePageResponse {
     fn from(p: MessagePage) -> Self {
         Self {
-            messages: p.messages.into_iter().map(Into::into).collect(),
+            messages: p
+                .messages
+                .into_iter()
+                .map(|m| {
+                    let reply_count = p.reply_counts.get(&m.id).copied().unwrap_or(0);
+                    MessageResponse {
+                        reply_count: Some(reply_count),
+                        ..m.into()
+                    }
+                })
+                .collect(),
             next_before: p.next_before,
         }
     }
