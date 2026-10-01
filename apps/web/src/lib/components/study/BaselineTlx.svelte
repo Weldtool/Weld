@@ -10,12 +10,21 @@
 	// touched, mirroring the exit-survey TLX so the two measures are comparable.
 	let responses = $state<Record<string, string>>({});
 	const missing = $derived(items.filter((it) => responses[it.id] === undefined).map((it) => it.id));
-	let submitted = false;
+	let submitting = $state(false);
+	let error = $state<string | null>(null);
 
-	function submit() {
-		if (missing.length > 0 || submitted) return;
-		submitted = true;
-		study.submitPostBaselineTlx({ ...responses });
+	async function submit() {
+		if (missing.length > 0 || submitting) return;
+		submitting = true;
+		error = null;
+		try {
+			await study.submitPostBaselineTlx({ ...responses });
+		} catch {
+			// Keep the answers on screen so they can simply be sent again.
+			error = 'Your answers could not be saved. Check your connection and try again.';
+		} finally {
+			submitting = false;
+		}
 	}
 </script>
 
@@ -60,14 +69,17 @@
 		{/each}
 	</div>
 
-	<div class="flex items-center justify-end border-t border-[var(--border)] px-5 py-3">
+	<div class="flex items-center justify-end gap-3 border-t border-[var(--border)] px-5 py-3">
+		{#if error}
+			<p role="alert" class="text-xs text-red-500">{error}</p>
+		{/if}
 		<button
 			type="button"
 			onclick={submit}
-			disabled={missing.length > 0}
+			disabled={missing.length > 0 || submitting}
 			class="rounded-md bg-[var(--primary)] px-4 py-1.5 text-xs font-medium text-[var(--primary-foreground)] hover:opacity-90 disabled:opacity-50"
 		>
-			Continue to main tasks
+			{submitting ? 'Saving…' : 'Continue to main tasks'}
 		</button>
 	</div>
 </dialog>

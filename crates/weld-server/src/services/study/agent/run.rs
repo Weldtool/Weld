@@ -169,7 +169,7 @@ pub async fn run_turn(
                     json!({ "error": e.to_string() }),
                 )
                 .await;
-                return Err(ApiError::Internal(
+                return Err(ApiError::Unavailable(
                     "The assistant is unavailable, please try again.".into(),
                 ));
             }
@@ -356,8 +356,17 @@ pub async fn run_turn(
     )
     .await;
 
-    if reply.trim().is_empty() && !actions.is_empty() {
-        reply = "Done.".to_string();
+    // Substituted only after `agent_response` is recorded above, so telemetry
+    // keeps what the model actually returned.
+    if reply.trim().is_empty() {
+        reply = if actions.is_empty() {
+            // The model produced nothing (hit the output cap, or exhausted
+            // MAX_TURNS). An empty bubble reads as a broken UI, and an empty
+            // assistant turn replayed as history confuses the next one.
+            "I wasn't able to put together a reply to that. Could you try rephrasing?".to_string()
+        } else {
+            "Done.".to_string()
+        };
     }
 
     // Persist both sides of this exchange so future turns have server-owned

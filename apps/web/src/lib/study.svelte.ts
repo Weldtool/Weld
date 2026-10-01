@@ -229,11 +229,17 @@ class StudyStore {
 		this.#enterTask(next);
 	}
 
-	/** Persist the post-baseline TLX (fire-and-forget) then enter the first agent
-	 * task. Item ids are pre-suffixed `_baseline` by the caller. */
-	submitPostBaselineTlx(responses: Record<string, string>): void {
+	/** Persist the post-baseline TLX, then enter the first agent task. Item ids
+	 * are pre-suffixed `_baseline` by the caller.
+	 *
+	 * Awaited, and it throws on failure: these answers exist nowhere else, and
+	 * once the agent phase starts there is no second chance to collect them. A
+	 * fire-and-forget save that failed on one dropped request left that
+	 * participant with no baseline rows — H3's delta underivable, silently. So
+	 * the interstitial stays up until the server has them. */
+	async submitPostBaselineTlx(responses: Record<string, string>): Promise<void> {
 		if (!this.pendingPostBaselineTlx) return;
-		void studyApi.submitInterimSurvey({ responses }).catch(() => {});
+		await studyApi.submitInterimSurvey({ responses });
 		telemetry.log('interim_tlx_submitted', {});
 		this.pendingPostBaselineTlx = false;
 		this.#persist();

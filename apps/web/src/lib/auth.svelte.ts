@@ -115,6 +115,18 @@ class AuthStore {
 		}
 	}
 
+	/**
+	 * Refresh the access token now if it expires within `minValidMs`. Normal
+	 * requests don't need this — `fetch` refreshes on a 401 — but code that gets
+	 * exactly one shot with no chance to retry (a keepalive request fired while
+	 * the page unloads) needs a token that is already good.
+	 */
+	async ensureFresh(minValidMs: number): Promise<void> {
+		const expiresAt = tokenExpiry(this.accessToken);
+		if (expiresAt === null || expiresAt - Date.now() > minValidMs) return;
+		await this.#refresh();
+	}
+
 	async #refresh(): Promise<boolean> {
 		// If refresh failed recently, fast-fail so a 401 cascade can't generate
 		// a storm of refresh attempts (the cookie itself might be unreachable
@@ -148,6 +160,19 @@ class AuthStore {
 			this.user = null;
 			this.accessToken = null;
 		}
+	}
+}
+
+/** Expiry of a JWT access token in epoch ms, or null if it can't be read. */
+export function tokenExpiry(token: string | null): number | null {
+	const payload = token?.split('.')[1];
+	if (!payload) return null;
+	try {
+		const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+		const exp = (JSON.parse(json) as { exp?: unknown }).exp;
+		return typeof exp === 'number' ? exp * 1000 : null;
+	} catch {
+		return null;
 	}
 }
 

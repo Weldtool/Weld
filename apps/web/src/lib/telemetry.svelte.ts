@@ -20,6 +20,15 @@ import { appConfig } from '$lib/config.svelte';
 
 const FLUSH_INTERVAL_MS = 5000;
 const MAX_BUFFER = 25;
+/** Hard ceiling on buffered events while the server is unreachable, so a long
+ * outage can't grow the buffer without bound. Oldest events are dropped first. */
+const MAX_RETAINED = 2000;
+/** Keep the access token at least this fresh, so the one-shot unload flush —
+ * which cannot refresh and retry — is not rejected for an expired token. */
+const TOKEN_FRESHNESS_MS = 2 * 60_000;
+/** Statuses that mean the server refused this batch's *content*. Anything else
+ * (auth that may recover, timeouts, rate limits, 5xx) is worth retrying. */
+const CONTENT_REJECTED = new Set([400, 413, 422]);
 const API_BASE = (env.PUBLIC_API_BASE_URL ?? '').replace(/\/$/, '');
 
 class Telemetry {
@@ -28,6 +37,8 @@ class Telemetry {
 	#timer: ReturnType<typeof setInterval> | null = null;
 	#started = false;
 	#inProgress = false;
+	#flushing = false;
+	#unloadHandled = false;
 
 	get active(): boolean {
 		return appConfig.studyMode;
@@ -65,10 +76,15 @@ class Telemetry {
 	start(): void {
 		if (!browser || !this.active || this.#started) return;
 		this.#started = true;
+		this.#unloadHandled = false;
 		this.log('session_start', sessionMetadata());
-		this.#timer = setInterval(() => void this.flush(), FLUSH_INTERVAL_MS);
+		this.#timer = setInterval(() => {
+			void auth.ensureFresh(TOKEN_FRESHNESS_MS);
+			void this.flush();
+		}, FLUSH_INTERVAL_MS);
 		window.addEventListener('pagehide', this.#flushOnUnload);
 		window.addEventListener('beforeunload', this.#flushOnUnload);
+		window.addEventListener('pageshow', this.#rearmUnload);
 	}
 
 	/** End a session cleanly (e.g. survey submitted): emit session_end and flush. */
@@ -80,24 +96,31 @@ class Telemetry {
 	}
 
 	/**
-	 * Send buffered events. Re-queues on a network error or a server fault so a
-	 * flaky connection doesn't lose data — but a 4xx is the server refusing this
-	 * batch's *content*, and retrying it forever would poison the buffer and cost
-	 * the participant every later event of the session. Drop those and move on.
+	 * Send buffered events. Re-queues on anything that might succeed later — a
+	 * network error, a server fault, an expired session, a rate limit — so a
+	 * flaky connection doesn't lose data. Only when the server refuses the
+	 * batch's *content* is it dropped: retrying that forever would poison the
+	 * buffer and cost the participant every later event of the session.
+	 *
+	 * One flush at a time, so a slow request can't be overtaken by the next
+	 * batch and land events out of order.
 	 */
 	async flush(): Promise<void> {
-		if (!this.active || this.#buffer.length === 0) return;
+		if (!this.active || this.#flushing || this.#buffer.length === 0) return;
+		this.#flushing = true;
 		const batch = this.#buffer;
 		this.#buffer = [];
 		try {
 			await studyApi.events({ events: batch });
 		} catch (err) {
 			const status = err instanceof ApiError ? err.status : 0;
-			if (status >= 400 && status < 500) {
+			if (CONTENT_REJECTED.has(status)) {
 				console.warn(`[telemetry] server rejected a batch of ${batch.length} events`, err);
 				return;
 			}
-			this.#buffer = batch.concat(this.#buffer);
+			this.#buffer = batch.concat(this.#buffer).slice(-MAX_RETAINED);
+		} finally {
+			this.#flushing = false;
 		}
 	}
 
@@ -107,12 +130,24 @@ class Telemetry {
 		this.#started = false;
 		window.removeEventListener('pagehide', this.#flushOnUnload);
 		window.removeEventListener('beforeunload', this.#flushOnUnload);
+		window.removeEventListener('pageshow', this.#rearmUnload);
 	}
+
+	// A page restored from the back/forward cache is live again and can be
+	// unloaded a second time.
+	#rearmUnload = (): void => {
+		this.#unloadHandled = false;
+	};
 
 	// On unload a normal async flush won't complete; use a keepalive fetch so the
 	// final batch survives the page going away. sendBeacon can't set the auth
 	// header, so we use fetch+keepalive with the current access token.
 	#flushOnUnload = (): void => {
+		// `beforeunload` and `pagehide` both fire for one unload (they are both
+		// registered because neither is reliable alone). Handle the first only,
+		// or every unload logs `session_abandoned` twice.
+		if (this.#unloadHandled) return;
+		this.#unloadHandled = true;
 		// If the participant is mid-study, record an explicit dropout marker.
 		if (this.#inProgress) {
 			this.#buffer.push({
