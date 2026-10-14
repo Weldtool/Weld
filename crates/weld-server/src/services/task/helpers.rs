@@ -1,6 +1,9 @@
 use crate::errors::ApiError;
+use crate::services::project::helpers::require_project_team_role;
 use sqlx::PgPool;
 use uuid::Uuid;
+use weld_core::models::enums::TeamRole;
+use weld_core::models::project::Project;
 use weld_core::models::task::Task;
 
 pub struct TaskWithLabels {
@@ -57,28 +60,24 @@ pub async fn validate_labels(
     Ok(())
 }
 
-/// Rejects an assignee who isn't on the project's team.
+/// Rejects an assignee who can't open the project.
+///
+/// Team membership alone isn't enough: Members and Viewers only see projects
+/// they have been added to, and a card assigned to someone who can't open it
+/// is invisible to the person meant to do it.
 pub async fn validate_assignee(
     pool: &PgPool,
-    team_id: Uuid,
+    project: &Project,
     assignee_id: Uuid,
 ) -> Result<(), ApiError> {
-    let on_team = sqlx::query_scalar!(
-        "SELECT EXISTS(SELECT 1 FROM team_memberships
-                        WHERE team_id = $1 AND user_id = $2)",
-        team_id,
-        assignee_id
-    )
-    .fetch_one(pool)
-    .await?
-    .unwrap_or(false);
-
-    if !on_team {
-        return Err(ApiError::Validation(
-            "Assignee must be a member of the team".into(),
-        ));
-    }
-    Ok(())
+    require_project_team_role(pool, project, assignee_id, TeamRole::Viewer)
+        .await
+        .map_err(|e| match e {
+            ApiError::Forbidden(_) | ApiError::NotFound(_) => {
+                ApiError::Validation("Assignee must have access to this project".into())
+            }
+            other => other,
+        })
 }
 
 pub async fn fetch_task_label_ids(pool: &PgPool, task_id: Uuid) -> Result<Vec<Uuid>, ApiError> {

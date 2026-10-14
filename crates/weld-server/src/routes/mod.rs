@@ -200,7 +200,14 @@ pub fn router() -> Router<AppState> {
         .allow_headers(AllowHeaders::mirror_request())
         .allow_credentials(true);
 
-    public.merge(protected).layer(cors)
+    public
+        .merge(protected)
+        // Unknown paths get the same JSON error shape as everything else.
+        .fallback(|| async { axum::http::StatusCode::NOT_FOUND })
+        .layer(axum::middleware::map_response(
+            crate::errors::normalize_error_responses,
+        ))
+        .layer(cors)
 }
 
 async fn health_check(State(_state): State<AppState>) -> impl IntoResponse {

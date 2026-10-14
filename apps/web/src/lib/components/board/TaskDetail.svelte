@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { tasks as tasksApi, github as githubApi } from '$lib/api';
+	import { tasks as tasksApi, github as githubApi, userMessage } from '$lib/api';
 	import type { GitHubIssue, GitHubPR, Priority } from '$lib/api/types';
 	import { auth } from '$lib/auth.svelte';
 	import { boardStore } from '$lib/board.svelte';
@@ -108,7 +108,7 @@
 			await boardStore.deleteTask(task.id);
 			close();
 		} catch (err) {
-			saver.error = err instanceof Error ? err.message : 'Delete failed.';
+			saver.error = userMessage(err, 'Delete failed.');
 		} finally {
 			deleting = false;
 		}
@@ -246,7 +246,7 @@
 			showIssueForm = false;
 			addIssueValue = '';
 		} catch (err) {
-			linkError = err instanceof Error ? err.message : 'Link failed.';
+			linkError = userMessage(err, 'Link failed.');
 		} finally {
 			linkBusy = false;
 		}
@@ -280,7 +280,7 @@
 			showPRForm = false;
 			addPRValue = '';
 		} catch (err) {
-			linkError = err instanceof Error ? err.message : 'Link failed.';
+			linkError = userMessage(err, 'Link failed.');
 		} finally {
 			linkBusy = false;
 		}
@@ -304,7 +304,7 @@
 			}
 			boardStore.applyTaskUpdate(updated);
 		} catch (err) {
-			linkError = err instanceof Error ? err.message : 'Unlink failed.';
+			linkError = userMessage(err, 'Unlink failed.');
 		} finally {
 			linkBusy = false;
 		}
@@ -328,7 +328,7 @@
 			}
 			boardStore.applyTaskUpdate(updated);
 		} catch (err) {
-			linkError = err instanceof Error ? err.message : 'Unlink failed.';
+			linkError = userMessage(err, 'Unlink failed.');
 		} finally {
 			linkBusy = false;
 		}

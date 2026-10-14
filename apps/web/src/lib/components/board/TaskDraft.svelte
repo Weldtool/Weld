@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { tasks as tasksApi, github as githubApi } from '$lib/api';
+	import { tasks as tasksApi, github as githubApi, userMessage } from '$lib/api';
 	import { modal } from '$lib/modal';
 	import type { GitHubIssue, Priority } from '$lib/api/types';
 	import { boardStore } from '$lib/board.svelte';
@@ -87,7 +87,7 @@
 		try {
 			detail = await githubApi.getIssue(projectId, issueNumber);
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to load GitHub issue.';
+			error = userMessage(err, 'Failed to load GitHub issue.');
 			return;
 		}
 		importedIssue = issueNumber;
@@ -141,7 +141,7 @@
 						});
 						boardStore.applyTaskUpdate(linked);
 					} catch (err) {
-						error = err instanceof Error ? err.message : 'Created locally, GitHub link failed.';
+						error = userMessage(err, 'Created locally, GitHub link failed.');
 					}
 				} else if (canPushToGithub && pushToGithub) {
 					try {
@@ -149,13 +149,13 @@
 						boardStore.applyTaskUpdate(pushed);
 					} catch (err) {
 						// Soft-fail: the task exists; the push is the optional bit.
-						error = err instanceof Error ? err.message : 'Created locally, GitHub push failed.';
+						error = userMessage(err, 'Created locally, GitHub push failed.');
 					}
 				}
 				close();
 			}
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to create task.';
+			error = userMessage(err, 'Failed to create task.');
 		} finally {
 			creating = false;
 		}

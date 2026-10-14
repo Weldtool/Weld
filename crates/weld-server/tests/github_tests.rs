@@ -245,6 +245,17 @@ async fn test_install_url_returns_400_when_github_not_configured() {
 
 // ── setup callback ────────────────────────────────────────────────────────────
 
+/// GitHub callbacks are browser redirects, so a rejected state sends the user
+/// back to Settings with a reason rather than a JSON error page.
+fn assert_state_mismatch_redirect(resp: &axum::response::Response) {
+    assert_eq!(resp.status(), StatusCode::SEE_OTHER);
+    let location = resp.headers()["location"].to_str().unwrap();
+    assert!(
+        location.ends_with("/settings?github_error=state_mismatch"),
+        "{location}"
+    );
+}
+
 #[tokio::test]
 async fn test_setup_callback_rejects_invalid_state() {
     let app = setup_app().await;
@@ -259,8 +270,8 @@ async fn test_setup_callback_rejects_invalid_state() {
         )
         .await
         .unwrap();
-    // Bad state token → 400
-    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    // Bad state token → back to Settings with a reason, not a JSON dead end
+    assert_state_mismatch_redirect(&resp);
 }
 
 #[tokio::test]
@@ -297,7 +308,7 @@ async fn test_setup_callback_rejects_expired_state() {
         )
         .await
         .unwrap();
-    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    assert_state_mismatch_redirect(&resp);
 }
 
 // ── oauth/url ─────────────────────────────────────────────────────────────────
@@ -354,7 +365,7 @@ async fn test_oauth_callback_rejects_invalid_state() {
         )
         .await
         .unwrap();
-    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    assert_state_mismatch_redirect(&resp);
 }
 
 // ── GET /teams/:id/github ─────────────────────────────────────────────────────

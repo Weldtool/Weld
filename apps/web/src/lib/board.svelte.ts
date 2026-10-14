@@ -4,7 +4,8 @@ import {
 	github as githubApi,
 	labels as labelsApi,
 	tasks as tasksApi,
-	teams as teamsApi
+	teams as teamsApi,
+	userMessage
 } from '$lib/api';
 import type { Column, Label, Priority, Task, TeamMember } from '$lib/api/types';
 import { realtime, type RealtimeEnvelope } from '$lib/realtime.svelte';
@@ -99,7 +100,7 @@ class BoardStore {
 			this.#subscribeRealtime(projectId);
 			void this.#loadMembers();
 		} catch (err) {
-			this.error = err instanceof Error ? err.message : 'Failed to load board.';
+			this.error = userMessage(err, 'Failed to load board.');
 		} finally {
 			this.loading = false;
 		}
@@ -279,7 +280,7 @@ class BoardStore {
 				await this.refresh();
 				this.error = 'Board needed a rebalance — reloaded.';
 			} else {
-				this.error = err instanceof Error ? err.message : 'Failed to move task.';
+				this.error = userMessage(err, 'Failed to move task.');
 			}
 			return false;
 		}

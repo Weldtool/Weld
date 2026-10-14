@@ -3,7 +3,7 @@ use crate::middleware::auth::AuthUser;
 use crate::services::github::{
     self, GithubConnectionRecord,
     helpers::{
-        build_install_url, build_oauth_url, exchange_oauth_code, issue_bound_state,
+        VerifiedState, build_install_url, build_oauth_url, cleared_state_cookie, issue_bound_state,
         require_github_config, user_can_access_installation, verify_bound_state,
     },
     user_token::user_access_token,
@@ -108,8 +108,6 @@ pub struct SetupCallbackQuery {
     pub installation_id: i64,
     pub setup_action: Option<String>,
     pub state: String,
-    /// Present when the App requests user authorisation during installation.
-    pub code: Option<String>,
 }
 
 /// GitHub redirects here after a user installs the Weld GitHub App.
@@ -117,17 +115,36 @@ pub struct SetupCallbackQuery {
 /// The redirect carries no auth header, and its `installation_id` is an
 /// unauthenticated query parameter, so two things are proven before anything is
 /// stored: that this browser started the flow (bound state token), and that the
-/// GitHub user involved can actually reach that installation.
+/// installer's linked GitHub account can actually reach that installation.
+///
+/// Requires the App's "Request user authorization (OAuth) during installation"
+/// to be off: with it on, GitHub skips this Setup URL entirely.
+///
+/// Every outcome is a redirect back to Settings: the browser arrived from
+/// GitHub, and a JSON error body would leave the user on a dead end.
 pub async fn setup_callback(
     State(state): State<AppState>,
     headers: HeaderMap,
     Query(params): Query<SetupCallbackQuery>,
-) -> Result<Response, ApiError> {
-    // Validate the CSRF state token before checking GitHub config so invalid
-    // tokens always return 400, even when the integration is not configured.
-    let verified = verify_bound_state(&state.jwt_secret, &params.state, "install", &headers)?;
-    let team_id = verified.subject;
+) -> Response {
+    let verified = match verify_bound_state(&state.jwt_secret, &params.state, "install", &headers) {
+        Ok(verified) => verified,
+        Err(err) => return state_failure(&state, "install", err),
+    };
 
+    match complete_setup(&state, verified, &params).await {
+        Ok(()) => success_redirect(&state, "install", "github_connected=true"),
+        Err(err) => callback_failure(&state, "install", err),
+    }
+}
+
+/// Outcome of a setup callback whose state has already been verified.
+async fn complete_setup(
+    state: &AppState,
+    verified: VerifiedState,
+    params: &SetupCallbackQuery,
+) -> Result<(), CallbackError> {
+    let team_id = verified.subject;
     let gh_cfg = require_github_config(&state.github)?;
 
     // Reject unsupported setup actions (e.g. "delete")
@@ -135,25 +152,21 @@ pub async fn setup_callback(
         && action != "install"
         && action != "update"
     {
-        return Ok(settings_error_redirect(&state, "unsupported_action"));
+        return Err(CallbackError::Code("unsupported_action"));
     }
 
     // The state token was minted for an Admin+, but up to 15 minutes ago —
     // re-check so a demotion in between is honoured.
     require_team_role(&state.db, team_id, verified.actor, TeamRole::Admin).await?;
 
-    // A GitHub user token to check the installation against: the one GitHub
-    // hands us with the redirect when the App requests authorisation during
-    // install, otherwise the account this Weld user has already linked.
-    let user_token = match params.code.as_deref() {
-        Some(code) => Some(exchange_oauth_code(gh_cfg, code).await?.0.access_token),
-        None => match state.master_encryption_key.as_deref() {
-            Some(key) => user_access_token(&state.db, gh_cfg, key, verified.actor).await?,
-            None => None,
-        },
+    // The installation is checked against the GitHub account this Weld user
+    // has linked; without one there is nothing to check it against.
+    let user_token = match state.master_encryption_key.as_deref() {
+        Some(key) => user_access_token(&state.db, gh_cfg, key, verified.actor).await?,
+        None => None,
     };
     let Some(user_token) = user_token else {
-        return Ok(settings_error_redirect(&state, "link_required"));
+        return Err(CallbackError::Code("link_required"));
     };
 
     if !user_can_access_installation(&user_token, params.installation_id).await? {
@@ -163,10 +176,7 @@ pub async fn setup_callback(
             installation_id = params.installation_id,
             "Rejected GitHub setup: user cannot access that installation"
         );
-        return Ok(settings_error_redirect(
-            &state,
-            "installation_not_authorized",
-        ));
+        return Err(CallbackError::Code("installation_not_authorized"));
     }
 
     let conn = github::connect_github(
@@ -183,9 +193,59 @@ pub async fn setup_callback(
         account_login = %conn.account_login,
         "GitHub App installed"
     );
+    Ok(())
+}
 
-    let redirect_url = format!("{}/settings?github_connected=true", state.frontend_url);
-    Ok(Redirect::to(&redirect_url).into_response())
+// ── Callback outcomes ─────────────────────────────────────────────────────
+
+/// Why a callback whose state verified did not complete.
+enum CallbackError {
+    /// A known reason, sent as a `github_error` code the settings page has a
+    /// message for.
+    Code(&'static str),
+    Api(ApiError),
+}
+
+impl From<ApiError> for CallbackError {
+    fn from(err: ApiError) -> Self {
+        Self::Api(err)
+    }
+}
+
+/// Redirects to Settings with `query`, clearing the flow's state cookie so the
+/// same state can't be replayed.
+fn success_redirect(state: &AppState, kind: &str, query: &str) -> Response {
+    (
+        [(SET_COOKIE, cleared_state_cookie(kind, state.secure_cookies))],
+        Redirect::to(&format!("{}/settings?{query}", state.frontend_url)),
+    )
+        .into_response()
+}
+
+/// The state didn't verify: expired, tampered, or started in another browser
+/// (usually a lost or blocked cookie).
+fn state_failure(state: &AppState, kind: &str, err: ApiError) -> Response {
+    tracing::warn!(flow = kind, error = %err, "GitHub callback state rejected");
+    settings_error_redirect(state, "state_mismatch")
+}
+
+/// Any other failure after the state verified.
+fn callback_failure(state: &AppState, kind: &str, err: CallbackError) -> Response {
+    let err = match err {
+        CallbackError::Code(code) => return settings_error_redirect(state, code),
+        CallbackError::Api(err) => err,
+    };
+    let code = match &err {
+        ApiError::Forbidden(_) | ApiError::NotFound(_) => "forbidden",
+        _ => "failed",
+    };
+    match &err {
+        ApiError::Internal(_) | ApiError::Unavailable(_) => {
+            tracing::error!(flow = kind, error = %err, "GitHub callback failed")
+        }
+        _ => tracing::warn!(flow = kind, error = %err, "GitHub callback failed"),
+    }
+    settings_error_redirect(state, code)
 }
 
 // ── GET /api/v1/github/oauth/url ──────────────────────────────────────────
@@ -235,12 +295,24 @@ pub async fn oauth_callback(
     State(state): State<AppState>,
     headers: HeaderMap,
     Query(params): Query<OAuthCallbackQuery>,
-) -> Result<Response, ApiError> {
-    // Validate CSRF state before checking GitHub config so invalid tokens
-    // always return 400, even when the integration is not configured.
-    let weld_user_id =
-        verify_bound_state(&state.jwt_secret, &params.state, "oauth", &headers)?.subject;
+) -> Response {
+    let weld_user_id = match verify_bound_state(&state.jwt_secret, &params.state, "oauth", &headers)
+    {
+        Ok(verified) => verified.subject,
+        Err(err) => return state_failure(&state, "oauth", err),
+    };
 
+    match complete_oauth(&state, weld_user_id, &params.code).await {
+        Ok(()) => success_redirect(&state, "oauth", "github_linked=true"),
+        Err(err) => callback_failure(&state, "oauth", err),
+    }
+}
+
+async fn complete_oauth(
+    state: &AppState,
+    weld_user_id: Uuid,
+    code: &str,
+) -> Result<(), CallbackError> {
     let gh_cfg = require_github_config(&state.github)?;
 
     let master_key = state
@@ -249,17 +321,14 @@ pub async fn oauth_callback(
         .ok_or_else(|| ApiError::Internal("MASTER_ENCRYPTION_KEY is not configured".into()))?;
 
     let linked =
-        github::handle_oauth_callback(&state.db, gh_cfg, master_key, weld_user_id, &params.code)
-            .await?;
+        github::handle_oauth_callback(&state.db, gh_cfg, master_key, weld_user_id, code).await?;
 
     tracing::info!(
         user_id = %weld_user_id,
         github_login = %linked.github_login,
         "GitHub user linked"
     );
-
-    let redirect_url = format!("{}/settings?github_linked=true", state.frontend_url);
-    Ok(Redirect::to(&redirect_url).into_response())
+    Ok(())
 }
 
 // ── DELETE /api/v1/teams/:team_id/github ──────────────────────────────────

@@ -50,9 +50,7 @@ pub async fn register(
 ) -> Result<(StatusCode, Json<RegisterResponse>), ApiError> {
     rate_limit::check_ip(&rate_limit::REGISTER_BY_IP, &headers)?;
 
-    input
-        .validate()
-        .map_err(|e| ApiError::Validation(e.to_string()))?;
+    input.validate()?;
 
     let user = auth::register_user(
         &state.db,

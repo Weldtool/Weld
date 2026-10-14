@@ -41,7 +41,7 @@ pub async fn create_task(
     }
 
     if let Some(assignee_id) = input.assignee_id {
-        validate_assignee(pool, project.team_id, assignee_id).await?;
+        validate_assignee(pool, &project, assignee_id).await?;
     }
     if let Some(labels) = &input.labels {
         validate_labels(pool, project_id, labels).await?;

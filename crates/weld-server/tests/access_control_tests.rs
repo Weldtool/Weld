@@ -868,6 +868,16 @@ fn cookie_pair(headers: &HeaderMap) -> String {
         .to_string()
 }
 
+/// Asserts a GitHub callback sent the browser back to Settings with `code`.
+fn assert_settings_error(status: StatusCode, headers: &HeaderMap, code: &str) {
+    assert_eq!(status, StatusCode::SEE_OTHER);
+    let location = headers["location"].to_str().unwrap();
+    assert!(
+        location.ends_with(&format!("/settings?github_error={code}")),
+        "{location}"
+    );
+}
+
 #[tokio::test]
 async fn setup_callback_requires_the_browser_that_started_the_install() {
     let app = app_with(true).await;
@@ -892,10 +902,10 @@ async fn setup_callback_requires_the_browser_that_started_the_install() {
 
     // A valid, signed state on its own is not enough: this is the request an
     // attacker replays with someone else's installation id.
-    let (status, _, _) = call_full(&app, "GET", &uri, None, None, None).await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, headers, _) = call_full(&app, "GET", &uri, None, None, None).await;
+    assert_settings_error(status, &headers, "state_mismatch");
 
-    let (status, _, _) = call_full(
+    let (status, headers, _) = call_full(
         &app,
         "GET",
         &uri,
@@ -904,18 +914,13 @@ async fn setup_callback_requires_the_browser_that_started_the_install() {
         None,
     )
     .await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_settings_error(status, &headers, "state_mismatch");
 
     // The initiating browser gets past the binding. It has no linked GitHub
     // account to prove it owns installation 12345 with, so it is sent back to
     // link one — and no connection is stored.
     let (status, headers, _) = call_full(&app, "GET", &uri, None, Some(&cookie), None).await;
-    assert_eq!(status, StatusCode::SEE_OTHER);
-    let location = headers["location"].to_str().unwrap();
-    assert!(
-        location.ends_with("/settings?github_error=link_required"),
-        "{location}"
-    );
+    assert_settings_error(status, &headers, "link_required");
 
     let (status, _) = call(
         &app,
@@ -960,8 +965,8 @@ async fn setup_callback_rechecks_the_initiators_role() {
     assert_eq!(status, StatusCode::NO_CONTENT);
 
     let uri = format!("/api/v1/github/setup?installation_id=12345&state={state}");
-    let (status, _, _) = call_full(&app, "GET", &uri, None, Some(&cookie), None).await;
-    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, headers, _) = call_full(&app, "GET", &uri, None, Some(&cookie), None).await;
+    assert_settings_error(status, &headers, "forbidden");
 }
 
 #[tokio::test]
@@ -977,8 +982,8 @@ async fn oauth_callback_rejects_a_state_not_bound_to_the_browser() {
     let secret = std::env::var("JWT_SECRET").unwrap();
     let unbound = sign_state_token(&secret, attacker.id, "oauth").unwrap();
     let uri = format!("/api/v1/github/oauth/callback?code=victims-code&state={unbound}");
-    let (status, _, _) = call_full(&app, "GET", &uri, None, None, None).await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, headers, _) = call_full(&app, "GET", &uri, None, None, None).await;
+    assert_settings_error(status, &headers, "state_mismatch");
 
     // A real, bound state still fails in a browser that doesn't hold its cookie.
     let (status, headers, body) = call_full(
@@ -994,6 +999,6 @@ async fn oauth_callback_rejects_a_state_not_bound_to_the_browser() {
     assert!(cookie_pair(&headers).starts_with("gh_state_oauth="));
     let bound = state_param(body["url"].as_str().unwrap());
     let uri = format!("/api/v1/github/oauth/callback?code=victims-code&state={bound}");
-    let (status, _, _) = call_full(&app, "GET", &uri, None, None, None).await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, headers, _) = call_full(&app, "GET", &uri, None, None, None).await;
+    assert_settings_error(status, &headers, "state_mismatch");
 }

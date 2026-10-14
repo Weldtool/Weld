@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { github as githubApi, teams as teamsApi } from '$lib/api';
+	import { github as githubApi, teams as teamsApi, userMessage } from '$lib/api';
 	import type { GithubConnection, TeamMember, TeamRole } from '$lib/api/types';
 	import { auth } from '$lib/auth.svelte';
 	import { projects } from '$lib/projects.svelte';
@@ -27,7 +27,10 @@
 			'Link your GitHub account below first, then install the GitHub App. Weld uses your account to confirm the installation is yours.',
 		installation_not_authorized:
 			"Your GitHub account doesn't have access to that installation, so it wasn't connected.",
-		unsupported_action: "That GitHub setup action isn't supported."
+		unsupported_action: "That GitHub setup action isn't supported.",
+		state_mismatch:
+			'That GitHub request expired or was started in another browser. Please start again from this page.',
+		forbidden: "You don't have permission to connect GitHub for this workspace."
 	};
 	const githubError = $derived.by(() => {
 		const code = page.url.searchParams.get('github_error');
@@ -54,7 +57,7 @@
 			const { url } = await githubApi.getInstallUrl(teamId);
 			window.location.href = url;
 		} catch (e) {
-			connectionError = e instanceof Error ? e.message : 'Failed to get install URL';
+			connectionError = userMessage(e, 'Failed to get install URL');
 		}
 	}
 
@@ -66,7 +69,7 @@
 			await githubApi.disconnect(teamId);
 			connection = null;
 		} catch (e) {
-			connectionError = e instanceof Error ? e.message : 'Failed to disconnect';
+			connectionError = userMessage(e, 'Failed to disconnect');
 		} finally {
 			disconnecting = false;
 		}
@@ -79,7 +82,7 @@
 			window.location.href = url;
 		} catch (e) {
 			linkingGitHub = false;
-			connectionError = e instanceof Error ? e.message : 'Failed to start GitHub linking';
+			connectionError = userMessage(e, 'Failed to start GitHub linking');
 		}
 	}
 
@@ -114,7 +117,7 @@
 		try {
 			members = await teamsApi.listMembers(teamId);
 		} catch (e) {
-			membersError = e instanceof Error ? e.message : 'Failed to load team members.';
+			membersError = userMessage(e, 'Failed to load team members.');
 		} finally {
 			membersLoading = false;
 		}
@@ -133,7 +136,7 @@
 			inviteEmail = '';
 			inviteRole = 'member';
 		} catch (e) {
-			membersError = e instanceof Error ? e.message : 'Failed to add member.';
+			membersError = userMessage(e, 'Failed to add member.');
 		} finally {
 			inviting = false;
 		}
@@ -146,7 +149,7 @@
 			await teamsApi.removeMember(teamId, userId);
 			members = members.filter((m) => m.user_id !== userId);
 		} catch (e) {
-			membersError = e instanceof Error ? e.message : 'Failed to remove member.';
+			membersError = userMessage(e, 'Failed to remove member.');
 		}
 	}
 </script>

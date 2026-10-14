@@ -94,11 +94,7 @@ export class TaskSaver {
 			}
 		} catch (err) {
 			this.error =
-				err instanceof ApiError
-					? `Save failed: ${err.message}`
-					: err instanceof Error
-						? err.message
-						: 'Save failed.';
+				err instanceof ApiError ? `Save failed: ${err.message}` : 'Save failed. Please try again.';
 		} finally {
 			this.#inflight = false;
 			if (Object.keys(this.#pending).length > 0) {

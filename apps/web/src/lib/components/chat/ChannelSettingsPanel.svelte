@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Channel, GitHubEventFilter } from '$lib/api/types';
-	import { channels as channelsApi } from '$lib/api';
+	import { channels as channelsApi, userMessage } from '$lib/api';
 	import { chat } from '$lib/chat.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -92,7 +92,7 @@
 			chat.updateChannel(updated);
 			onClose();
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to save settings';
+			error = userMessage(e, 'Failed to save settings');
 		} finally {
 			saving = false;
 		}

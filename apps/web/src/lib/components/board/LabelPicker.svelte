@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { userMessage } from '$lib/api';
 	import type { Label } from '$lib/api/types';
 	import { boardStore } from '$lib/board.svelte';
 	import { projects } from '$lib/projects.svelte';
@@ -33,7 +34,7 @@
 						? `Imported ${added} new label${added === 1 ? '' : 's'}.`
 						: 'Already in sync.';
 		} catch (err) {
-			syncMessage = err instanceof Error ? err.message : 'Sync failed.';
+			syncMessage = userMessage(err, 'Sync failed.');
 		} finally {
 			syncing = false;
 		}
@@ -61,7 +62,7 @@
 			creating = false;
 			createError = null;
 		} catch (err) {
-			createError = err instanceof Error ? err.message : 'Failed to create label.';
+			createError = userMessage(err, 'Failed to create label.');
 		}
 	}
 </script>

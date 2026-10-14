@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { userMessage } from '$lib/api';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -141,7 +142,7 @@
 			await boardStore.deleteColumn(column.id, tasks.length > 0 ? moveTarget : null);
 			showDeleteConfirm = false;
 		} catch (err) {
-			deleteError = err instanceof Error ? err.message : 'Failed to delete column.';
+			deleteError = userMessage(err, 'Failed to delete column.');
 		} finally {
 			deleteBusy = false;
 		}

@@ -1,5 +1,5 @@
 import { browser } from '$app/environment';
-import { study as studyApi } from '$lib/api';
+import { study as studyApi, userMessage } from '$lib/api';
 import { auth } from '$lib/auth.svelte';
 import { projects } from '$lib/projects.svelte';
 import { STUDY_TASKS, type StudyTask } from '$lib/study-tasks';
@@ -121,7 +121,7 @@ class StudyStore {
 				this.#enterTask(0);
 			}
 		} catch (e) {
-			this.error = e instanceof Error ? e.message : 'Could not start the study. Please retry.';
+			this.error = userMessage(e, 'Could not start the study. Please retry.');
 		} finally {
 			this.provisioning = false;
 		}

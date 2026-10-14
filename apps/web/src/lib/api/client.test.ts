@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ApiError, apiRequest } from './client';
+import {
+	ApiError,
+	NETWORK_ERROR_MESSAGE,
+	apiRequest,
+	errorFromResponse,
+	statusMessage,
+	userMessage
+} from './client';
 
 function mockFetch(status: number, body: unknown): typeof fetch {
 	const text = typeof body === 'string' ? body : JSON.stringify(body);
@@ -56,5 +63,59 @@ describe('apiRequest', () => {
 		const err = new ApiError(404, { error: 'not found' }, 'not found');
 		expect(err.status).toBe(404);
 		expect(err.body).toEqual({ error: 'not found' });
+	});
+});
+
+describe('error messages shown to users', () => {
+	it('replaces a non-JSON error body with a message for the status', async () => {
+		const fetchImpl = vi.fn(async () =>
+			Promise.resolve(
+				new Response('<html><body>502 Bad Gateway</body></html>', {
+					status: 502,
+					headers: { 'content-type': 'text/html' }
+				})
+			)
+		) as unknown as typeof fetch;
+		const err = await apiRequest('/api/v1/test', { fetch: fetchImpl }).catch((e: unknown) => e);
+		expect(err).toBeInstanceOf(ApiError);
+		expect((err as ApiError).message).toBe(statusMessage(502));
+		expect((err as ApiError).message).not.toContain('<');
+	});
+
+	it('uses the status message when the body is empty or has no error text', () => {
+		expect(errorFromResponse(404, '').message).toBe(statusMessage(404));
+		expect(errorFromResponse(400, '{"error":""}').message).toBe(statusMessage(400));
+		expect(errorFromResponse(422, 'Failed to deserialize the JSON body').message).toBe(
+			statusMessage(422)
+		);
+	});
+
+	it('turns a network failure into a retryable, readable error', async () => {
+		const fetchImpl = vi.fn(async () => {
+			throw new TypeError('Failed to fetch');
+		}) as unknown as typeof fetch;
+		await expect(apiRequest('/api/v1/test', { fetch: fetchImpl })).rejects.toMatchObject({
+			status: 0,
+			message: NETWORK_ERROR_MESSAGE
+		});
+	});
+
+	it('lets a deliberate abort through untouched', async () => {
+		const fetchImpl = vi.fn(async () => {
+			throw new DOMException('aborted', 'AbortError');
+		}) as unknown as typeof fetch;
+		await expect(apiRequest('/api/v1/test', { fetch: fetchImpl })).rejects.toMatchObject({
+			name: 'AbortError'
+		});
+	});
+
+	it('shows API messages but never the text of an unexpected exception', () => {
+		expect(userMessage(new ApiError(409, undefined, 'Email is already registered'), 'x')).toBe(
+			'Email is already registered'
+		);
+		expect(
+			userMessage(new TypeError("Cannot read properties of undefined (reading 'id')"), 'Oops.')
+		).toBe('Oops.');
+		expect(userMessage('weird', 'Oops.')).toBe('Oops.');
 	});
 });

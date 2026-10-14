@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { env } from '$env/dynamic/public';
+	import { errorFromResponse, userMessage } from '$lib/api/client';
 
 	const API_BASE = (env.PUBLIC_API_BASE_URL ?? '').replace(/\/$/, '');
 
@@ -117,10 +118,7 @@
 		const res = await fetch(`${API_BASE}${path}`, {
 			headers: { Authorization: `Bearer ${tok}` }
 		});
-		if (!res.ok) {
-			const text = await res.text().catch(() => res.statusText);
-			throw new Error(`${res.status}: ${text}`);
-		}
+		if (!res.ok) throw errorFromResponse(res.status, await res.text().catch(() => ''));
 		return res.json();
 	}
 
@@ -132,7 +130,7 @@
 			savedToken = tok;
 			sessionStorage.setItem(SESSION_KEY, tok);
 		} catch (e: unknown) {
-			error = e instanceof Error ? e.message : String(e);
+			error = userMessage(e, "Couldn't load the study summary. Please try again.");
 			summary = null;
 		} finally {
 			loading = false;
@@ -158,7 +156,7 @@
 			const res = await fetch(`${API_BASE}/api/v1/study/export?dataset=${dataset}`, {
 				headers: { Authorization: `Bearer ${savedToken}` }
 			});
-			if (!res.ok) throw new Error(`${res.status}`);
+			if (!res.ok) throw errorFromResponse(res.status, await res.text().catch(() => ''));
 			const blob = await res.blob();
 			const filename =
 				res.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/)?.[1] ??
@@ -170,7 +168,7 @@
 			a.click();
 			URL.revokeObjectURL(url);
 		} catch (e: unknown) {
-			alert(`Download failed: ${e instanceof Error ? e.message : String(e)}`);
+			alert(`Download failed. ${userMessage(e, 'Please try again.')}`);
 		} finally {
 			downloadingDataset = '';
 		}
@@ -191,12 +189,11 @@
 				},
 				body: JSON.stringify({ count: mintCount, note: null })
 			});
-			if (!res.ok)
-				throw new Error(`${res.status}: ${await res.text().catch(() => res.statusText)}`);
+			if (!res.ok) throw errorFromResponse(res.status, await res.text().catch(() => ''));
 			mintedCodes = await res.text();
 			fetchSummary(savedToken); // refresh the unused/used counts
 		} catch (e: unknown) {
-			mintError = e instanceof Error ? e.message : String(e);
+			mintError = userMessage(e, "Couldn't generate codes. Please try again.");
 		} finally {
 			minting = false;
 		}

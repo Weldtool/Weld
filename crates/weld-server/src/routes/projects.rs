@@ -86,9 +86,7 @@ pub async fn create(
     Path(team_id): Path<Uuid>,
     Json(input): Json<CreateProjectRequest>,
 ) -> Result<(StatusCode, Json<ProjectResponse>), ApiError> {
-    input
-        .validate()
-        .map_err(|e| ApiError::Validation(e.to_string()))?;
+    input.validate()?;
 
     let project = project::create_project(
         &state.db,

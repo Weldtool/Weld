@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { GitHubPR, GitHubPRFile } from '$lib/api/types';
-	import { github } from '$lib/api';
+	import { github, userMessage } from '$lib/api';
 	import { appConfig } from '$lib/config.svelte';
 	import { telemetry } from '$lib/telemetry.svelte';
 	import { prReviews, type PrReview, type ReviewVerdict } from '$lib/pr-reviews.svelte';
@@ -50,7 +50,7 @@
 				if (!cancelled) detail = full;
 			})
 			.catch((e) => {
-				if (!cancelled) loadError = e instanceof Error ? e.message : 'Could not load the diff.';
+				if (!cancelled) loadError = userMessage(e, 'Could not load the diff.');
 			})
 			.finally(() => {
 				if (!cancelled) loadingFiles = false;
@@ -130,7 +130,7 @@
 					body: payload.comment
 				});
 			} catch (e) {
-				hint = e instanceof Error ? e.message : 'GitHub rejected the review.';
+				hint = userMessage(e, 'GitHub rejected the review.');
 				return;
 			} finally {
 				busy = false;
@@ -166,7 +166,7 @@
 				await github.mergePR(projectId, pr.number);
 			} catch (e) {
 				// Branch protection, conflicts and failing checks all land here.
-				hint = e instanceof Error ? e.message : 'GitHub could not merge this pull request.';
+				hint = userMessage(e, 'GitHub could not merge this pull request.');
 				return;
 			} finally {
 				busy = false;

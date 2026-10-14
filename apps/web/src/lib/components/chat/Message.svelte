@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { userMessage } from '$lib/api';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import type { TeamMember, GitHubMessageMetadata } from '$lib/api/types';
@@ -67,7 +68,7 @@
 			editing = false;
 		} catch (err) {
 			// Keep the editor open so the draft isn't lost on a failed save.
-			editError = err instanceof Error ? err.message : 'Failed to save edit.';
+			editError = userMessage(err, 'Failed to save edit.');
 		} finally {
 			saving = false;
 		}

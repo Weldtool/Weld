@@ -140,7 +140,17 @@ pub async fn github_error(context: &str, resp: reqwest::Response) -> ApiError {
         .and_then(|v| v.to_str().ok())
         .is_some_and(|v| v == "0");
     let text = resp.text().await.unwrap_or_default();
-    let detail = parse_github_message(&text).unwrap_or_else(|| text.clone());
+    // GitHub's own one-line explanation ("Pull Request is not mergeable"), when
+    // it sent one. Shown only where it tells the user what to fix; the raw body
+    // and our internal `context` go to the logs, never to the client.
+    let detail = parse_github_message(&text);
+    if status.is_client_error() {
+        tracing::warn!(context, %status, body = %text, "GitHub request failed");
+    }
+    let with_detail = |base: &str| match &detail {
+        Some(detail) => format!("{base}: {detail}"),
+        None => format!("{base}."),
+    };
 
     match status.as_u16() {
         // Our own credentials are bad — the user cannot fix this.
@@ -148,15 +158,16 @@ pub async fn github_error(context: &str, resp: reqwest::Response) -> ApiError {
         403 | 429 if rate_limited => {
             ApiError::Conflict("GitHub API rate limit reached. Try again in a few minutes.".into())
         }
-        403 => ApiError::Forbidden(format!(
-            "GitHub denied this request ({context}): {detail}. \
-             Check the Weld App has access to this repository."
-        )),
-        404 => ApiError::NotFound(format!("Not found on GitHub ({context}): {detail}")),
+        403 => ApiError::Forbidden(
+            "GitHub denied this request. Check the Weld App has access to this repository.".into(),
+        ),
+        404 => ApiError::NotFound(
+            "That wasn't found on GitHub, or the Weld App doesn't have access to it.".into(),
+        ),
         // 405 = not mergeable (failing checks, conflicts, branch protection);
         // 409 = the branch moved since the client last looked.
-        405 | 409 => ApiError::Conflict(format!("GitHub could not complete this: {detail}")),
-        422 => ApiError::Validation(format!("GitHub rejected this request: {detail}")),
+        405 | 409 => ApiError::Conflict(with_detail("GitHub couldn't complete this")),
+        422 => ApiError::Validation(with_detail("GitHub rejected this request")),
         _ => ApiError::Internal(format!("GitHub {context} failed ({status}): {text}")),
     }
 }
@@ -684,6 +695,21 @@ pub fn issue_bound_state(
     Ok(BoundState { token, cookie })
 }
 
+/// The `Set-Cookie` value that removes `kind`'s state cookie once its flow has
+/// completed, so the same state can't be replayed. Attributes match
+/// `issue_bound_state`, or the browser would keep the original.
+pub fn cleared_state_cookie(kind: &str, secure: bool) -> String {
+    let (same_site, secure_flag) = if secure {
+        ("None", "; Secure")
+    } else {
+        ("Lax", "")
+    };
+    format!(
+        "{}=; HttpOnly; SameSite={same_site}; Path=/api/v1/github; Max-Age=0{secure_flag}",
+        state_cookie_name(kind),
+    )
+}
+
 /// Verifies a browser-bound state token against the request's cookies.
 ///
 /// The token is checked first, so a malformed or expired one is reported as
@@ -839,6 +865,27 @@ mod tests {
         let token = sign_state_token("secret", Uuid::new_v4(), "oauth").unwrap();
         let headers = headers_with_cookie("gh_state_oauth=anything");
         assert!(verify_bound_state("secret", &token, "oauth", &headers).is_err());
+    }
+
+    #[test]
+    fn cleared_state_cookie_matches_the_issued_one() {
+        let (a, b) = (Uuid::new_v4(), Uuid::new_v4());
+        for secure in [true, false] {
+            let issued = issue_bound_state("secret", "install", a, b, secure).unwrap();
+            let cleared = cleared_state_cookie("install", secure);
+            assert_eq!(pair(&cleared), "gh_state_install=");
+            assert!(cleared.contains("Max-Age=0"));
+            // Everything but the value and lifetime must match, or the browser
+            // treats it as a different cookie and keeps the original.
+            let attrs = |c: &str| {
+                c.split("; ")
+                    .skip(1)
+                    .filter(|a| !a.starts_with("Max-Age"))
+                    .map(str::to_string)
+                    .collect::<Vec<_>>()
+            };
+            assert_eq!(attrs(&issued.cookie), attrs(&cleared));
+        }
     }
 
     #[test]

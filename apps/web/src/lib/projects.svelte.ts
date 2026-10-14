@@ -1,5 +1,5 @@
 import { browser } from '$app/environment';
-import { projects as projectsApi, teams as teamsApi } from '$lib/api';
+import { projects as projectsApi, teams as teamsApi, userMessage } from '$lib/api';
 import type { Project, UserTeam } from '$lib/api/types';
 
 const SELECTED_PROJECT_KEY = 'weld:selected-project';
@@ -42,7 +42,7 @@ class ProjectsStore {
 			await this.#loadProjects();
 			this.#loaded = true;
 		} catch (err) {
-			this.error = err instanceof Error ? err.message : 'Failed to load projects.';
+			this.error = userMessage(err, 'Failed to load projects.');
 		} finally {
 			this.loading = false;
 		}
@@ -58,7 +58,7 @@ class ProjectsStore {
 		try {
 			await this.#loadProjects();
 		} catch (err) {
-			this.error = err instanceof Error ? err.message : 'Failed to load projects.';
+			this.error = userMessage(err, 'Failed to load projects.');
 		} finally {
 			this.loading = false;
 		}

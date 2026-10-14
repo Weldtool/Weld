@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { study as studyApi } from '$lib/api';
+	import { study as studyApi, userMessage } from '$lib/api';
 	import { agentActivity } from '$lib/agent-activity.svelte';
 	import { agentDrafts } from '$lib/agent-drafts.svelte';
 	import { study } from '$lib/study.svelte';
@@ -95,7 +95,7 @@
 			// panel is too cramped); queue them and point the participant there.
 			for (const d of res.drafts) agentDrafts.add(d);
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'The assistant is unavailable. Please try again.';
+			error = userMessage(e, 'The assistant is unavailable. Please try again.');
 		} finally {
 			busy = false;
 			scrollSoon();

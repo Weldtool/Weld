@@ -1,4 +1,9 @@
-import { channels as channelsApi, messages as messagesApi, teams as teamsApi } from '$lib/api';
+import {
+	channels as channelsApi,
+	messages as messagesApi,
+	teams as teamsApi,
+	userMessage
+} from '$lib/api';
 import type { Channel, ChatMessage, TaskRef, TeamMember } from '$lib/api/types';
 import { auth } from '$lib/auth.svelte';
 import { realtime, type RealtimeEnvelope } from '$lib/realtime.svelte';
@@ -74,7 +79,7 @@ class ChatStore {
 			this.members = members;
 			this.taskRefs = taskRefs;
 		} catch (err) {
-			this.error = err instanceof Error ? err.message : 'Failed to load chat data.';
+			this.error = userMessage(err, 'Failed to load chat data.');
 		}
 	}
 
@@ -93,7 +98,7 @@ class ChatStore {
 			this.channels = [...this.channels, created];
 			return created;
 		} catch (err) {
-			this.error = err instanceof Error ? err.message : 'Failed to create channel.';
+			this.error = userMessage(err, 'Failed to create channel.');
 			return null;
 		}
 	}
@@ -115,7 +120,7 @@ class ChatStore {
 			this.unreadByChannel = restUnread;
 			return true;
 		} catch (err) {
-			this.error = err instanceof Error ? err.message : 'Failed to archive channel.';
+			this.error = userMessage(err, 'Failed to archive channel.');
 			return false;
 		}
 	}
@@ -206,7 +211,7 @@ class ChatStore {
 		} catch (err) {
 			this.#markPendingFailed(channelId, clientId);
 			if (threadParentId) this.#markThreadPendingFailed(threadParentId, clientId);
-			this.error = err instanceof Error ? err.message : 'Failed to send message.';
+			this.error = userMessage(err, 'Failed to send message.');
 			return null;
 		}
 	}
@@ -232,7 +237,7 @@ class ChatStore {
 			this.#markPendingFailed(channelId, clientId);
 			if (pending.thread_parent_id)
 				this.#markThreadPendingFailed(pending.thread_parent_id, clientId);
-			this.error = err instanceof Error ? err.message : 'Failed to send message.';
+			this.error = userMessage(err, 'Failed to send message.');
 		}
 	}
 
@@ -301,7 +306,7 @@ class ChatStore {
 					parent: existing?.parent ?? null,
 					replies: existing?.replies ?? [],
 					loading: false,
-					error: err instanceof Error ? err.message : 'Failed to load thread.'
+					error: userMessage(err, 'Failed to load thread.')
 				}
 			};
 		}
@@ -424,7 +429,7 @@ class ChatStore {
 			if (newest && !isPending(newest))
 				realtime.setCursor(`channel:${channelId}`, newest.created_at);
 		} catch (err) {
-			const msg = err instanceof Error ? err.message : 'Failed to load messages.';
+			const msg = userMessage(err, 'Failed to load messages.');
 			this.error = msg;
 			const cur = this.messagesByChannel[channelId];
 			this.messagesByChannel = {
