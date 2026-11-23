@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT EXISTS(SELECT 1 FROM teams\n                           WHERE slug = $1 AND deleted_at IS NULL\n                             AND ($2::uuid IS NULL OR id <> $2))",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "exists",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "fb7b0e1d633f411af3f7938a559e0a9d5dd73db40f793dfbfab6d208686ab79f"
+}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { userMessage } from '$lib/api';
 	import { boardStore } from '$lib/board.svelte';
 	import type { Priority } from '$lib/api/types';
 	import { Plus, X, Pencil, Check } from '@lucide/svelte';
@@ -40,7 +41,7 @@
 			columnName = '';
 			creatingColumn = false;
 		} catch (err) {
-			creatingError = err instanceof Error ? err.message : 'Failed to create column.';
+			creatingError = userMessage(err, 'Failed to create column.');
 		}
 	}
 </script>

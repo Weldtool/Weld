@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { messages as messagesApi } from '$lib/api';
+	import { messages as messagesApi, userMessage } from '$lib/api';
 	import { agentDrafts } from '$lib/agent-drafts.svelte';
 	import { study } from '$lib/study.svelte';
 	import { telemetry } from '$lib/telemetry.svelte';
@@ -44,7 +44,7 @@
 			});
 			agentDrafts.remove(id);
 		} catch (e) {
-			d.error = e instanceof Error ? e.message : 'Could not send. Please try again.';
+			d.error = userMessage(e, 'Could not send. Please try again.');
 		} finally {
 			d.sending = false;
 		}

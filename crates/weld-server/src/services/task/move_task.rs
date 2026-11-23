@@ -7,6 +7,14 @@ use uuid::Uuid;
 use weld_core::models::enums::{Priority, TeamRole};
 use weld_core::models::task::Task;
 
+/// The result of a move: the task as it now stands, and whether it actually
+/// changed column — a reorder within one column is also a "move", and callers
+/// that announce moves need to tell the two apart.
+pub struct MovedTask {
+    pub task: TaskWithLabels,
+    pub column_changed: bool,
+}
+
 /// Move a task to a new column / position. The caller supplies the desired
 /// `position` directly (computed client-side as midpoint between neighbours,
 /// `last + 1.0` for end-of-column, etc.). The server validates that the new
@@ -19,7 +27,7 @@ pub async fn move_task(
     caller_id: Uuid,
     new_column_id: Uuid,
     new_position: f64,
-) -> Result<TaskWithLabels, ApiError> {
+) -> Result<MovedTask, ApiError> {
     if !new_position.is_finite() {
         return Err(ApiError::Validation(
             "position must be a finite number".into(),
@@ -96,8 +104,11 @@ pub async fn move_task(
     .await?;
 
     let labels = fetch_task_label_ids(pool, task_id).await?;
-    Ok(TaskWithLabels {
-        task: updated,
-        labels,
+    Ok(MovedTask {
+        column_changed: task.column_id != new_column_id,
+        task: TaskWithLabels {
+            task: updated,
+            labels,
+        },
     })
 }

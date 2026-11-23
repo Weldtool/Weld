@@ -86,9 +86,7 @@ pub async fn create(
     Path(team_id): Path<Uuid>,
     Json(input): Json<CreateProjectRequest>,
 ) -> Result<(StatusCode, Json<ProjectResponse>), ApiError> {
-    input
-        .validate()
-        .map_err(|e| ApiError::Validation(e.to_string()))?;
+    input.validate()?;
 
     let project = project::create_project(
         &state.db,
@@ -222,5 +220,7 @@ pub async fn remove_member(
     Path((id, user_id)): Path<(Uuid, Uuid)>,
 ) -> Result<StatusCode, ApiError> {
     project::remove_project_member(&state.db, id, auth.user_id, user_id).await?;
+    // Stop streaming the project's board to any socket they still have open.
+    super::ws::revalidate_user_rooms(&state, user_id).await;
     Ok(StatusCode::NO_CONTENT)
 }

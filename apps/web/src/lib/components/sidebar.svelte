@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { userMessage } from '$lib/api';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { auth } from '$lib/auth.svelte';
@@ -81,7 +82,7 @@
 			showCreateWorkspace = false;
 			workspaceOpen = false;
 		} catch (err) {
-			createError = err instanceof Error ? err.message : 'Failed to create workspace.';
+			createError = userMessage(err, 'Failed to create workspace.');
 		} finally {
 			createBusy = false;
 		}
@@ -115,7 +116,7 @@
 			await projects.updateTeam(currentTeam.id, name);
 			showRenameWorkspace = false;
 		} catch (err) {
-			renameError = err instanceof Error ? err.message : 'Failed to rename workspace.';
+			renameError = userMessage(err, 'Failed to rename workspace.');
 		} finally {
 			renameBusy = false;
 		}
@@ -140,7 +141,7 @@
 			await projects.deleteTeam(currentTeam.id);
 			showDeleteWorkspace = false;
 		} catch (err) {
-			deleteWorkspaceError = err instanceof Error ? err.message : 'Failed to delete workspace.';
+			deleteWorkspaceError = userMessage(err, 'Failed to delete workspace.');
 		} finally {
 			deleteWorkspaceBusy = false;
 		}

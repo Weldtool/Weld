@@ -1,4 +1,10 @@
-export { apiRequest, ApiError, type RequestOptions } from './client';
+export {
+	apiRequest,
+	ApiError,
+	errorFromResponse,
+	userMessage,
+	type RequestOptions
+} from './client';
 export * from './types';
 
 import { apiRequest, type RequestOptions } from './client';

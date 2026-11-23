@@ -490,3 +490,118 @@ async fn ws_subscribe_to_unauthorized_project_is_rejected() {
     assert_eq!(err["room"], format!("project:{project_id}"));
     let _ = ws.close(None).await;
 }
+
+#[tokio::test]
+async fn ws_project_room_requires_project_membership_not_just_team() {
+    let addr = spawn_server().await;
+    let client = reqwest::Client::builder().build().unwrap();
+    let owner = register_login(&client, addr).await;
+    let member = register_login(&client, addr).await;
+    let team_id = create_team(&client, addr, &owner).await;
+    let project_id = create_project(&client, addr, &owner, team_id).await;
+    // On the team, but never added to the project.
+    let (status, _) = http_post(
+        &client,
+        addr,
+        &format!("/api/v1/teams/{team_id}/members"),
+        Some(&owner.access_token),
+        json!({"user_id": member.id, "role": "member"}),
+    )
+    .await;
+    assert!(status.is_success());
+
+    let url = format!("ws://{addr}/api/v1/ws?token={}", member.access_token);
+    let (mut ws, _) = connect_async(url).await.unwrap();
+    let sub = json!({"type": "ws.subscribe", "rooms": [format!("project:{project_id}")]});
+    ws.send(Message::Text(sub.to_string().into()))
+        .await
+        .unwrap();
+
+    let err = next_event_matching(&mut ws, |v| v["type"] == "ws.error")
+        .await
+        .expect("ws.error for a project the member was not added to");
+    assert_eq!(err["room"], format!("project:{project_id}"));
+    let _ = ws.close(None).await;
+}
+
+#[tokio::test]
+async fn ws_subscription_is_revoked_when_removed_from_private_channel() {
+    let addr = spawn_server().await;
+    let client = reqwest::Client::builder().build().unwrap();
+    let owner = register_login(&client, addr).await;
+    let member = register_login(&client, addr).await;
+    let team_id = create_team(&client, addr, &owner).await;
+    let (status, _) = http_post(
+        &client,
+        addr,
+        &format!("/api/v1/teams/{team_id}/members"),
+        Some(&owner.access_token),
+        json!({"user_id": member.id, "role": "member"}),
+    )
+    .await;
+    assert!(status.is_success());
+
+    let (status, channel) = http_post(
+        &client,
+        addr,
+        &format!("/api/v1/teams/{team_id}/channels"),
+        Some(&owner.access_token),
+        json!({"name": "private-room", "is_private": true, "members": [member.id]}),
+    )
+    .await;
+    assert!(status.is_success(), "channel: {status} {channel}");
+    let channel_id = channel["id"].as_str().unwrap().to_string();
+
+    let url = format!("ws://{addr}/api/v1/ws?token={}", member.access_token);
+    let (mut ws, _) = connect_async(url).await.unwrap();
+    let sub = json!({"type": "ws.subscribe", "rooms": [format!("channel:{channel_id}")]});
+    ws.send(Message::Text(sub.to_string().into()))
+        .await
+        .unwrap();
+    next_event_matching(&mut ws, |v| v["type"] == "ws.subscribed")
+        .await
+        .expect("subscribed while a member");
+
+    // Sanity: while a member, messages arrive.
+    let messages_path = format!("/api/v1/channels/{channel_id}/messages");
+    let (status, _) = http_post(
+        &client,
+        addr,
+        &messages_path,
+        Some(&owner.access_token),
+        json!({"content": "before removal"}),
+    )
+    .await;
+    assert!(status.is_success());
+    next_event_matching(&mut ws, |v| v["type"] == "chat.message.new")
+        .await
+        .expect("message delivered while a member");
+
+    // Removed from the channel with the socket still open.
+    let resp = client
+        .delete(format!(
+            "http://{addr}/api/v1/channels/{channel_id}/members/{}",
+            member.id
+        ))
+        .bearer_auth(&owner.access_token)
+        .send()
+        .await
+        .unwrap();
+    assert!(resp.status().is_success());
+
+    let (status, _) = http_post(
+        &client,
+        addr,
+        &messages_path,
+        Some(&owner.access_token),
+        json!({"content": "after removal"}),
+    )
+    .await;
+    assert!(status.is_success());
+    let leaked = next_event_matching(&mut ws, |v| v["type"] == "chat.message.new").await;
+    assert!(
+        leaked.is_none(),
+        "removed member still received: {leaked:?}"
+    );
+    let _ = ws.close(None).await;
+}

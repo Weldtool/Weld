@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tasks as tasksApi, github as githubApi } from '$lib/api';
+	import { tasks as tasksApi, github as githubApi, userMessage } from '$lib/api';
 	import { boardStore } from '$lib/board.svelte';
 	import { projects } from '$lib/projects.svelte';
 	import { createPrDialog } from '$lib/create-pr-dialog.svelte';
@@ -87,7 +87,7 @@
 			});
 			createPrDialog.confirm();
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to create pull request.';
+			error = userMessage(err, 'Failed to create pull request.');
 		} finally {
 			busy = false;
 		}

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        UPDATE projects\n        SET in_progress_column_id = $2, review_column_id = $3, done_column_id = $4\n        WHERE id = $1\n        RETURNING id, team_id, name, slug, description, github_repo, done_column_id,\n                  in_progress_column_id, review_column_id, auto_close_on_issue_closed,\n               github_comment_on_move,\n                  created_at, updated_at, deleted_at\n        ",
+  "query": "\n            UPDATE projects\n            SET in_progress_column_id = $2, review_column_id = $3, done_column_id = $4\n            WHERE id = $1\n            RETURNING id, team_id, name, slug, description, github_repo, done_column_id,\n                      in_progress_column_id, review_column_id, auto_close_on_issue_closed,\n                   github_comment_on_move,\n                      created_at, updated_at, deleted_at\n            ",
   "describe": {
     "columns": [
       {
@@ -99,5 +99,5 @@
       true
     ]
   },
-  "hash": "25cd8ad3ba1c59d747498b56a19bd712e2311bacd1c5b79c62caf6cccb6c469c"
+  "hash": "71b05257ce9cf6521dc6eab05d0ab04199aa589e4599c699556f8e9a9608ff50"
 }

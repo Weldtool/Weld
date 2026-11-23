@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tasks as tasksApi, github as githubApi } from '$lib/api';
+	import { tasks as tasksApi, github as githubApi, userMessage } from '$lib/api';
 	import type { IssueTemplate, Task } from '$lib/api/types';
 	import { telemetry } from '$lib/telemetry.svelte';
 	import { X, CircleDot } from '@lucide/svelte';
@@ -66,7 +66,7 @@
 			onCreated(updated);
 			onClose();
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to create issue.';
+			error = userMessage(err, 'Failed to create issue.');
 		} finally {
 			busy = false;
 		}

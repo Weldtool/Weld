@@ -1,4 +1,4 @@
-.PHONY: setup start stop server clean web web-install pr audit
+.PHONY: setup start stop server clean web web-install test lint pr audit
 
 # First-time setup (runs everything)
 setup:
@@ -29,6 +29,15 @@ web:
 # Install web dependencies
 web-install:
 	cd $(CURDIR)/apps/web && pnpm install
+
+# Run all Rust tests (needs the database from 'make start')
+test:
+	set -a && source $(CURDIR)/.env && set +a && cargo test --workspace
+
+# Formatting + clippy, without touching the database
+lint:
+	cargo fmt --all -- --check
+	SQLX_OFFLINE=true cargo clippy --workspace --all-targets -- -W clippy::all
 
 # Run all checks needed before opening a PR
 pr:

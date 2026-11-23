@@ -158,6 +158,62 @@ describe('renderMessageMarkdown PR references', () => {
 	});
 });
 
+describe('renderMessageMarkdown links', () => {
+	it('keeps query-string ampersands intact instead of double-escaping them', () => {
+		const html = renderMessageMarkdown('see [docs](https://example.com/search?a=1&b=2)');
+		expect(html).toContain('href="https://example.com/search?a=1&amp;b=2"');
+		expect(html).not.toContain('&amp;amp;');
+	});
+
+	it('still cannot break out of the href attribute', () => {
+		const html = renderMessageMarkdown('[x](https://a.com/"onmouseover="alert(1))');
+		expect(html).not.toContain('"onmouseover="');
+		expect(html).toContain('&quot;onmouseover=&quot;');
+	});
+});
+
+describe('thread reply counts', () => {
+	it('shows the server-reported count for a thread that was never opened', async () => {
+		const parent = { ...messageFixture({ id: 'p-1' }), reply_count: 3 };
+		const lonely = { ...messageFixture({ id: 'p-2' }), reply_count: 0 };
+		mockSequence(
+			{ status: 200, body: { messages: [parent, lonely], next_before: null } },
+			{ status: 204, body: '' }
+		);
+		await chat.openChannel('c-1');
+
+		expect(chat.threadReplyCount('p-1')).toBe(3);
+		expect(chat.threadReplyCount('p-2')).toBe(0);
+	});
+
+	it('moves with realtime replies and deletions, counting each reply once', async () => {
+		const parent = { ...messageFixture({ id: 'p-1' }), reply_count: 1 };
+		mockSequence(
+			{ status: 200, body: { messages: [parent], next_before: null } },
+			{ status: 204, body: '' }
+		);
+		await chat.openChannel('c-1');
+
+		const reply = messageFixture({ id: 'r-new', thread_parent_id: 'p-1' });
+		chat.handleIncoming(reply);
+		chat.handleIncoming(reply); // replayed on reconnect
+		expect(chat.threadReplyCount('p-1')).toBe(2);
+
+		mockSequence({ status: 200, body: {} });
+		await chat.deleteMessage('r-new', 'c-1');
+		expect(chat.threadReplyCount('p-1')).toBe(1);
+	});
+
+	it('does not double count our own reply when its realtime echo arrives', async () => {
+		const confirmed = messageFixture({ id: 'r-own', thread_parent_id: 'p-1' });
+		mockSequence({ status: 201, body: confirmed });
+		await chat.sendMessage('c-1', 'hello', 'p-1');
+		chat.handleIncoming(confirmed);
+
+		expect(chat.threadReplyCount('p-1')).toBe(1);
+	});
+});
+
 describe('optimistic send', () => {
 	it('appends a pending message immediately and replaces it on success', async () => {
 		const confirmed = messageFixture({ id: 'srv-1', content: 'hi there' });

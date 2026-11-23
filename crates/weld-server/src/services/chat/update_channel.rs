@@ -1,9 +1,8 @@
-use super::helpers::fetch_active_channel;
+use super::helpers::{fetch_active_channel, require_channel_admin};
 use crate::errors::ApiError;
-use crate::services::team::helpers::require_team_role;
+use crate::services::github::helpers::validate_repo_slug;
 use sqlx::PgPool;
 use uuid::Uuid;
-use weld_core::models::enums::TeamRole;
 use weld_core::models::message::Channel;
 
 #[derive(Default)]
@@ -21,14 +20,24 @@ pub async fn update_channel(
     input: UpdateChannelInput,
 ) -> Result<Channel, ApiError> {
     let channel = fetch_active_channel(pool, channel_id).await?;
-    // editing channel metadata requires Admin+ on the team
-    require_team_role(pool, channel.team_id, caller_id, TeamRole::Admin).await?;
+    // editing channel metadata requires Admin+ on the team (and, for a private
+    // channel, being in it)
+    require_channel_admin(pool, &channel, caller_id).await?;
+
+    if let Some(repos) = &input.github_repos {
+        for repo in repos {
+            validate_repo_slug(repo)?;
+        }
+    }
 
     let new_name = match &input.name {
         Some(n) => {
             let name = n.trim().to_ascii_lowercase();
             if name.is_empty() {
                 return Err(ApiError::Validation("Channel name cannot be empty".into()));
+            }
+            if name.len() > 80 {
+                return Err(ApiError::Validation("Channel name too long".into()));
             }
             if !name
                 .chars()

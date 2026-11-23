@@ -19,6 +19,69 @@ export class ApiError extends Error {
 	}
 }
 
+/** Shown when the request never got an HTTP response at all. */
+export const NETWORK_ERROR_MESSAGE =
+	"Can't reach Weld right now. Check your connection and try again.";
+
+/**
+ * A message a user can act on for `status`. Used when the response carries no
+ * message of its own — a proxy's HTML error page, an empty body — so the user
+ * never sees raw markup, JSON or a bare status text.
+ */
+export function statusMessage(status: number): string {
+	switch (status) {
+		case 400:
+		case 415:
+		case 422:
+			return 'Some of the information sent was missing or invalid. Please check it and try again.';
+		case 401:
+			return 'Your session has expired. Please sign in again.';
+		case 403:
+			return "You don't have permission to do that.";
+		case 404:
+			return "That couldn't be found. It may have been moved or deleted.";
+		case 408:
+			return 'The request took too long. Please try again.';
+		case 409:
+			return 'That conflicts with a change someone else just made. Please refresh and try again.';
+		case 413:
+			return 'That is too large to send.';
+		case 429:
+			return 'Too many attempts. Please wait a moment and try again.';
+		case 502:
+		case 503:
+		case 504:
+			return 'The service is temporarily unavailable. Please try again shortly.';
+		default:
+			return 'Something went wrong. Please try again.';
+	}
+}
+
+/** Builds the `ApiError` for a failed response from its status and body text. */
+export function errorFromResponse(status: number, text: string): ApiError {
+	const parsed = text.length > 0 ? safeJsonParse(text) : undefined;
+	const serverMessage =
+		parsed && typeof parsed === 'object' && 'error' in parsed
+			? (parsed as { error: unknown }).error
+			: undefined;
+	// The server writes `error` for users and never puts internal detail in it.
+	// Anything else (HTML, plain text, an empty body) is replaced.
+	const message =
+		typeof serverMessage === 'string' && serverMessage.trim().length > 0
+			? serverMessage
+			: statusMessage(status);
+	return new ApiError(status, parsed, message);
+}
+
+/**
+ * The text to show a user for a caught error. API errors carry a message
+ * written for them; anything else (a bug, a browser exception) has text meant
+ * for developers, so the caller's `fallback` is shown instead.
+ */
+export function userMessage(err: unknown, fallback: string): string {
+	return err instanceof ApiError ? err.message : fallback;
+}
+
 export interface RequestOptions {
 	method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 	body?: unknown;
@@ -42,26 +105,29 @@ export async function apiRequest<T>(path: string, opts: RequestOptions = {}): Pr
 
 	const url = `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
 
-	const response = await fetchImpl(url, {
-		method: opts.method ?? 'GET',
-		credentials: 'include',
-		headers,
-		body,
-		signal: opts.signal
-	});
-
-	const text = await response.text();
-	const parsed = text.length > 0 ? safeJsonParse(text) : undefined;
-
-	if (!response.ok) {
-		const message =
-			(parsed && typeof parsed === 'object' && 'error' in parsed
-				? String((parsed as { error: unknown }).error)
-				: undefined) ?? response.statusText;
-		throw new ApiError(response.status, parsed, message);
+	let response: Response;
+	try {
+		response = await fetchImpl(url, {
+			method: opts.method ?? 'GET',
+			credentials: 'include',
+			headers,
+			body,
+			signal: opts.signal
+		});
+	} catch (err) {
+		// A deliberate cancel is not a failure to report.
+		if (err instanceof DOMException && err.name === 'AbortError') throw err;
+		// Offline, DNS, CORS, server down: the browser's own text ("Failed to
+		// fetch", "NetworkError when attempting to fetch resource") means
+		// nothing to a user. Status 0 marks it as retryable.
+		throw new ApiError(0, undefined, NETWORK_ERROR_MESSAGE);
 	}
 
-	return parsed as T;
+	const text = await response.text();
+
+	if (!response.ok) throw errorFromResponse(response.status, text);
+
+	return (text.length > 0 ? safeJsonParse(text) : undefined) as T;
 }
 
 function safeJsonParse(text: string): unknown {

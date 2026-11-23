@@ -1,5 +1,5 @@
 import { browser } from '$app/env';
-import { study as studyApi } from '$lib/api';
+import { study as studyApi, userMessage } from '$lib/api';
 import { auth } from '$lib/auth.svelte';
 import { projects } from '$lib/projects.svelte';
 import { STUDY_TASKS, type StudyTask } from '$lib/study-tasks';
@@ -121,7 +121,7 @@ class StudyStore {
 				this.#enterTask(0);
 			}
 		} catch (e) {
-			this.error = e instanceof Error ? e.message : 'Could not start the study. Please retry.';
+			this.error = userMessage(e, 'Could not start the study. Please retry.');
 		} finally {
 			this.provisioning = false;
 		}
@@ -229,11 +229,17 @@ class StudyStore {
 		this.#enterTask(next);
 	}
 
-	/** Persist the post-baseline TLX (fire-and-forget) then enter the first agent
-	 * task. Item ids are pre-suffixed `_baseline` by the caller. */
-	submitPostBaselineTlx(responses: Record<string, string>): void {
+	/** Persist the post-baseline TLX, then enter the first agent task. Item ids
+	 * are pre-suffixed `_baseline` by the caller.
+	 *
+	 * Awaited, and it throws on failure: these answers exist nowhere else, and
+	 * once the agent phase starts there is no second chance to collect them. A
+	 * fire-and-forget save that failed on one dropped request left that
+	 * participant with no baseline rows — H3's delta underivable, silently. So
+	 * the interstitial stays up until the server has them. */
+	async submitPostBaselineTlx(responses: Record<string, string>): Promise<void> {
 		if (!this.pendingPostBaselineTlx) return;
-		void studyApi.submitInterimSurvey({ responses }).catch(() => {});
+		await studyApi.submitInterimSurvey({ responses });
 		telemetry.log('interim_tlx_submitted', {});
 		this.pendingPostBaselineTlx = false;
 		this.#persist();

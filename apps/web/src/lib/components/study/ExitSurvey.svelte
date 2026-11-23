@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { study as studyApi } from '$lib/api';
+	import { study as studyApi, userMessage } from '$lib/api';
 	import { study } from '$lib/study.svelte';
 	import { SURVEY, type SurveyItem } from '$lib/survey-config';
 	import { cn } from '$lib/utils';
@@ -46,7 +46,7 @@
 			await studyApi.submitSurvey({ responses: out, followup_email: followupEmail || undefined });
 			study.finishSurvey();
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Could not submit the survey. Please retry.';
+			error = userMessage(e, 'Could not submit the survey. Please retry.');
 			submitting = false;
 		}
 	}

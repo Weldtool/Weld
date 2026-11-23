@@ -15,12 +15,19 @@ pub async fn refresh_tokens(
 ) -> Result<RefreshResult, ApiError> {
     let hashed = helpers::hash_refresh_token(refresh_token);
 
+    // Consume the token in one statement (rotation). A separate SELECT then
+    // DELETE let two concurrent requests both pass the check and both mint a
+    // new pair from the same single-use token.
     let row = sqlx::query!(
         r#"
-        SELECT rt.user_id, u.role::text as "role!"
-        FROM refresh_tokens rt
-        JOIN users u ON u.id = rt.user_id
-        WHERE rt.token_hash = $1 AND rt.expires_at > NOW()
+        WITH consumed AS (
+            DELETE FROM refresh_tokens
+            WHERE token_hash = $1 AND expires_at > NOW()
+            RETURNING user_id
+        )
+        SELECT u.id as user_id, u.role::text as "role!"
+        FROM consumed c
+        JOIN users u ON u.id = c.user_id
         "#,
         hashed
     )
@@ -28,12 +35,6 @@ pub async fn refresh_tokens(
     .await
     .map_err(|e| ApiError::Internal(format!("Database error: {e}")))?
     .ok_or_else(|| ApiError::Unauthorized("Invalid or expired refresh token".into()))?;
-
-    // Delete old token (rotation)
-    sqlx::query!("DELETE FROM refresh_tokens WHERE token_hash = $1", hashed)
-        .execute(pool)
-        .await
-        .map_err(|e| ApiError::Internal(format!("Database error: {e}")))?;
 
     // Generate new tokens
     let access_token = helpers::generate_access_token(row.user_id, &row.role, jwt_secret)?;

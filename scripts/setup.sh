@@ -60,18 +60,19 @@ if [[ ! -f "$PROJECT_ROOT/.env" ]]; then
     echo -n "Creating .env file..."
 
     JWT_SECRET=$(openssl rand -hex 32)
-    MASTER_KEY=$(openssl rand -hex 16)
+    MASTER_KEY=$(openssl rand -hex 32)
 
   cat << EOF > "$PROJECT_ROOT/.env"
 DATABASE_URL=postgres://weld:weld@localhost:5432/weld
 REDIS_URL=redis://localhost:6379
 HOST=127.0.0.1
-PORT=3000
+PORT=3001
+FRONTEND_URL=http://localhost:3000
 JWT_SECRET=${JWT_SECRET}
 MASTER_ENCRYPTION_KEY=${MASTER_KEY}
 S3_ENDPOINT=http://localhost:9000
 S3_ACCESS_KEY=weld
-S3_SECRET_KEY=weld
+S3_SECRET_KEY=weld-dev-secret
 S3_BUCKET=weld-files
 SMTP_HOST=localhost
 SMTP_PORT=1025
@@ -89,5 +90,6 @@ echo ""
 echo ""
 echo -e "${GREEN}Weld dev environment setup complete!${NC}"
 echo ""
-echo "Start the server with:"
+echo "Start the backend (:3001) and the web app (:3000) in separate terminals:"
 echo " cd $PROJECT_ROOT && make server"
+echo " cd $PROJECT_ROOT && make web"

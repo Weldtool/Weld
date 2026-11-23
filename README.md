@@ -133,7 +133,7 @@ make start
 make server
 
 # Verify it's running
-curl http://127.0.0.1:3000/health
+curl http://127.0.0.1:3001/health
 # => {"status":"ok"}
 ```
 
@@ -142,7 +142,9 @@ curl http://127.0.0.1:3000/health
 ```bash
 make setup        # First-time setup
 make start        # Start Docker + run migrations
-make server       # Start Axum backend (loads .env automatically)
+make server       # Start Axum backend on :3001 (loads .env automatically)
+make test         # Run all Rust tests (needs the database from `make start`)
+make lint         # cargo fmt --check + clippy
 make pr           # fmt, clippy -D warnings, tests, sqlx prepare, audit
 make stop         # Stop Docker containers
 make clean        # Stop containers + delete data volumes

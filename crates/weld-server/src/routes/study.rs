@@ -48,11 +48,13 @@ pub struct ProvisionRequest {
 /// normal product.
 pub async fn provision(
     State(state): State<AppState>,
+    request_headers: HeaderMap,
     body: Option<Json<ProvisionRequest>>,
 ) -> Result<(StatusCode, HeaderMap, Json<ProvisionResponse>), ApiError> {
     if !state.study_mode {
         return Err(ApiError::NotFound("Not found".into()));
     }
+    crate::rate_limit::check_ip(&crate::rate_limit::PROVISION_BY_IP, &request_headers)?;
 
     let (consent_version, access_code, participant_email, institution) = body
         .map(|Json(b)| {
@@ -236,6 +238,9 @@ pub async fn save_progress(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// Longest message a participant may send the agent in one turn.
+const MAX_AGENT_MESSAGE_CHARS: usize = 4000;
+
 #[derive(Debug, Deserialize)]
 pub struct AgentRequest {
     pub message: String,
@@ -282,18 +287,31 @@ pub async fn agent_turn(
     let agent = state
         .agent
         .as_ref()
-        .ok_or_else(|| ApiError::Internal("The assistant is not configured.".into()))?;
+        .ok_or_else(|| ApiError::Unavailable("The assistant is not configured.".into()))?;
 
     let ctx = study::agent::load_participant(&state.db, auth.user_id)
         .await?
         .ok_or_else(|| ApiError::Forbidden("Not a study participant".into()))?;
+
+    // Every turn replays the whole conversation to the model, so an unbounded
+    // message is paid for again on each later turn. The 50-message quota caps
+    // how many turns there are; this caps how big each one can be.
+    let message = input.message.trim();
+    if message.is_empty() {
+        return Err(ApiError::Validation("Message cannot be empty.".into()));
+    }
+    if message.chars().count() > MAX_AGENT_MESSAGE_CHARS {
+        return Err(ApiError::Validation(format!(
+            "Message is too long (max {MAX_AGENT_MESSAGE_CHARS} characters)."
+        )));
+    }
 
     let result = study::agent::run::run_turn(
         &state.db,
         agent,
         &state.hub,
         &ctx,
-        &input.message,
+        message,
         input.current_task_id.as_deref(),
     )
     .await?;

@@ -23,9 +23,7 @@ pub async fn update(
     Path(team_id): Path<Uuid>,
     Json(input): Json<UpdateTeamRequest>,
 ) -> Result<Json<UserTeamResponse>, ApiError> {
-    input
-        .validate()
-        .map_err(|e| ApiError::Validation(e.to_string()))?;
+    input.validate()?;
 
     let (updated, role) = team::update_team(&state.db, team_id, auth.user_id, &input.name).await?;
     Ok(Json(UserTeamResponse {
@@ -88,9 +86,7 @@ pub async fn create(
     State(state): State<AppState>,
     Json(input): Json<CreateTeamRequest>,
 ) -> Result<(StatusCode, Json<TeamResponse>), ApiError> {
-    input
-        .validate()
-        .map_err(|e| ApiError::Validation(e.to_string()))?;
+    input.validate()?;
 
     let created = team::create_team(&state.db, auth.user_id, &input.name).await?;
     Ok((
@@ -196,5 +192,7 @@ pub async fn remove_member(
     Path((team_id, user_id)): Path<(Uuid, Uuid)>,
 ) -> Result<StatusCode, ApiError> {
     team::remove_team_member(&state.db, team_id, auth.user_id, user_id).await?;
+    // Stop streaming the team's rooms to any socket they still have open.
+    super::ws::revalidate_user_rooms(&state, user_id).await;
     Ok(StatusCode::NO_CONTENT)
 }

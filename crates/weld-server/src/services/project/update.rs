@@ -1,5 +1,7 @@
 use super::helpers::{fetch_active_project, require_project_team_role};
 use crate::errors::ApiError;
+use crate::services::column::helpers::fetch_column;
+use crate::services::github::helpers::validate_repo_slug;
 use sqlx::PgPool;
 use uuid::Uuid;
 use weld_core::models::enums::TeamRole;
@@ -31,6 +33,36 @@ pub async fn update_project(
         && name.trim().is_empty()
     {
         return Err(ApiError::Validation("Project name cannot be empty".into()));
+    }
+    if let Some(name) = &input.name
+        && name.trim().chars().count() > 100
+    {
+        return Err(ApiError::Validation(
+            "Project name must be 1-100 characters".into(),
+        ));
+    }
+
+    if let Some(Some(repo)) = &input.github_repo {
+        validate_repo_slug(repo)?;
+    }
+
+    // The role columns drive webhook automation ("move the card to Done when
+    // the PR merges"). One pointing at another project's column would move
+    // cards onto a board they don't belong to.
+    for column_id in [
+        input.done_column_id,
+        input.in_progress_column_id,
+        input.review_column_id,
+    ]
+    .into_iter()
+    .flatten()
+    .flatten()
+    {
+        if fetch_column(pool, column_id).await?.project_id != project_id {
+            return Err(ApiError::Validation(
+                "Column does not belong to this project".into(),
+            ));
+        }
     }
 
     let new_name = input

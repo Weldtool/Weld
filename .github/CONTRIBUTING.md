@@ -49,7 +49,7 @@ pnpm install
 pnpm dev
 ```
 
-The backend runs at `http://localhost:3000` and the web frontend at `http://localhost:5173`.
+The backend runs at `http://localhost:3001` and the web frontend at `http://localhost:3000` (it proxies `/api` to the backend).
 
 ## Making Changes
 

@@ -1,6 +1,8 @@
 use super::helpers::generate_unique_project_slug;
 use crate::errors::ApiError;
-use crate::services::team::helpers::require_team_role;
+use crate::services::team::helpers::{
+    SLUG_ATTEMPTS, is_unique_violation, require_team_role, slug_conflict,
+};
 use sqlx::PgPool;
 use uuid::Uuid;
 use weld_core::models::enums::TeamRole;
@@ -26,71 +28,83 @@ pub async fn create_project(
 
     require_team_role(pool, team_id, caller_id, TeamRole::Admin).await?;
 
-    let slug = generate_unique_project_slug(pool, trimmed).await?;
+    for _ in 0..SLUG_ATTEMPTS {
+        let slug = generate_unique_project_slug(pool, trimmed).await?;
 
-    let mut tx = pool.begin().await?;
+        let mut tx = pool.begin().await?;
 
-    let project = sqlx::query_as!(
-        Project,
-        r#"
-        INSERT INTO projects (team_id, name, slug, description)
-        VALUES ($1, $2, $3, $4)
-        RETURNING id, team_id, name, slug, description, github_repo, done_column_id,
-                  in_progress_column_id, review_column_id, auto_close_on_issue_closed,
-               github_comment_on_move,
-                  created_at, updated_at, deleted_at
-        "#,
-        team_id,
-        trimmed,
-        slug,
-        description
-    )
-    .fetch_one(&mut *tx)
-    .await?;
+        let inserted = sqlx::query_as!(
+            Project,
+            r#"
+            INSERT INTO projects (team_id, name, slug, description)
+            VALUES ($1, $2, $3, $4)
+            RETURNING id, team_id, name, slug, description, github_repo, done_column_id,
+                      in_progress_column_id, review_column_id, auto_close_on_issue_closed,
+                   github_comment_on_move,
+                      created_at, updated_at, deleted_at
+            "#,
+            team_id,
+            trimmed,
+            slug,
+            description
+        )
+        .fetch_one(&mut *tx)
+        .await;
 
-    // Seed the default board columns, remembering the ids of the ones we map to
-    // the PR-automation roles (In Progress / Review / Completed).
-    let mut in_progress_id: Option<Uuid> = None;
-    let mut review_id: Option<Uuid> = None;
-    let mut done_id: Option<Uuid> = None;
-    for (idx, col_name) in DEFAULT_COLUMNS.iter().enumerate() {
-        let position = (idx + 1) as f64;
-        let col_id = sqlx::query_scalar!(
-            "INSERT INTO columns (project_id, name, position) VALUES ($1, $2, $3) RETURNING id",
+        let project = match inserted {
+            Ok(project) => project,
+            // Another request took this slug between the check and the insert.
+            // Dropping `tx` rolls it back; go round and derive the next one.
+            Err(e) if is_unique_violation(&e) => continue,
+            Err(e) => return Err(e.into()),
+        };
+
+        // Seed the default board columns, remembering the ids of the ones we map to
+        // the PR-automation roles (In Progress / Review / Completed).
+        let mut in_progress_id: Option<Uuid> = None;
+        let mut review_id: Option<Uuid> = None;
+        let mut done_id: Option<Uuid> = None;
+        for (idx, col_name) in DEFAULT_COLUMNS.iter().enumerate() {
+            let position = (idx + 1) as f64;
+            let col_id = sqlx::query_scalar!(
+                "INSERT INTO columns (project_id, name, position) VALUES ($1, $2, $3) RETURNING id",
+                project.id,
+                col_name,
+                position
+            )
+            .fetch_one(&mut *tx)
+            .await?;
+            match *col_name {
+                "In Progress" => in_progress_id = Some(col_id),
+                "Review" => review_id = Some(col_id),
+                "Completed" => done_id = Some(col_id),
+                _ => {}
+            }
+        }
+
+        let project = sqlx::query_as!(
+            Project,
+            r#"
+            UPDATE projects
+            SET in_progress_column_id = $2, review_column_id = $3, done_column_id = $4
+            WHERE id = $1
+            RETURNING id, team_id, name, slug, description, github_repo, done_column_id,
+                      in_progress_column_id, review_column_id, auto_close_on_issue_closed,
+                   github_comment_on_move,
+                      created_at, updated_at, deleted_at
+            "#,
             project.id,
-            col_name,
-            position
+            in_progress_id,
+            review_id,
+            done_id,
         )
         .fetch_one(&mut *tx)
         .await?;
-        match *col_name {
-            "In Progress" => in_progress_id = Some(col_id),
-            "Review" => review_id = Some(col_id),
-            "Completed" => done_id = Some(col_id),
-            _ => {}
-        }
+
+        tx.commit().await?;
+
+        return Ok(project);
     }
 
-    let project = sqlx::query_as!(
-        Project,
-        r#"
-        UPDATE projects
-        SET in_progress_column_id = $2, review_column_id = $3, done_column_id = $4
-        WHERE id = $1
-        RETURNING id, team_id, name, slug, description, github_repo, done_column_id,
-                  in_progress_column_id, review_column_id, auto_close_on_issue_closed,
-               github_comment_on_move,
-                  created_at, updated_at, deleted_at
-        "#,
-        project.id,
-        in_progress_id,
-        review_id,
-        done_id,
-    )
-    .fetch_one(&mut *tx)
-    .await?;
-
-    tx.commit().await?;
-
-    Ok(project)
+    Err(slug_conflict("project"))
 }

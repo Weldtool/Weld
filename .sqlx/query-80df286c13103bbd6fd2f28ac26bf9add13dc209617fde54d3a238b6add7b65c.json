@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT EXISTS(SELECT 1 FROM teams WHERE slug = $1 AND deleted_at IS NULL)",
+  "query": "SELECT EXISTS(SELECT 1 FROM users WHERE LOWER(email) = $1)",
   "describe": {
     "columns": [
       {
@@ -18,5 +18,5 @@
       null
     ]
   },
-  "hash": "9bd5a5cbc0faaed9bbdbd402c1dfb1c9c3dd20409a96501aedb5cb4348d73647"
+  "hash": "80df286c13103bbd6fd2f28ac26bf9add13dc209617fde54d3a238b6add7b65c"
 }

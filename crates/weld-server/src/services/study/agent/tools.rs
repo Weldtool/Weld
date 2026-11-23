@@ -19,6 +19,7 @@ use crate::errors::ApiError;
 use crate::realtime::Hub;
 use crate::realtime::broadcast::publish_project_event;
 use crate::services::github::sync::link_task;
+use crate::services::task::helpers::fetch_active_task;
 use crate::services::task::{
     CreateTaskInput, TaskWithLabels, UpdateTaskInput, create_task, move_task, update_task,
 };
@@ -272,7 +273,9 @@ async fn move_card(
     .fetch_one(pool)
     .await?;
     let position = max_pos.unwrap_or(0.0) + 1.0;
-    let moved = move_task(pool, card_id, ctx.user_id, column_id, position).await?;
+    let moved = move_task(pool, card_id, ctx.user_id, column_id, position)
+        .await?
+        .task;
     publish_task(hub, ctx.project_id, "task.moved", &moved);
     Ok(ToolOutcome {
         result: format!("Moved card to {to_column}."),
@@ -372,7 +375,19 @@ async fn link_github(
     }
     // Study GitHub is the seeded PetTracker repo; link writes only to Weld.
     let repo = "welddev/pettracker";
-    let linked = link_task(pool, card_id, ctx.user_id, repo, issue, pr).await?;
+    // `link_task` writes both link fields, so passing only what the model
+    // supplied would erase the card's other link — linking a PR would silently
+    // drop a seeded issue link. Carry the existing values through, as the UI does.
+    let existing = fetch_active_task(pool, card_id).await?;
+    let linked = link_task(
+        pool,
+        card_id,
+        ctx.user_id,
+        repo,
+        issue.or(existing.github_issue_id),
+        pr.or(existing.github_pr_id),
+    )
+    .await?;
     publish_task(hub, ctx.project_id, "task.updated", &linked);
     let what = pr
         .map(|n| format!("PR #{n}"))

@@ -124,6 +124,42 @@ impl Hub {
         }
     }
 
+    /// Every room any of `user_id`'s live connections is subscribed to.
+    pub fn rooms_for_user(&self, user_id: Uuid) -> Vec<RoomKey> {
+        let inner = self.inner.lock().unwrap();
+        let mut rooms: HashSet<RoomKey> = HashSet::new();
+        if let Some(conns) = inner.user_conns.get(&user_id) {
+            for conn in conns {
+                if let Some(joined) = inner.conn_rooms.get(conn) {
+                    rooms.extend(joined.iter().copied());
+                }
+            }
+        }
+        rooms.into_iter().collect()
+    }
+
+    /// Remove all of `user_id`'s connections from `room` — used when their
+    /// access to it is revoked while they are still connected.
+    pub fn unsubscribe_user(&self, user_id: Uuid, room: RoomKey) {
+        let mut inner = self.inner.lock().unwrap();
+        let conns: Vec<ConnId> = inner
+            .user_conns
+            .get(&user_id)
+            .map(|set| set.iter().copied().collect())
+            .unwrap_or_default();
+        for conn in conns {
+            if let Some(set) = inner.rooms.get_mut(&room) {
+                set.remove(&conn);
+            }
+            if let Some(set) = inner.conn_rooms.get_mut(&conn) {
+                set.remove(&room);
+            }
+        }
+        if inner.rooms.get(&room).is_some_and(|set| set.is_empty()) {
+            inner.rooms.remove(&room);
+        }
+    }
+
     /// Serialize once, fan out to every connection currently in `room`. Send
     /// errors (closed receiver) are swallowed — the conn task will clean up
     /// via `unregister` shortly.
@@ -240,6 +276,44 @@ mod tests {
         hub.unregister(c);
         assert_eq!(hub.room_size(&project), 0);
         assert_eq!(hub.connection_count(), 0);
+    }
+
+    #[test]
+    fn unsubscribe_user_drops_every_connection_of_that_user_only() {
+        let hub = Hub::new();
+        let room = RoomKey::Channel(Uuid::new_v4());
+        let other_room = RoomKey::Channel(Uuid::new_v4());
+
+        let (first, mut rx_first) = make_handle();
+        let user_id = first.user_id;
+        let (tx_second, mut rx_second) = mpsc::unbounded_channel();
+        let second = ClientHandle {
+            user_id,
+            sender: tx_second,
+        };
+        let (bystander, mut rx_bystander) = make_handle();
+
+        let (c1, _) = hub.register(first);
+        let (c2, _) = hub.register(second);
+        let (c3, _) = hub.register(bystander);
+        hub.subscribe(c1, room);
+        hub.subscribe(c2, room);
+        hub.subscribe(c2, other_room);
+        hub.subscribe(c3, room);
+
+        let mut rooms = hub.rooms_for_user(user_id);
+        rooms.sort_by_key(|r| r.to_string());
+        let mut expected = vec![room, other_room];
+        expected.sort_by_key(|r| r.to_string());
+        assert_eq!(rooms, expected);
+
+        hub.unsubscribe_user(user_id, room);
+        hub.broadcast(&Envelope::new("chat.message.new", room, json!({})));
+
+        assert!(rx_first.try_recv().is_err());
+        assert!(rx_second.try_recv().is_err());
+        assert!(rx_bystander.try_recv().is_ok());
+        assert_eq!(hub.rooms_for_user(user_id), vec![other_room]);
     }
 
     #[test]

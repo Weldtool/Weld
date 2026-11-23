@@ -70,7 +70,7 @@ pub async fn acting_token(
 
 /// Returns a currently-valid access token for `user_id`, refreshing if needed.
 /// `None` means the user has not linked their GitHub account.
-async fn user_access_token(
+pub async fn user_access_token(
     pool: &PgPool,
     github: &GithubConfig,
     master_key: &str,

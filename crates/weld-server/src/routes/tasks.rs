@@ -241,14 +241,17 @@ pub async fn move_task(
     Path(id): Path<Uuid>,
     Json(input): Json<MoveTaskRequest>,
 ) -> Result<Json<TaskResponse>, ApiError> {
-    let task =
+    let moved =
         task::move_task(&state.db, id, auth.user_id, input.column_id, input.position).await?;
-    let resp: TaskResponse = task.into();
+    let column_changed = moved.column_changed;
+    let resp: TaskResponse = moved.task.into();
     publish_project_event(&state.hub, resp.project_id, "task.moved", &resp);
 
     // Tell the linked issue/PR that the card moved, so people watching the
-    // thread on GitHub can see the work progress without opening Weld.
-    if let Some(gh_cfg) = github_sync_config(&state) {
+    // thread on GitHub can see the work progress without opening Weld. Only
+    // when it changed column: reordering a card within In Progress is not news,
+    // and used to post the same "moved to In Progress" comment every time.
+    if column_changed && let Some(gh_cfg) = github_sync_config(&state) {
         tokio::spawn(sync::comment_task_moved(
             state.db.clone(),
             gh_cfg,

@@ -1,4 +1,4 @@
-use super::helpers::{fetch_active_channel, fetch_active_message};
+use super::helpers::{fetch_active_channel, fetch_active_message, require_channel_admin};
 use crate::errors::ApiError;
 use crate::services::team::helpers::require_team_role;
 use sqlx::PgPool;
@@ -11,7 +11,8 @@ pub struct DeletedMessage {
     pub thread_parent_id: Option<Uuid>,
 }
 
-/// Soft-delete a message. Allowed for the author or a team Admin+.
+/// Soft-delete a message. Allowed for the author or a team Admin+ (who, for a
+/// private channel or DM, must also be in it).
 /// Returns the message's channel_id and thread_parent_id so callers can
 /// publish realtime events without re-querying.
 pub async fn delete_message(
@@ -23,7 +24,7 @@ pub async fn delete_message(
     let channel = fetch_active_channel(pool, existing.channel_id).await?;
 
     if existing.sender_id != caller_id {
-        require_team_role(pool, channel.team_id, caller_id, TeamRole::Admin).await?;
+        require_channel_admin(pool, &channel, caller_id).await?;
     } else {
         require_team_role(pool, channel.team_id, caller_id, TeamRole::Viewer).await?;
     }

@@ -242,6 +242,9 @@ export interface ChatMessage {
 	metadata: Record<string, unknown>;
 	edited_at: string | null;
 	created_at: string;
+	/** Thread reply count. Only present on messages from the channel list
+	 * endpoint; realtime events and single-message responses omit it. */
+	reply_count?: number;
 }
 
 export interface TaskRef {
