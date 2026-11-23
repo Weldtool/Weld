@@ -564,12 +564,10 @@ pub struct GithubStateToken {
 const STATE_TOKEN_TTL_SECS: i64 = 900; // 15 minutes
 
 fn encode_state(jwt_secret: &str, claims: &GithubStateToken) -> Result<String, ApiError> {
-    encode(
-        &Header::default(),
-        claims,
-        &jsonwebtoken::EncodingKey::from_secret(jwt_secret.as_ref()),
-    )
-    .map_err(|e| ApiError::Internal(format!("Failed to sign state token: {e}")))
+    let key = jsonwebtoken::EncodingKey::from_secret(jwt_secret.as_ref())
+        .map_err(|e| ApiError::Internal(format!("Invalid JWT secret: {e}")))?;
+    encode(&Header::default(), claims, &key)
+        .map_err(|e| ApiError::Internal(format!("Failed to sign state token: {e}")))
 }
 
 fn decode_state(
@@ -577,16 +575,16 @@ fn decode_state(
     token: &str,
     expected_kind: &str,
 ) -> Result<GithubStateToken, ApiError> {
-    let mut validation = jsonwebtoken::Validation::default();
-    validation.validate_exp = false; // we check exp manually below
+    let mut validation = jsonwebtoken::Validation {
+        validate_exp: false, // we check exp manually below
+        ..Default::default()
+    };
     validation.required_spec_claims.clear();
 
-    let data = jsonwebtoken::decode::<GithubStateToken>(
-        token,
-        &jsonwebtoken::DecodingKey::from_secret(jwt_secret.as_ref()),
-        &validation,
-    )
-    .map_err(|_| ApiError::Validation("Invalid or tampered state token".into()))?;
+    let key = jsonwebtoken::DecodingKey::from_secret(jwt_secret.as_ref())
+        .map_err(|e| ApiError::Internal(format!("Invalid JWT secret: {e}")))?;
+    let data = jsonwebtoken::decode::<GithubStateToken>(token, &key, &validation)
+        .map_err(|_| ApiError::Validation("Invalid or tampered state token".into()))?;
 
     if data.claims.exp < Utc::now().timestamp() {
         return Err(ApiError::Validation("State token has expired".into()));

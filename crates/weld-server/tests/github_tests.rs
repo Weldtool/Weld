@@ -291,7 +291,7 @@ async fn test_setup_callback_rejects_expired_state() {
     let state_token = encode(
         &Header::default(),
         &expired_claims,
-        &EncodingKey::from_secret(secret.as_ref()),
+        &EncodingKey::from_secret(secret.as_ref()).expect("non-empty test secret"),
     )
     .unwrap();
 

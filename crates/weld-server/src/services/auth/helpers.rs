@@ -17,12 +17,10 @@ pub fn generate_access_token(user_id: Uuid, role: &str, secret: &str) -> Result<
         iat: Utc::now().timestamp(),
         exp: (Utc::now() + chrono::Duration::minutes(15)).timestamp(),
     };
-    jsonwebtoken::encode(
-        &jsonwebtoken::Header::default(),
-        &claims,
-        &jsonwebtoken::EncodingKey::from_secret(secret.as_ref()),
-    )
-    .map_err(|e| ApiError::Internal(format!("Token generation failed: {e}")))
+    let key = jsonwebtoken::EncodingKey::from_secret(secret.as_ref())
+        .map_err(|e| ApiError::Internal(format!("Invalid JWT secret: {e}")))?;
+    jsonwebtoken::encode(&jsonwebtoken::Header::default(), &claims, &key)
+        .map_err(|e| ApiError::Internal(format!("Token generation failed: {e}")))
 }
 
 /// Generate a new refresh token, store its hash in the DB, return the raw token.

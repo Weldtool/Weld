@@ -296,7 +296,7 @@ async fn test_users_me_with_expired_token() {
     let expired_token = jsonwebtoken::encode(
         &jsonwebtoken::Header::default(),
         &claims,
-        &jsonwebtoken::EncodingKey::from_secret(secret.as_ref()),
+        &jsonwebtoken::EncodingKey::from_secret(secret.as_ref()).expect("non-empty test secret"),
     )
     .unwrap();
 

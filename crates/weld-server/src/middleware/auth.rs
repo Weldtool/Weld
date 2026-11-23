@@ -34,12 +34,11 @@ impl FromRequestParts<AppState> for AuthUser {
             .strip_prefix("Bearer ")
             .ok_or_else(|| ApiError::Unauthorized("Invalid authorization header".into()))?;
 
-        let token_data = jsonwebtoken::decode::<Claims>(
-            token,
-            &jsonwebtoken::DecodingKey::from_secret(state.jwt_secret.as_ref()),
-            &jsonwebtoken::Validation::default(),
-        )
-        .map_err(|_| ApiError::Unauthorized("Invalid or expired token".into()))?;
+        let key = jsonwebtoken::DecodingKey::from_secret(state.jwt_secret.as_ref())
+            .map_err(|e| ApiError::Internal(format!("Invalid JWT secret: {e}")))?;
+        let token_data =
+            jsonwebtoken::decode::<Claims>(token, &key, &jsonwebtoken::Validation::default())
+                .map_err(|_| ApiError::Unauthorized("Invalid or expired token".into()))?;
 
         let user_id = Uuid::parse_str(&token_data.claims.sub)
             .map_err(|_| ApiError::Unauthorized("Invalid token claims".into()))?;

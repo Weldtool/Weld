@@ -158,12 +158,9 @@ async fn resolve_user_id(
 }
 
 fn decode_user_id(token: &str, jwt_secret: &str) -> Option<Uuid> {
-    let data = jsonwebtoken::decode::<Claims>(
-        token,
-        &jsonwebtoken::DecodingKey::from_secret(jwt_secret.as_ref()),
-        &jsonwebtoken::Validation::default(),
-    )
-    .ok()?;
+    let key = jsonwebtoken::DecodingKey::from_secret(jwt_secret.as_ref()).ok()?;
+    let data =
+        jsonwebtoken::decode::<Claims>(token, &key, &jsonwebtoken::Validation::default()).ok()?;
     Uuid::parse_str(&data.claims.sub).ok()
 }
 

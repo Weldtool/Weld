@@ -1,2 +1,12 @@
 [advisories]
-ignore = ["RUSTSEC-2023-0071"]
+ignore = [
+    # rsa <0.10 (Marvin timing attack). jsonwebtoken 12 uses the patched
+    # rsa 0.10; the remaining rsa 0.9 is in Cargo.lock only via sqlx's
+    # optional MySQL driver, which is never compiled. Drop with sqlx 0.9.
+    "RUSTSEC-2023-0071",
+    # libsqlite3-sys 0.30 (CVE in bundled SQLite). Present in Cargo.lock only
+    # as sqlx's optional SQLite driver, which no crate enables, so it is never
+    # compiled (`cargo tree -i libsqlite3-sys --target all` is empty). sqlx 0.8
+    # pins ^0.30; drop this once on sqlx 0.9.
+    "RUSTSEC-2026-0459",
+]
