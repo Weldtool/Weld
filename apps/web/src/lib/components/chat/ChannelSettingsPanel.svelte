@@ -49,7 +49,7 @@
 		archiving = false;
 		if (ok) {
 			onClose();
-			void goto(resolve('/chat'));
+			void goto(resolve('chat'));
 		} else {
 			error = chat.error ?? 'Failed to archive channel.';
 		}

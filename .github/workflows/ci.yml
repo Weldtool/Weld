@@ -111,7 +111,7 @@ jobs:
       - if: steps.check.outputs.skip != 'true'
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
           cache-dependency-path: apps/web/pnpm-lock.yaml
       # The overrides are declared twice (see apps/web/pnpm-workspace.yaml).

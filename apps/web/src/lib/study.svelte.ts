@@ -1,4 +1,4 @@
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { study as studyApi } from '$lib/api';
 import { auth } from '$lib/auth.svelte';
 import { projects } from '$lib/projects.svelte';

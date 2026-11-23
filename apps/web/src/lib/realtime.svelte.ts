@@ -1,5 +1,5 @@
-import { browser } from '$app/environment';
-import { env } from '$env/dynamic/public';
+import { browser } from '$app/env';
+import { PUBLIC_API_BASE_URL } from '$app/env/public';
 
 export type RealtimeEnvelope = {
 	type: string;
@@ -14,7 +14,7 @@ const RECONNECT_INITIAL_MS = 500;
 const RECONNECT_MAX_MS = 30_000;
 
 function wsUrl(token: string): string {
-	const base = (env.PUBLIC_API_BASE_URL ?? '').replace(/\/$/, '');
+	const base = (PUBLIC_API_BASE_URL ?? '').replace(/\/$/, '');
 	const encoded = encodeURIComponent(token);
 	if (base) {
 		// Plain string transform — avoids constructing a mutable URL instance.

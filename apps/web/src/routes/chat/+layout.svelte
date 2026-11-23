@@ -6,7 +6,7 @@
 	import ChannelSwitcher from '$lib/components/chat/ChannelSwitcher.svelte';
 	import NewChannelModal from '$lib/components/chat/NewChannelModal.svelte';
 	import { projects } from '$lib/projects.svelte';
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import { onDestroy } from 'svelte';
 	import { Menu, X } from '@lucide/svelte';
 

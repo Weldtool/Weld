@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { projects } from '$lib/projects.svelte';
@@ -15,7 +15,7 @@
 			const last = browser ? localStorage.getItem(LAST_CHANNEL_KEY) : null;
 			const target = chat.channels.find((c) => c.id === last) ?? chat.channels[0];
 			if (target) {
-				void goto(resolve(`/chat/${target.id}` as '/chat'), { replaceState: true });
+				void goto(resolve(`chat/${target.id}`), { replace: true });
 			}
 		})();
 	});

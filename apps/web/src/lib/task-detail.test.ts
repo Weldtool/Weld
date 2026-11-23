@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('$app/environment', () => ({ browser: false }));
+vi.mock('$app/env', () => ({ browser: false }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 
 import type { Task } from '$lib/api/types';

@@ -29,14 +29,9 @@
 
 	function open() {
 		telemetry.log('card_opened', { task_id: task.id, short_id: task.short_id, title: task.title });
-		const url = new URL(page.url);
+		const url = new URL(page.url.href);
 		url.searchParams.set('task', task.id);
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- resolve('/board') is the base; query string is appended dynamically
-		goto(resolve('/board') + url.search, {
-			replaceState: false,
-			keepFocus: true,
-			noScroll: true
-		});
+		goto(resolve('board') + url.search, { reset: false });
 	}
 
 	function onKey(e: KeyboardEvent) {

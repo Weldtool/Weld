@@ -101,7 +101,7 @@
 
 	<p class="text-center text-sm text-[var(--muted-foreground)]">
 		Already have an account?
-		<a href={resolve('/login')} class="font-medium text-[var(--foreground)] hover:underline"
+		<a href={resolve('login')} class="font-medium text-[var(--foreground)] hover:underline"
 			>Sign in</a
 		>
 	</p>

@@ -33,7 +33,7 @@
 
 	function select(channel: Channel) {
 		onClose();
-		void goto(resolve(`/chat/${channel.id}` as '/chat'));
+		void goto(resolve(`chat/${channel.id}`));
 	}
 
 	function onKeydown(e: KeyboardEvent) {

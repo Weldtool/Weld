@@ -1,4 +1,4 @@
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 
 /**
  * Measures *active* time-on-task for the study, not raw wall-clock.

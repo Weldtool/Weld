@@ -84,7 +84,7 @@
 
 	<p class="text-center text-sm text-[var(--muted-foreground)]">
 		Don't have an account?
-		<a href={resolve('/register')} class="font-medium text-[var(--foreground)] hover:underline"
+		<a href={resolve('register')} class="font-medium text-[var(--foreground)] hover:underline"
 			>Create one</a
 		>
 	</p>

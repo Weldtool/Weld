@@ -53,11 +53,10 @@
 	});
 
 	function close() {
-		const url = new URL(page.url);
+		const url = new URL(page.url.href);
 		url.searchParams.delete('task');
 		url.searchParams.delete('project');
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- stay on the current route (board or chat); only the query string changes
-		goto(url.pathname + url.search, { replaceState: false, keepFocus: false });
+		goto(url.pathname + url.search);
 	}
 
 	function patch<T extends keyof Parameters<TaskSaver['queue']>[0]>(

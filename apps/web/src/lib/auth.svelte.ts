@@ -1,6 +1,6 @@
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { ApiError, apiRequest, type RequestOptions } from '$lib/api/client';
 import type { LoginResponse, User } from '$lib/api/types';
 
@@ -88,7 +88,7 @@ class AuthStore {
 		this.user = null;
 		this.accessToken = null;
 		if (browser) sessionStorage.removeItem(SESSION_KEY);
-		await goto(resolve('/login'));
+		await goto(resolve('login'));
 	}
 
 	/**

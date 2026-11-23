@@ -107,11 +107,10 @@
 	});
 
 	function close() {
-		const url = new URL(page.url);
+		const url = new URL(page.url.href);
 		url.searchParams.delete('task');
 		url.searchParams.delete('column');
-		// eslint-disable-next-line svelte/no-navigation-without-resolve
-		goto(resolve('/board') + url.search, { replaceState: false, keepFocus: false });
+		goto(resolve('board') + url.search);
 	}
 
 	async function submit() {

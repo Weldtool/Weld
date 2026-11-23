@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { env } from '$env/dynamic/public';
+	import { PUBLIC_API_BASE_URL } from '$app/env/public';
 
-	const API_BASE = (env.PUBLIC_API_BASE_URL ?? '').replace(/\/$/, '');
+	const API_BASE = (PUBLIC_API_BASE_URL ?? '').replace(/\/$/, '');
 
 	// ── Types ────────────────────────────────────────────────────────────────
 

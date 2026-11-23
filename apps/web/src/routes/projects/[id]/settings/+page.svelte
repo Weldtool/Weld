@@ -177,7 +177,7 @@
 		deleting = true;
 		try {
 			await projects.remove(project.id);
-			await goto(resolve('/projects'));
+			await goto(resolve('projects'));
 		} catch (err) {
 			deleteError =
 				err instanceof ApiError
@@ -194,7 +194,7 @@
 
 <div class="mx-auto flex w-full max-w-2xl flex-col gap-6">
 	<a
-		href={resolve('/projects')}
+		href={resolve('projects')}
 		class="inline-flex items-center gap-1 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
 	>
 		<ArrowLeft class="h-4 w-4" />
@@ -246,7 +246,7 @@
 				{:else if availableRepos.length === 0 && !githubRepo}
 					<p class="text-xs text-[var(--muted-foreground)]">
 						No GitHub App installed for this workspace yet.
-						<a class="underline" href={resolve('/settings')}>Install it in workspace settings</a> to pick
+						<a class="underline" href={resolve('settings')}>Install it in workspace settings</a> to pick
 						a repo here.
 					</p>
 				{:else}

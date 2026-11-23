@@ -101,7 +101,7 @@
 					class="relative flex flex-col gap-2 rounded-lg border border-[var(--border)] bg-[var(--card)] p-4 transition-colors focus-within:border-[var(--ring)] hover:border-[var(--ring)]"
 				>
 					<a
-						href={resolve(`/projects/${project.id}/settings`)}
+						href={resolve(`projects/${project.id}/settings`)}
 						aria-label={`Open ${project.name} settings`}
 						class="absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
 					></a>

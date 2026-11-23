@@ -68,11 +68,10 @@
 	);
 
 	function openAdd() {
-		const url = new URL(page.url);
+		const url = new URL(page.url.href);
 		url.searchParams.set('task', 'new');
 		url.searchParams.set('column', column.id);
-		// eslint-disable-next-line svelte/no-navigation-without-resolve
-		void goto(resolve('/board') + url.search, { replaceState: false, noScroll: true });
+		void goto(resolve('board') + url.search, { reset: false });
 	}
 
 	// ── Column rename ────────────────────────────────────────────────────────

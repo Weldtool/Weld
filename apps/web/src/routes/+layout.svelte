@@ -57,7 +57,7 @@
 		// normal login/route guard entirely.
 		if (appConfig.studyMode) return;
 		if (!auth.isAuthenticated && !isPublicRoute) {
-			void goto(resolve('/login'));
+			void goto(resolve('login'));
 		} else if (auth.isAuthenticated && isPublicRoute) {
 			void goto(resolve('/'));
 		}
@@ -70,7 +70,7 @@
 		if (!appConfig.studyMode || study.stage !== 'tasks' || !auth.isAuthenticated) return;
 		const p = page.url.pathname;
 		if (p === '/' || p === '/login' || p === '/register') {
-			void goto(resolve('/board'));
+			void goto(resolve('board'));
 		}
 	});
 

@@ -30,20 +30,14 @@
 
 	function openThread(parentId: string) {
 		if (!channelId) return;
-		void goto(resolve(`/chat/${channelId}?thread=${encodeURIComponent(parentId)}` as '/chat'), {
-			replaceState: false,
-			keepFocus: true,
-			noScroll: true
+		void goto(resolve(`chat/${channelId}?thread=${encodeURIComponent(parentId)}`), {
+			reset: false
 		});
 	}
 
 	function closeThread() {
 		if (!channelId) return;
-		void goto(resolve(`/chat/${channelId}` as '/chat'), {
-			replaceState: false,
-			keepFocus: true,
-			noScroll: true
-		});
+		void goto(resolve(`chat/${channelId}`), { reset: false });
 		if (threadId) chat.closeThread(threadId);
 	}
 </script>
@@ -98,7 +92,7 @@
 			<div class="flex flex-1 items-center justify-center text-sm text-[var(--muted-foreground)]">
 				{#if chat.activeTeamId}
 					Channel not found.
-					<button type="button" class="ml-2 underline" onclick={() => goto(resolve('/chat'))}>
+					<button type="button" class="ml-2 underline" onclick={() => goto(resolve('chat'))}>
 						Back to chat
 					</button>
 				{:else}

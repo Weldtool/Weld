@@ -71,7 +71,7 @@
 				return;
 			}
 			onClose();
-			void goto(resolve(`/chat/${created.id}` as '/chat'));
+			void goto(resolve(`chat/${created.id}`));
 		} finally {
 			busy = false;
 		}

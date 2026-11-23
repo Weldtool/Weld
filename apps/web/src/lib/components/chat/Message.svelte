@@ -82,12 +82,11 @@
 		const task = href.searchParams.get('task') ?? link.getAttribute('data-card-ref');
 		if (!task) return;
 		e.preventDefault();
-		const url = new URL(page.url);
+		const url = new URL(page.url.href);
 		url.searchParams.set('task', task);
 		const project = href.searchParams.get('project');
 		if (project) url.searchParams.set('project', project);
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- stay on the current chat route; only the query string changes
-		void goto(url.pathname + url.search, { keepFocus: true, noScroll: true });
+		void goto(url.pathname + url.search, { reset: false });
 	}
 
 	// Delegate clicks on rendered card/task cross-reference links so the study

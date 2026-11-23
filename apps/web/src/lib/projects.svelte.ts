@@ -1,4 +1,4 @@
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { projects as projectsApi, teams as teamsApi } from '$lib/api';
 import type { Project, UserTeam } from '$lib/api/types';
 

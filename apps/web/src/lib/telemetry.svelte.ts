@@ -1,5 +1,5 @@
-import { browser } from '$app/environment';
-import { env } from '$env/dynamic/public';
+import { browser } from '$app/env';
+import { PUBLIC_API_BASE_URL } from '$app/env/public';
 import { study as studyApi, type TelemetryEvent } from '$lib/api';
 import { ApiError } from '$lib/api/client';
 import { auth } from '$lib/auth.svelte';
@@ -20,7 +20,7 @@ import { appConfig } from '$lib/config.svelte';
 
 const FLUSH_INTERVAL_MS = 5000;
 const MAX_BUFFER = 25;
-const API_BASE = (env.PUBLIC_API_BASE_URL ?? '').replace(/\/$/, '');
+const API_BASE = (PUBLIC_API_BASE_URL ?? '').replace(/\/$/, '');
 
 class Telemetry {
 	#buffer: TelemetryEvent[] = [];

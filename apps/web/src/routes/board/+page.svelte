@@ -51,7 +51,7 @@
 		class="rounded-lg border border-dashed border-[var(--border)] bg-[var(--card)] p-10 text-center text-sm text-[var(--muted-foreground)]"
 	>
 		No active project.
-		<a class="ml-1 underline" href={resolve('/projects')}>Pick one</a> to load its board.
+		<a class="ml-1 underline" href={resolve('projects')}>Pick one</a> to load its board.
 	</div>
 {:else}
 	<div class="flex min-h-0 flex-1 flex-col overflow-hidden">

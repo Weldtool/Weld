@@ -27,7 +27,7 @@
 	});
 
 	function go(id: string) {
-		void goto(resolve(`/chat/${id}` as '/chat'));
+		void goto(resolve(`chat/${id}`));
 	}
 
 	function unread(id: string): number {

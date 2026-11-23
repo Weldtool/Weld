@@ -298,7 +298,7 @@
 			<div class="mb-1 flex items-center justify-between px-2">
 				<span class="text-xs font-medium text-[var(--muted-foreground)]">Projects</span>
 				<a
-					href={resolve('/projects')}
+					href={resolve('projects')}
 					title="New project"
 					aria-label="New project"
 					class="rounded p-0.5 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
@@ -311,7 +311,7 @@
 				<p class="px-2 text-xs text-[var(--muted-foreground)]">Loading…</p>
 			{:else if projects.projects.length === 0}
 				<a
-					href={resolve('/projects')}
+					href={resolve('projects')}
 					class="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
 				>
 					<Plus class="h-3.5 w-3.5" />
@@ -394,7 +394,7 @@
 			</button>
 
 			<a
-				href={resolve('/settings')}
+				href={resolve('settings')}
 				class={cn(
 					'flex h-8 w-8 items-center justify-center rounded-md transition-colors',
 					isActive('/settings')
